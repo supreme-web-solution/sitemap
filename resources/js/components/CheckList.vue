@@ -1,0 +1,56 @@
+<script setup lang="ts">
+import {
+    AlertTriangle,
+    CheckCircle2,
+    CircleDashed,
+    XCircle,
+} from '@lucide/vue';
+import type { Component } from 'vue';
+
+type Status = 'pass' | 'warn' | 'fail' | 'verified' | 'inferred' | 'missing';
+
+defineProps<{
+    items: { key: string; label: string; status: Status; detail: string }[];
+}>();
+
+const tones: Record<Status, { icon: Component; classes: string }> = {
+    pass: { icon: CheckCircle2, classes: 'text-emerald-600' },
+    verified: { icon: CheckCircle2, classes: 'text-emerald-600' },
+    warn: { icon: AlertTriangle, classes: 'text-amber-500' },
+    inferred: { icon: AlertTriangle, classes: 'text-amber-500' },
+    fail: { icon: XCircle, classes: 'text-rose-500' },
+    missing: { icon: CircleDashed, classes: 'text-muted-foreground' },
+};
+</script>
+
+<template>
+    <ul class="flex flex-col gap-3">
+        <li
+            v-for="item in items"
+            :key="item.key"
+            class="flex items-start gap-3"
+        >
+            <component
+                :is="tones[item.status].icon"
+                :class="[
+                    'mt-0.5 size-4.5 shrink-0',
+                    tones[item.status].classes,
+                ]"
+            />
+            <div class="min-w-0">
+                <p class="text-sm font-medium">
+                    {{ item.label }}
+                    <span
+                        v-if="
+                            item.status === 'inferred' ||
+                            item.status === 'missing'
+                        "
+                        class="ml-1 text-xs font-normal text-muted-foreground capitalize"
+                        >{{ item.status }}</span
+                    >
+                </p>
+                <p class="text-sm text-muted-foreground">{{ item.detail }}</p>
+            </div>
+        </li>
+    </ul>
+</template>

@@ -1,0 +1,28 @@
+<section id="services" class="block services-block">
+    <div class="container">
+        <span class="section-label">What we do</span>
+        <h2 class="section-title">Our Services</h2>
+        @php $hasServicePages = collect($nav)->contains('key', 'services'); @endphp
+        <div class="services">
+            @foreach ($services as $service)
+                @if ($hasServicePages)
+                    <a class="service" href="{{ $urls->to('services/'.$service['slug']) }}">
+                        <div class="service-icon">@include('sites.icons.check')</div>
+                        <h3>{{ $service['title'] }}</h3>
+                        <p>{{ $service['description'] }}</p>
+                        <span class="more-link">Learn more &rarr;</span>
+                    </a>
+                @else
+                    <article class="service">
+                        <div class="service-icon">@include('sites.icons.check')</div>
+                        <h3>{{ $service['title'] }}</h3>
+                        <p>{{ $service['description'] }}</p>
+                    </article>
+                @endif
+            @endforeach
+        </div>
+        @if ($hasServicePages)
+            <p class="section-link"><a class="more-link" href="{{ $urls->to('services') }}">View all services &rarr;</a></p>
+        @endif
+    </div>
+</section>
