@@ -36,6 +36,7 @@ export type AdminUser = {
     created_at: string;
     is_admin: boolean;
     teams_count?: number;
+    can_manage?: boolean;
 };
 
 export type AdminTeam = {

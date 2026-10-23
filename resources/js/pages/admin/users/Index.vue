@@ -9,7 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { dashboard as adminDashboard } from '@/routes/admin';
-import { edit, index, store } from '@/routes/admin/users';
+import {
+    destroy,
+    edit,
+    impersonate,
+    index,
+    restore,
+    store,
+    suspend,
+} from '@/routes/admin/users';
 import type { AdminUser, Paginated, PlanOption } from '@/types';
 
 const props = defineProps<{
@@ -54,6 +62,25 @@ const submit = () => {
     );
 };
 
+const remove = (user: AdminUser) => {
+    if (!user.can_manage) {
+        return;
+    }
+
+    if (
+        confirm(
+            `Delete ${user.name}? Teams where they are the only member are deleted too.`,
+        )
+    ) {
+        router.delete(destroy.url(user.id));
+    }
+};
+
+const protectedReason = (user: AdminUser) =>
+    user.is_admin
+        ? 'Administrators cannot be impersonated, suspended or deleted.'
+        : 'You cannot impersonate, suspend or delete your own account.';
+
 const selectClass =
     'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
 </script>
@@ -61,7 +88,7 @@ const selectClass =
 <template>
     <Head title="Users" />
 
-    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="flex items-start justify-between gap-4">
             <Heading
                 title="Users"
@@ -165,6 +192,7 @@ const selectClass =
                         <th class="p-3 font-medium">Teams</th>
                         <th class="p-3 font-medium">Joined</th>
                         <th class="p-3 font-medium">Status</th>
+                        <th class="p-3 font-medium text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -205,9 +233,90 @@ const selectClass =
                                 >Active</span
                             >
                         </td>
+                        <td class="p-3">
+                            <div
+                                class="flex flex-wrap items-center justify-end gap-1"
+                            >
+                                <Button size="sm" variant="outline" as-child>
+                                    <Link :href="edit(user.id)">Edit</Link>
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="!user.can_manage"
+                                    :title="
+                                        user.can_manage
+                                            ? undefined
+                                            : protectedReason(user)
+                                    "
+                                    @click="
+                                        user.can_manage &&
+                                        router.post(impersonate.url(user.id))
+                                    "
+                                >
+                                    Sign in as
+                                </Button>
+                                <Button
+                                    v-if="!user.suspended_at"
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="!user.can_manage"
+                                    :title="
+                                        user.can_manage
+                                            ? undefined
+                                            : protectedReason(user)
+                                    "
+                                    @click="
+                                        user.can_manage &&
+                                        router.post(
+                                            suspend.url(user.id),
+                                            {},
+                                            { preserveScroll: true },
+                                        )
+                                    "
+                                >
+                                    Suspend
+                                </Button>
+                                <Button
+                                    v-else
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="!user.can_manage"
+                                    :title="
+                                        user.can_manage
+                                            ? undefined
+                                            : protectedReason(user)
+                                    "
+                                    @click="
+                                        user.can_manage &&
+                                        router.delete(restore.url(user.id), {
+                                            preserveScroll: true,
+                                        })
+                                    "
+                                >
+                                    Reactivate
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    :disabled="!user.can_manage"
+                                    :title="
+                                        user.can_manage
+                                            ? undefined
+                                            : protectedReason(user)
+                                    "
+                                    @click="remove(user)"
+                                >
+                                    Delete
+                                </Button>
+                            </div>
+                        </td>
                     </tr>
                     <tr v-if="!users.data.length">
-                        <td colspan="4" class="p-6 text-center text-muted-foreground">
+                        <td
+                            colspan="5"
+                            class="p-6 text-center text-muted-foreground"
+                        >
                             No users match.
                         </td>
                     </tr>

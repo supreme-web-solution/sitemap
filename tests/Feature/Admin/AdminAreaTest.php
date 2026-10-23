@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PlanFeature;
+use App\Enums\UsageMetric;
 use App\Models\Plan;
 use App\Models\Team;
 use App\Models\User;
@@ -120,6 +122,25 @@ test('deleting a user removes teams only they belonged to', function () {
         ->and(Team::whereKey($team->id)->exists())->toBeFalse();
 });
 
+test('the users list exposes manage actions only for accounts that are not administrators', function () {
+    $user = User::factory()->create(['email' => 'casey@example.com']);
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.users.index', ['search' => $user->email]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/users/Index')
+            ->has('users.data', 1)
+            ->where('users.data.0.can_manage', true));
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.users.index', ['search' => 'boss@example.com']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('users.data', 1)
+            ->where('users.data.0.can_manage', false));
+});
+
 test('an admin can search and filter users', function () {
     User::factory()->create(['name' => 'Zed Findable']);
     User::factory()->create(['name' => 'Someone Else', 'suspended_at' => now()]);
@@ -197,11 +218,11 @@ test('an admin can create, update and delete plans', function () {
     $plan = Plan::where('slug', 'pro')->sole();
 
     expect($plan->price_cents)->toBe(4950)
-        ->and($plan->limit(App\Enums\UsageMetric::LeadSearches))->toBe(20)
-        ->and($plan->limit(App\Enums\UsageMetric::SiteGenerations))->toBeNull()
+        ->and($plan->limit(UsageMetric::LeadSearches))->toBe(20)
+        ->and($plan->limit(UsageMetric::SiteGenerations))->toBeNull()
         ->and($plan->limits)->not->toHaveKey('bogus')
-        ->and($plan->allows(App\Enums\PlanFeature::WhiteLabel))->toBeTrue()
-        ->and($plan->allows(App\Enums\PlanFeature::AiEditing))->toBeFalse();
+        ->and($plan->allows(PlanFeature::WhiteLabel))->toBeTrue()
+        ->and($plan->allows(PlanFeature::AiEditing))->toBeFalse();
 
     $this->actingAs($this->admin)->put(route('admin.plans.update', $plan), [...$payload, 'name' => 'Pro Plus'])->assertSessionHasNoErrors();
     expect($plan->refresh()->name)->toBe('Pro Plus');

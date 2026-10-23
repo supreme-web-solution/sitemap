@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\Teams\CreateTeam;
-use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SaveUserRequest;
 use App\Models\Plan;
@@ -36,7 +35,10 @@ class AdminUserController extends Controller
             ->latest()
             ->paginate(20)
             ->withQueryString()
-            ->through(fn (User $user) => $this->present($user) + ['teams_count' => $user->teams_count]);
+            ->through(fn (User $user) => $this->present($user) + [
+                'teams_count' => $user->teams_count,
+                'can_manage' => ! $user->is($request->user()) && ! $user->isAdmin(),
+            ]);
 
         return Inertia::render('admin/users/Index', [
             'users' => $users,
@@ -68,7 +70,6 @@ class AdminUserController extends Controller
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('User created.')]);
-
 
         return to_route('admin.users.edit', $user);
     }
@@ -114,7 +115,6 @@ class AdminUserController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('User updated.')]);
 
-
         return back();
     }
 
@@ -133,7 +133,6 @@ class AdminUserController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('User suspended.')]);
 
-
         return back();
     }
 
@@ -145,7 +144,6 @@ class AdminUserController extends Controller
         $user->forceFill(['suspended_at' => null])->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('User reactivated.')]);
-
 
         return back();
     }
@@ -170,7 +168,6 @@ class AdminUserController extends Controller
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('User deleted.')]);
-
 
         return to_route('admin.users.index');
     }
