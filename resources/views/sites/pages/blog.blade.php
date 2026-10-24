@@ -1,7 +1,12 @@
 @extends('sites.layout')
 
 @section('main')
-    @include('sites.partials.page-hero', ['heading' => 'Blog', 'intro' => 'News, advice and updates from '.$lead->name.'.'])
+    @include('sites.partials.page-hero', [
+        'heading' => 'Blog',
+        'headingKey' => 'blog_page_heading',
+        'intro' => 'News, advice and updates from '.$lead->name.'.',
+        'introKey' => 'blog_page_intro',
+    ])
 
     <section class="block">
         <div class="container">

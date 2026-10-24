@@ -29,6 +29,7 @@ function recurringPayload(Lead $lead, array $overrides = []): array
         'ends_on' => null,
         'due_in_days' => 14,
         'email_client' => true,
+        'collection_mode' => 'invoice',
         'notes' => null,
         'items' => [['description' => 'Hosting and maintenance', 'quantity' => 1, 'unit_price' => '49.50']],
         ...$overrides,

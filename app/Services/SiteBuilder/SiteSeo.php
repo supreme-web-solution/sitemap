@@ -37,10 +37,10 @@ class SiteSeo
      * @param  ResolvedPage  $page
      * @return Seo
      */
-    public function for(Site $site, array $page, SiteUrls $urls, bool $asPreview): array
+    public function for(Site $site, array $page, SiteUrls $urls, bool $asPreview, bool $asStaging = false, ?array $content = null): array
     {
         $lead = $site->lead;
-        $content = $site->content;
+        $content ??= $site->content;
         $image = $lead->photoUrls()[0] ?? $lead->logoUrl();
 
         $breadcrumbs = $this->breadcrumbs($page, $urls);
@@ -63,14 +63,15 @@ class SiteSeo
         }
 
         return [
-            'title' => $this->title($site, $page),
-            'description' => $this->description($site, $page),
+            'title' => $this->title($site, $page, $content),
+            'description' => $this->description($site, $page, $content),
             'canonical' => $asPreview ? null : $urls->absolute($page['path']),
-            'robots' => $asPreview ? 'noindex, nofollow' : 'index, follow, max-image-preview:large',
+            'robots' => ($asPreview || $asStaging) ? 'noindex, nofollow' : 'index, follow, max-image-preview:large',
             'image' => $image,
             'type' => $page['type'] === 'post' ? 'article' : 'website',
             'breadcrumbs' => $breadcrumbs,
             'schema' => $schema,
+            'alternates' => $asPreview ? [] : $this->alternates($site, $page['path'], $urls),
         ];
     }
 
@@ -85,6 +86,12 @@ class SiteSeo
         $trail = [['name' => 'Home', 'path' => '', 'url' => $urls->to()]];
 
         if ($page['type'] === 'home') {
+            return $trail;
+        }
+
+        if (in_array($page['type'], ['landing', 'location'], true)) {
+            $trail[] = ['name' => $page['custom']['title'], 'path' => $page['path'], 'url' => $urls->to($page['path'])];
+
             return $trail;
         }
 
@@ -106,7 +113,7 @@ class SiteSeo
      *
      * @param  ResolvedPage  $page
      */
-    public function title(Site $site, array $page): string
+    public function title(Site $site, array $page, ?array $content = null): string
     {
         $lead = $site->lead;
         $name = $lead->name;
@@ -122,6 +129,7 @@ class SiteSeo
             'blog' => "Blog | {$name}",
             'post' => "{$page['post']->title} | {$name}",
             'contact' => "Contact {$name} | {$category}{$inCity}",
+            'landing', 'location' => "{$page['custom']['headline']} | {$name}",
         };
 
         return Str::limit($title, self::TITLE_MAX, '…');
@@ -132,10 +140,10 @@ class SiteSeo
      *
      * @param  ResolvedPage  $page
      */
-    public function description(Site $site, array $page): string
+    public function description(Site $site, array $page, ?array $content = null): string
     {
         $lead = $site->lead;
-        $content = $site->content;
+        $content ??= $site->content;
         $name = $lead->name;
         $inCity = $lead->city ? ' in '.$lead->city : '';
 
@@ -148,9 +156,33 @@ class SiteSeo
             'blog' => "News, advice and updates from {$name}{$inCity}.",
             'post' => $this->postSummary($page['post']),
             'contact' => "Get in touch with {$name}{$inCity}. ".($lead->phone ? "Call {$lead->phone} or send us a message." : 'Send us a message and we will get back to you.'),
+            'landing', 'location' => ($page['custom']['intro'] ?? '').' '.$page['custom']['body'],
         };
 
         return Str::of($text)->squish()->limit(self::DESCRIPTION_MAX, '…')->toString();
+    }
+
+    /**
+     * @return list<array{hreflang: string, href: string}>
+     */
+    protected function alternates(Site $site, string $pagePath, SiteUrls $urls): array
+    {
+        $alternates = [];
+
+        foreach (SiteLocales::available($site->content) as $locale) {
+            $alternates[] = [
+                'hreflang' => $locale,
+                'href' => $urls->forLocale($locale)->absolute($pagePath),
+            ];
+        }
+
+        $default = SiteLocales::default($site->content);
+        $alternates[] = [
+            'hreflang' => 'x-default',
+            'href' => $urls->forLocale($default)->absolute($pagePath),
+        ];
+
+        return $alternates;
     }
 
     /**

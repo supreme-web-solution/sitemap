@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Sites;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sites\StoreSiteDomainRequest;
 use App\Models\SiteDomain;
+use App\Models\Team;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -32,7 +33,9 @@ class DomainAllowedController extends Controller
             ->whereHas('site', fn ($query) => $query->whereNotNull('published_at'))
             ->exists();
 
-        abort_unless($isLive, 404);
+        $isPreviewHost = Team::query()->verifiedPreviewHostname($host)->exists();
+
+        abort_unless($isLive || $isPreviewHost, 404);
 
         return response('ok');
     }

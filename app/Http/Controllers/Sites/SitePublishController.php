@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Sites;
 use App\Http\Controllers\Controller;
 use App\Models\Site;
 use App\Models\Team;
+use App\Services\SiteBuilder\SiteCache;
 use App\Services\SiteBuilder\SiteQualityChecker;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
@@ -32,6 +33,7 @@ class SitePublishController extends Controller
         }
 
         $site->forceFill(['published_at' => $site->published_at ?? now()])->save();
+        SiteCache::flush($site->id);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Website published.')]);
 
@@ -44,6 +46,7 @@ class SitePublishController extends Controller
     public function destroy(Team $currentTeam, Site $site): RedirectResponse
     {
         $site->forceFill(['published_at' => null])->save();
+        SiteCache::flush($site->id);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Website unpublished.')]);
 

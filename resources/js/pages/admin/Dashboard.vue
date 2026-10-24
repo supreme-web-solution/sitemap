@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import Heading from '@/components/Heading.vue';
 import { dashboard as adminDashboard } from '@/routes/admin';
+import { launchReadiness as adminLaunchReadiness } from '@/routes/admin';
 import { index as plansIndex } from '@/routes/admin/plans';
 import { edit as editUser, index as usersIndex } from '@/routes/admin/users';
 
@@ -42,6 +43,21 @@ defineOptions({
             title="Admin"
             description="Platform-wide numbers. Manage users, teams and plans from here."
         />
+
+        <p class="text-sm">
+            <Link
+                :href="adminLaunchReadiness()"
+                class="font-medium text-primary hover:underline"
+                data-test="admin-launch-readiness-link"
+            >
+                Launch readiness checks
+            </Link>
+            <span class="text-muted-foreground">
+                — same report as
+                <code class="rounded bg-muted px-1 text-xs">php artisan ops:verify</code>
+                on the server.
+            </span>
+        </p>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div class="panel p-4">

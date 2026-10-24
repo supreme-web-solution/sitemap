@@ -9,6 +9,7 @@ use App\Enums\ProposalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use App\Services\Billing\UsageMeter;
+use App\Services\Preview\PreviewLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -27,7 +28,7 @@ class ClientPortalController extends Controller
         return view('portal.show', [
             'lead' => $lead->load('team'),
             'site' => $site,
-            'previewUrl' => $site ? route('sites.preview', $site->slug) : null,
+            'previewUrl' => $site ? PreviewLink::page($site) : null,
             'proposals' => $lead->proposals()->whereIn('status', [ProposalStatus::Sent, ProposalStatus::Accepted])->latest('id')->get(),
             'invoices' => $lead->invoices()
                 ->whereIn('status', [InvoiceStatus::Open, InvoiceStatus::Paid])

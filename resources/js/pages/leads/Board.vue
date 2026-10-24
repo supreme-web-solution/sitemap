@@ -19,6 +19,10 @@ const props = defineProps<{
     columns: BoardColumn[];
 }>();
 
+/** Plain clone for local drag-and-drop state (Inertia props may be reactive proxies). */
+const cloneColumns = (columns: BoardColumn[]): BoardColumn[] =>
+    JSON.parse(JSON.stringify(columns)) as BoardColumn[];
+
 defineOptions({
     layout: (props: { currentTeam?: Team | null }) => ({
         breadcrumbs: [
@@ -41,11 +45,13 @@ defineOptions({
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 
-const board = ref<BoardColumn[]>(structuredClone(props.columns));
+const board = ref<BoardColumn[]>(cloneColumns(props.columns));
 
 watch(
     () => props.columns,
-    (columns) => (board.value = structuredClone(columns)),
+    (columns) => {
+        board.value = cloneColumns(columns);
+    },
 );
 
 const dotClasses: Record<LeadStatus, string> = {
@@ -85,7 +91,9 @@ const moveLead = (leadId: number, from: LeadStatus, to: LeadStatus) => {
             preserveScroll: true,
             preserveState: true,
             only: ['columns'],
-            onError: () => (board.value = structuredClone(props.columns)),
+            onError: () => {
+                board.value = cloneColumns(props.columns);
+            },
         },
     );
 };

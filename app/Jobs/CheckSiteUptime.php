@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Site;
 use App\Services\Audit\SafeHttpFetcher;
 use App\Services\Audit\UnsafeUrlException;
+use App\Services\Preview\PreviewLink;
 use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -55,6 +56,6 @@ class CheckSiteUptime implements ShouldBeUnique, ShouldQueue
 
         return $domain !== null
             ? 'https://'.$domain->hostname
-            : route('sites.preview', $this->site->slug);
+            : PreviewLink::page($this->site);
     }
 }

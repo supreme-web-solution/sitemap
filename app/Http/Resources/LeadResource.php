@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Lead;
+use App\Services\Preview\PreviewLink;
 use App\Services\Prospecting\OpportunityScorer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -53,7 +54,7 @@ class LeadResource extends JsonResource
             'siteGenerationError' => $this->site_generation_error,
             'site' => $this->whenLoaded('site', fn () => $this->site ? [
                 'id' => $this->site->id,
-                'previewUrl' => route('sites.preview', $this->site->slug),
+                'previewUrl' => PreviewLink::page($this->site),
             ] : null),
         ];
     }

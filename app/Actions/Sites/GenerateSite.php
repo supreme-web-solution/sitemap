@@ -8,6 +8,8 @@ use App\Enums\SiteGenerationStatus;
 use App\Enums\SiteTemplate;
 use App\Models\Lead;
 use App\Models\Site;
+use App\Models\SiteDesignTemplate;
+use App\Services\SiteBuilder\SiteContentSchema;
 use App\Services\SiteBuilder\SiteCopywriter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,11 +24,26 @@ class GenerateSite
     /**
      * Generate (or regenerate) the website for the given lead.
      */
-    public function handle(Lead $lead, ?SiteTemplate $template = null, ?SiteDraft $draft = null): Site
+    public function handle(Lead $lead, ?SiteTemplate $template = null, ?SiteDraft $draft = null, ?int $designTemplateId = null): Site
     {
+        $designTemplate = $designTemplateId ? SiteDesignTemplate::query()->find($designTemplateId) : null;
+        $template ??= $designTemplate?->siteTemplate();
+
         $draft ??= $this->copywriter->write($lead, $template);
 
-        return DB::transaction(function () use ($lead, $draft) {
+        if ($designTemplate !== null) {
+            $content = $draft->content;
+            $palette = $draft->template->palette();
+
+            if (in_array($designTemplate->accent_color, $palette, true)) {
+                $content['accent'] = $designTemplate->accent_color;
+            }
+
+            $draft = new SiteDraft($designTemplate->siteTemplate(), $content);
+        }
+
+        return DB::transaction(function () use ($lead, $draft, $designTemplate) {
+            $previous = $lead->site?->content ?? [];
             $site = $lead->site ?? new Site([
                 'lead_id' => $lead->id,
                 'slug' => $this->slugFor($lead),
@@ -35,7 +52,8 @@ class GenerateSite
             $site->team_id = $lead->team_id;
             $site->fill([
                 'template' => $draft->template,
-                'content' => $draft->content,
+                'design_template_id' => $designTemplate?->id,
+                'content' => SiteContentSchema::preserveEditorFields($previous, $draft->content),
             ])->save();
 
             $lead->fill([

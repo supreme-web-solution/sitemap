@@ -35,7 +35,7 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
     /**
      * Create a new job instance.
      */
-    public function __construct(public Lead $lead)
+    public function __construct(public Lead $lead, public ?int $designTemplateId = null)
     {
         $this->onQueue(Queues::AI);
     }
@@ -53,7 +53,7 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
      */
     public function handle(GenerateSite $generateSite): void
     {
-        $generateSite->handle($this->lead);
+        $generateSite->handle($this->lead, designTemplateId: $this->designTemplateId);
     }
 
     /**

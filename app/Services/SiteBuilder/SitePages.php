@@ -11,7 +11,8 @@ use Illuminate\Support\Str;
  * Works out which pages a website has and what lives at each address.
  *
  * @phpstan-type ServicePage array{title: string, description: string, body: string, slug: string}
- * @phpstan-type ResolvedPage array{type: string, key: string, path: string, service?: ServicePage, post?: SitePost}
+ * @phpstan-type CustomPage array{kind: string, slug: string, title: string, headline: string, intro?: string, body: string, cta_label?: string, city?: string}
+ * @phpstan-type ResolvedPage array{type: string, key: string, path: string, service?: ServicePage, post?: SitePost, custom?: CustomPage}
  */
 class SitePages
 {
@@ -75,6 +76,18 @@ class SitePages
     }
 
     /**
+     * @param  array<string, mixed>  $content
+     * @return list<CustomPage>
+     */
+    public function customPages(array $content): array
+    {
+        return array_values(array_filter(
+            $content['custom_pages'] ?? [],
+            fn ($page) => is_array($page) && filled($page['slug'] ?? null) && filled($page['kind'] ?? null),
+        ));
+    }
+
+    /**
      * Get the services with a unique, URL-safe slug each.
      *
      * @param  array<string, mixed>  $content
@@ -126,6 +139,10 @@ class SitePages
         $segments = explode('/', $path);
         $page = $segments[0];
 
+        if ($page === 'landing' || $page === 'locations') {
+            return $this->resolveCustom($site, $page, $segments);
+        }
+
         if (! in_array($page, $this->available($site), true)) {
             return null;
         }
@@ -154,6 +171,33 @@ class SitePages
     }
 
     /**
+     * @param  list<string>  $segments
+     * @return ResolvedPage|null
+     */
+    protected function resolveCustom(Site $site, string $prefix, array $segments): ?array
+    {
+        if (count($segments) !== 2) {
+            return null;
+        }
+
+        $kind = $prefix === 'landing' ? 'landing' : 'location';
+        $custom = collect($this->customPages($site->content))->first(
+            fn (array $page) => $page['kind'] === $kind && $page['slug'] === $segments[1],
+        );
+
+        if ($custom === null) {
+            return null;
+        }
+
+        return [
+            'type' => $kind,
+            'key' => $prefix,
+            'path' => implode('/', $segments),
+            'custom' => $custom,
+        ];
+    }
+
+    /**
      * Get the path of every page the site has, home page first.
      *
      * @return list<string>
@@ -177,6 +221,10 @@ class SitePages
                     $paths[] = 'blog/'.$post->slug;
                 }
             }
+        }
+
+        foreach ($this->customPages($site->content) as $page) {
+            $paths[] = ($page['kind'] === 'landing' ? 'landing' : 'locations').'/'.$page['slug'];
         }
 
         return $paths;

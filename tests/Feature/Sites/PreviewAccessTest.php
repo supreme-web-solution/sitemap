@@ -36,15 +36,30 @@ test('a password protected preview unlocks for the session', function () {
     expect(Hash::check('secret12', $site->fresh()->preview_password))->toBeTrue();
 });
 
-test('internal editor previews skip the password and expiry', function () {
+test('team members skip the password and expiry with the internal flag', function () {
+    $member = User::factory()->create();
+    $lead = Lead::factory()->for($member->currentTeam)->create();
     $site = Site::factory()->create([
+        'lead_id' => $lead->id,
         'preview_password' => 'secret12',
         'preview_expires_at' => now()->subDay(),
     ]);
 
-    $this->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
+    $this->actingAs($member)
+        ->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
         ->assertOk()
         ->assertSee($site->content['headline']);
+});
+
+test('the internal flag does not unlock a preview for visitors', function () {
+    $protected = Site::factory()->create(['preview_password' => 'secret12']);
+    $expired = Site::factory()->create(['preview_expires_at' => now()->subDay()]);
+
+    $this->get(route('sites.preview', ['site' => $protected->slug, 'internal' => 1]))
+        ->assertSee('This preview is private')
+        ->assertDontSee($protected->content['headline']);
+
+    $this->get(route('sites.preview', ['site' => $expired->slug, 'internal' => 1]))->assertStatus(410);
 });
 
 test('a comment on the preview is stored on the lead timeline', function () {

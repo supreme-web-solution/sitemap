@@ -32,6 +32,17 @@ const submit = () =>
         <p class="mt-1 text-sm text-muted-foreground">
             Optional expiry and password for the public preview link.
         </p>
+        <ul
+            v-if="site.sectionViews?.length"
+            class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground"
+            data-test="section-views"
+        >
+            <li v-for="row in site.sectionViews" :key="row.key">
+                {{ row.label }}
+                {{ row.views }}
+                {{ row.views === 1 ? 'view' : 'views' }}
+            </li>
+        </ul>
         <form class="mt-4 grid gap-3" @submit.prevent="submit">
             <div class="grid gap-2">
                 <Label for="preview-expires">Expires on</Label>

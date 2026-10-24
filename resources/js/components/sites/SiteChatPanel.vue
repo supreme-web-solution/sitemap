@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { store } from '@/routes/sites/chat';
 import type { SiteChat } from '@/types';
 
-const props = defineProps<{ siteId: number; chat: SiteChat }>();
+const props = defineProps<{ siteId: number; chat: SiteChat; embedded?: boolean }>();
 
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
@@ -26,7 +26,7 @@ const submit = () => {
 </script>
 
 <template>
-    <section class="panel p-5" data-test="site-chat-panel">
+    <section :class="embedded ? '' : 'panel p-5'" data-test="site-chat-panel">
         <h2 class="flex items-center gap-2 text-base font-semibold">
             <Sparkles class="size-4" /> Edit with AI
         </h2>
@@ -45,7 +45,10 @@ const submit = () => {
         <template v-else>
             <ol
                 v-if="chat.messages.length"
-                class="mt-3 grid max-h-72 gap-2 overflow-y-auto text-sm"
+                :class="[
+                    'mt-3 grid gap-2 overflow-y-auto text-sm',
+                    embedded ? 'max-h-[45vh]' : 'max-h-72',
+                ]"
             >
                 <li
                     v-for="message in chat.messages"

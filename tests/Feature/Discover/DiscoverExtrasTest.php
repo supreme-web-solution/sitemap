@@ -104,7 +104,12 @@ test('the research and ideal customer pages render', function () {
     $this->actingAs($user)
         ->get(route('ideal-customer.edit', ['current_team' => $slug]))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('ideal-customer/Edit')->has('ideal')->has('websiteFilters'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('ideal-customer/Edit')
+            ->has('ideal')
+            ->has('websiteFilters')
+            ->has('scoreWeights')
+            ->has('example'));
 });
 
 test('the reports page shows pipeline and revenue totals', function () {

@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\BillingInterval;
+use App\Enums\PaymentProvider;
+use App\Enums\RecurringCollectionMode;
 use Carbon\CarbonInterface;
 use Database\Factories\RecurringInvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -23,6 +25,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $ends_on
  * @property int $due_in_days
  * @property bool $email_client
+ * @property RecurringCollectionMode $collection_mode
+ * @property PaymentProvider|null $payment_provider
  * @property bool $is_active
  * @property string|null $notes
  * @property list<array{description: string, quantity: int, unit_cents: int}> $items
@@ -33,7 +37,7 @@ use Illuminate\Support\Carbon;
  * @property-read Team $team
  * @property-read Lead $lead
  */
-#[Fillable(['lead_id', 'interval', 'starts_on', 'ends_on', 'due_in_days', 'email_client', 'notes', 'items'])]
+#[Fillable(['lead_id', 'interval', 'starts_on', 'ends_on', 'due_in_days', 'email_client', 'collection_mode', 'payment_provider', 'notes', 'items'])]
 class RecurringInvoice extends Model
 {
     /** @use HasFactory<RecurringInvoiceFactory> */
@@ -88,6 +92,15 @@ class RecurringInvoice extends Model
     }
 
     /**
+     * Whether future cycles should charge a card saved on the lead.
+     */
+    public function autoCharges(): bool
+    {
+        return $this->collection_mode === RecurringCollectionMode::AutoCharge
+            && in_array($this->payment_provider, [PaymentProvider::Stripe, PaymentProvider::PayPal], true);
+    }
+
+    /**
      * Get the team that bills the client.
      *
      * @return BelongsTo<Team, $this>
@@ -131,6 +144,8 @@ class RecurringInvoice extends Model
             'ends_on' => 'date',
             'due_in_days' => 'integer',
             'email_client' => 'boolean',
+            'collection_mode' => RecurringCollectionMode::class,
+            'payment_provider' => PaymentProvider::class,
             'is_active' => 'boolean',
             'items' => 'array',
             'cycles_run' => 'integer',

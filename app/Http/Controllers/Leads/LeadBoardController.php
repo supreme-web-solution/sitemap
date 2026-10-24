@@ -32,7 +32,7 @@ class LeadBoardController extends Controller
             'count' => (int) ($counts[$status->value] ?? 0),
             'leads' => LeadResource::collection(
                 $currentTeam->leads()
-                    ->with('site:id,lead_id,slug')
+                    ->with('site:id,lead_id,team_id,slug')
                     ->where('status', $status)
                     ->sortedBy('score')
                     ->limit(self::CARDS_PER_COLUMN)

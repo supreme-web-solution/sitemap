@@ -201,6 +201,58 @@ test('dashboard activity is sorted from newest to oldest', function () {
         );
 });
 
+test('dashboard work today dedupes the same lead into one actionable row', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    $lead = Lead::factory()->for($team)->create([
+        'name' => 'Hot And Ready',
+        'opportunity_score' => 90,
+        'status' => LeadStatus::SiteGenerated,
+    ]);
+    Site::factory()->create([
+        'lead_id' => $lead->id,
+        'views_count' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('workToday.items', fn ($items) => collect($items)->where('leadId', $lead->id)->count() === 1)
+            ->where('workToday.items', fn ($items) => collect($items)->firstWhere('leadId', $lead->id)['kind'] === 'send_preview')
+            ->where('workToday.items', fn ($items) => filled(collect($items)->firstWhere('leadId', $lead->id)['previewUrl'] ?? null)),
+        );
+});
+
+test('dashboard work today lists hot leads and sites waiting for a preview share', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    Lead::factory()->for($team)->create([
+        'name' => 'Hot Plumber',
+        'opportunity_score' => 85,
+        'status' => LeadStatus::New,
+    ]);
+
+    $previewLead = Lead::factory()->for($team)->create([
+        'name' => 'Ready Roofer',
+        'status' => LeadStatus::SiteGenerated,
+    ]);
+    Site::factory()->create([
+        'lead_id' => $previewLead->id,
+        'views_count' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('workToday.count', fn ($count) => $count >= 2)
+            ->has('workToday.items')
+            ->where('workToday.items', fn ($items) => collect($items)->contains(fn ($item) => $item['kind'] === 'hot_lead' && $item['title'] === 'Hot Plumber'))
+            ->where('workToday.items', fn ($items) => collect($items)->contains(fn ($item) => $item['kind'] === 'send_preview' && $item['title'] === 'Ready Roofer')),
+        );
+});
+
 test('dashboard lists open follow-ups soonest first and counts the ones that are due', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;

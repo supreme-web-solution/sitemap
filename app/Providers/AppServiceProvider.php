@@ -120,11 +120,19 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('outreach', fn (Request $request) => Limit::perMinute((int) config('prospecting.outreach_emails_per_minute'))->by($request->user()?->id ?: $request->ip()));
 
+        RateLimiter::for('mail-inbox-sync', fn (object $job) => Limit::perMinute((int) config('inbox.syncs_per_minute', 6))->by(
+            property_exists($job, 'connection') ? ($job->connection->team_id ?? 'unknown') : 'unknown',
+        ));
+
         RateLimiter::for('preview-interest', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
+
+        RateLimiter::for('preview-sections', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
         RateLimiter::for('invoice-payments', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
         RateLimiter::for('site-generation', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
+
+        RateLimiter::for('site-edits', fn (Request $request) => Limit::perMinute(240)->by($request->user()?->id ?: $request->ip()));
     }
 
     /**

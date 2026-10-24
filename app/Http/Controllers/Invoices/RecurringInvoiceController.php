@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Invoices;
 
 use App\Enums\BillingInterval;
+use App\Enums\PaymentProvider;
+use App\Enums\RecurringCollectionMode;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Invoices\SaveRecurringInvoiceRequest;
 use App\Models\Invoice;
@@ -38,6 +40,12 @@ class RecurringInvoiceController extends Controller
                     'endsOn' => $schedule->ends_on?->toDateString(),
                     'dueInDays' => $schedule->due_in_days,
                     'emailClient' => $schedule->email_client,
+                    'collectionMode' => $schedule->collection_mode->value,
+                    'collectionModeLabel' => $schedule->collection_mode->label(),
+                    'paymentProvider' => $schedule->payment_provider?->value,
+                    'leadHasCardOnFile' => $schedule->payment_provider
+                        ? $schedule->lead->hasCardOnFileFor($schedule->payment_provider)
+                        : false,
                     'notes' => $schedule->notes,
                     'status' => $schedule->hasEnded() ? 'ended' : ($schedule->is_active ? 'active' : 'paused'),
                     'items' => collect($schedule->items)->map(fn (array $item) => [
@@ -53,6 +61,8 @@ class RecurringInvoiceController extends Controller
                 ->map(fn (Lead $lead) => ['id' => $lead->id, 'name' => $lead->name, 'email' => $lead->email])
                 ->all(),
             'intervals' => collect(BillingInterval::cases())->map(fn (BillingInterval $interval) => ['value' => $interval->value, 'label' => $interval->label()])->values(),
+            'collectionModes' => RecurringCollectionMode::options(),
+            'hasStripe' => $currentTeam->paymentAccounts()->where('provider', PaymentProvider::Stripe)->exists(),
             'today' => today()->toDateString(),
         ]);
     }
@@ -62,9 +72,15 @@ class RecurringInvoiceController extends Controller
      */
     public function store(SaveRecurringInvoiceRequest $request, Team $currentTeam): RedirectResponse
     {
+        $collectionMode = RecurringCollectionMode::from($request->validated('collection_mode'));
+
         $currentTeam->recurringInvoices()
             ->make([
                 ...$request->safe()->only(['lead_id', 'interval', 'starts_on', 'ends_on', 'due_in_days', 'email_client', 'notes']),
+                'collection_mode' => $collectionMode,
+                'payment_provider' => $collectionMode === RecurringCollectionMode::AutoCharge
+                    ? PaymentProvider::from($request->validated('payment_provider'))
+                    : null,
                 'items' => $request->lineItems(),
             ])
             ->forceFill(['next_run_on' => $request->validated('starts_on'), 'is_active' => true])

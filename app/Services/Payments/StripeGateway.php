@@ -3,7 +3,9 @@
 namespace App\Services\Payments;
 
 use App\Actions\Invoices\MarkInvoicePaid;
+use App\Enums\RecurringCollectionMode;
 use App\Models\Invoice;
+use App\Models\Lead;
 use App\Models\PaymentAccount;
 use Closure;
 use Illuminate\Http\Client\ConnectionException;
@@ -35,6 +37,8 @@ class StripeGateway implements PaymentGateway
 
     public function startPayment(Invoice $invoice, PaymentAccount $account, string $returnUrl, string $cancelUrl): string
     {
+        $invoice->loadMissing('recurringInvoice', 'lead');
+
         $fields = [
             'mode' => 'payment',
             'success_url' => $returnUrl.(str_contains($returnUrl, '?') ? '&' : '?').'session_id={CHECKOUT_SESSION_ID}',
@@ -55,7 +59,15 @@ class StripeGateway implements PaymentGateway
             ])->all(),
         ];
 
-        if (filled($invoice->lead->email)) {
+        if ($this->shouldSavePaymentMethod($invoice)) {
+            $fields['payment_intent_data']['setup_future_usage'] = 'off_session';
+
+            if (filled($invoice->lead->stripe_customer_id)) {
+                $fields['customer'] = $invoice->lead->stripe_customer_id;
+            } else {
+                $fields['customer_creation'] = 'always';
+            }
+        } elseif (filled($invoice->lead->email)) {
             $fields['customer_email'] = $invoice->lead->email;
         }
 
@@ -84,7 +96,15 @@ class StripeGateway implements PaymentGateway
             throw new PaymentException(__('We could not confirm the payment yet. Refresh in a moment.'));
         }
 
-        return $this->settle($invoice, $response->json());
+        $session = $response->json();
+
+        $paid = $this->settle($invoice, $session);
+
+        if ($paid) {
+            $this->syncPaymentMethodFromCheckout($invoice->lead, $account, $session);
+        }
+
+        return $paid;
     }
 
     /**
@@ -108,6 +128,79 @@ class StripeGateway implements PaymentGateway
         return true;
     }
 
+    /**
+     * Charge a saved card for a recurring invoice without sending the customer to Checkout.
+     */
+    public function attemptOffSessionCharge(Invoice $invoice, PaymentAccount $account): bool
+    {
+        $invoice->loadMissing('lead');
+
+        $lead = $invoice->lead;
+
+        if (! $lead->hasStripeCardOnFile()) {
+            return false;
+        }
+
+        $response = $this->send(fn () => $this->client($account->credential('secret_key'))->asForm()->post('/payment_intents', [
+            'amount' => $invoice->total_cents,
+            'currency' => $invoice->currency,
+            'customer' => $lead->stripe_customer_id,
+            'payment_method' => $lead->stripe_payment_method_id,
+            'off_session' => 'true',
+            'confirm' => 'true',
+            'description' => 'Invoice '.$invoice->number,
+            'metadata' => ['invoice_id' => (string) $invoice->id],
+        ]));
+
+        if ($response->failed()) {
+            return false;
+        }
+
+        if (($response->json('status') ?? '') !== 'succeeded') {
+            return false;
+        }
+
+        $this->markPaid->handle($invoice, 'stripe', $response->json('id'));
+
+        return true;
+    }
+
+    /**
+     * Keep the lead's Stripe customer and default payment method after Checkout.
+     *
+     * @param  array<string, mixed>  $session
+     */
+    public function syncPaymentMethodFromCheckout(Lead $lead, PaymentAccount $account, array $session): void
+    {
+        if (($session['mode'] ?? '') !== 'payment') {
+            return;
+        }
+
+        $customerId = $session['customer'] ?? null;
+        $paymentIntentId = $session['payment_intent'] ?? null;
+
+        if (! is_string($customerId) || $customerId === '' || ! is_string($paymentIntentId) || $paymentIntentId === '') {
+            return;
+        }
+
+        $response = $this->send(fn () => $this->client($account->credential('secret_key'))->get('/payment_intents/'.rawurlencode($paymentIntentId)));
+
+        if ($response->failed()) {
+            return;
+        }
+
+        $paymentMethodId = $response->json('payment_method');
+
+        if (! is_string($paymentMethodId) || $paymentMethodId === '') {
+            return;
+        }
+
+        $lead->forceFill([
+            'stripe_customer_id' => $customerId,
+            'stripe_payment_method_id' => $paymentMethodId,
+        ])->save();
+    }
+
     public function refundPayment(Invoice $invoice, PaymentAccount $account): void
     {
         $response = $this->send(fn () => $this->client($account->credential('secret_key'))->asForm()->post('/refunds', [
@@ -117,6 +210,15 @@ class StripeGateway implements PaymentGateway
         if ($response->failed()) {
             throw new PaymentException((string) ($response->json('error.message') ?? __('Stripe could not refund this payment.')));
         }
+    }
+
+    protected function shouldSavePaymentMethod(Invoice $invoice): bool
+    {
+        $schedule = $invoice->recurringInvoice;
+
+        return $schedule !== null
+            && $schedule->collection_mode === RecurringCollectionMode::AutoCharge
+            && $schedule->autoCharges();
     }
 
     protected function client(?string $secretKey): PendingRequest

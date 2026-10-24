@@ -13,6 +13,10 @@ const props = defineProps<{
     teamSlug: string;
     leads: { id: number; name: string; email: string | null }[];
     intervals: { value: string; label: string }[];
+    collectionModes: { value: string; label: string }[];
+    hasStripe: boolean;
+    hasPayPal: boolean;
+    autoChargeProviders: { value: string; label: string }[];
     today: string;
     schedule?: RecurringSchedule;
 }>();
@@ -28,6 +32,8 @@ const form = useForm<{
     ends_on: string;
     due_in_days: number;
     email_client: boolean;
+    collection_mode: string;
+    payment_provider: string;
     notes: string;
     items: Row[];
 }>({
@@ -37,6 +43,8 @@ const form = useForm<{
     ends_on: props.schedule?.endsOn ?? '',
     due_in_days: props.schedule?.dueInDays ?? 14,
     email_client: props.schedule?.emailClient ?? true,
+    collection_mode: props.schedule?.collectionMode ?? 'invoice',
+    payment_provider: props.schedule?.paymentProvider ?? 'stripe',
     notes: props.schedule?.notes ?? '',
     items: props.schedule?.items.length
         ? props.schedule.items.map((item) => ({
@@ -48,6 +56,10 @@ const form = useForm<{
 });
 
 const isEditing = computed(() => Boolean(props.schedule));
+
+const canAutoCharge = computed(
+    () => props.hasStripe || props.hasPayPal,
+);
 
 const selectedLead = computed(() =>
     props.leads.find((lead) => lead.id === form.lead_id),
@@ -78,6 +90,10 @@ const submit = () => {
         ...data,
         ends_on: data.ends_on || null,
         notes: data.notes || null,
+        payment_provider:
+            data.collection_mode === 'auto_charge'
+                ? data.payment_provider
+                : null,
     }));
 
     const options = {
@@ -204,8 +220,61 @@ const textareaClass =
                     </span>
                 </label>
             </div>
+            <div v-if="!isEditing" class="grid gap-2 sm:col-span-3">
+                <Label for="recurring-collection">Collection</Label>
+                <select
+                    id="recurring-collection"
+                    v-model="form.collection_mode"
+                    :class="selectClass"
+                    :disabled="!hasStripe && !hasPayPal"
+                >
+                    <option
+                        v-for="mode in collectionModes"
+                        :key="mode.value"
+                        :value="mode.value"
+                        :disabled="
+                            !canAutoCharge && mode.value === 'auto_charge'
+                        "
+                    >
+                        {{ mode.label }}
+                    </option>
+                </select>
+                <div
+                    v-if="form.collection_mode === 'auto_charge' && canAutoCharge"
+                    class="grid gap-2"
+                >
+                    <Label for="recurring-provider">Payment provider</Label>
+                    <select
+                        id="recurring-provider"
+                        v-model="form.payment_provider"
+                        :class="selectClass"
+                    >
+                        <option
+                            v-for="provider in autoChargeProviders"
+                            :key="provider.value"
+                            :value="provider.value"
+                        >
+                            {{ provider.label }}
+                        </option>
+                    </select>
+                </div>
+                <p
+                    v-if="!canAutoCharge"
+                    class="text-xs text-muted-foreground"
+                >
+                    Connect Stripe or PayPal on Payments to charge a saved
+                    payment method automatically.
+                </p>
+                <p
+                    v-else-if="form.collection_mode === 'auto_charge'"
+                    class="text-xs text-muted-foreground"
+                >
+                    The first cycle emails a pay link that saves the payment
+                    method. Later cycles charge automatically when one is on
+                    file.
+                </p>
+            </div>
         </div>
-
         <div class="grid gap-3">
             <Label>Items on every invoice</Label>
             <div

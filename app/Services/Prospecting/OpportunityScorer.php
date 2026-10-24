@@ -7,13 +7,24 @@ use App\Models\Lead;
 class OpportunityScorer
 {
     /**
+     * @var list<string>
+     */
+    public const WEIGHT_KEYS = [
+        'website_need',
+        'website_quality',
+        'business_activity',
+        'contactability',
+        'profile_fit',
+    ];
+
+    /**
      * Score how promising a lead is as a website client.
      *
      * @return array{score: int, breakdown: list<array{key: string, label: string, points: int, max: int, reason: string}>}
      */
     public function score(Lead $lead): array
     {
-        $weights = config('prospecting.score_weights');
+        $weights = $lead->team?->scoreWeights() ?? config('prospecting.score_weights');
 
         $components = [
             'website_need' => ['Website need', ...$this->websiteNeed($lead)],

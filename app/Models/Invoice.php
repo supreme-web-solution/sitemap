@@ -149,6 +149,16 @@ class Invoice extends Model
     }
 
     /**
+     * Get the recurring schedule that issued this invoice, if any.
+     *
+     * @return BelongsTo<RecurringInvoice, $this>
+     */
+    public function recurringInvoice(): BelongsTo
+    {
+        return $this->belongsTo(RecurringInvoice::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

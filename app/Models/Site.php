@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  *     pages?: list<string>,
  *     services: list<array{title: string, description: string, slug?: string, body?: string}>,
  *     faqs: list<array{question: string, answer: string}>,
+ *     copy?: array<string, string>,
+ *     design?: array<string, string>,
+ *     section_styles?: array<string, string>,
  * }
  *
  * @property int $id
@@ -32,16 +35,20 @@ use Illuminate\Support\Carbon;
  * @property string $slug
  * @property SiteTemplate $template
  * @property SiteContent $content
+ * @property int $revision
  * @property int $views_count
  * @property Carbon|null $last_viewed_at
+ * @property array<string, int>|null $preview_section_views
+ * @property list<array{key: string, label: string, status: string, detail: string}>|null $delivery_findings
  * @property Carbon|null $published_at
+ * @property Carbon|null $staging_published_at
  * @property Carbon|null $approved_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Team $team
  * @property-read Lead $lead
  */
-#[Fillable(['lead_id', 'slug', 'template', 'content'])]
+#[Fillable(['lead_id', 'slug', 'template', 'design_template_id', 'content'])]
 #[Hidden(['preview_password'])]
 class Site extends Model
 {
@@ -52,6 +59,26 @@ class Site extends Model
      * The number of earlier versions kept for each site.
      */
     public const MAX_VERSIONS = 30;
+
+    /**
+     * Minutes of continuous visual editing that share one history entry.
+     */
+    public const EDIT_SESSION_MINUTES = 15;
+
+    /**
+     * Bootstrap the model and its traits.
+     *
+     * Any change to the template or content moves the revision on, so a stale editor
+     * (another tab, a teammate or an AI edit) is detected instead of overwriting newer work.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Site $site) {
+            if ($site->exists && ! $site->isDirty('revision') && $site->isDirty(['template', 'content'])) {
+                $site->revision++;
+            }
+        });
+    }
 
     /**
      * Get the team that owns the site.
@@ -104,11 +131,29 @@ class Site extends Model
     }
 
     /**
+     * Get the catalog entry chosen before generation, if any.
+     *
+     * @return BelongsTo<SiteDesignTemplate, $this>
+     */
+    public function designTemplate(): BelongsTo
+    {
+        return $this->belongsTo(SiteDesignTemplate::class);
+    }
+
+    /**
      * Whether the site has been published to its domains.
      */
     public function isPublished(): bool
     {
         return $this->published_at !== null;
+    }
+
+    /**
+     * Whether the site is served on its staging hostname.
+     */
+    public function isStagingPublished(): bool
+    {
+        return $this->staging_published_at !== null;
     }
 
     /**
@@ -179,6 +224,22 @@ class Site extends Model
     }
 
     /**
+     * Save a revision for a stretch of visual editing, at most one per editing session,
+     * so autosaves do not push real history out of the version limit.
+     */
+    public function snapshotForEditSession(?int $userId): ?SiteVersion
+    {
+        $label = __('Visual editing session');
+
+        $recent = $this->versions()
+            ->where('label', $label)
+            ->where('created_at', '>=', now()->subMinutes(self::EDIT_SESSION_MINUTES))
+            ->exists();
+
+        return $recent ? null : $this->snapshot($userId, $label);
+    }
+
+    /**
      * Record a visit to the public preview.
      */
     public function recordView(): void
@@ -201,6 +262,7 @@ class Site extends Model
             'content' => 'array',
             'last_viewed_at' => 'datetime',
             'published_at' => 'datetime',
+            'staging_published_at' => 'datetime',
             'approved_at' => 'datetime',
             'preview_expires_at' => 'datetime',
             'preview_password' => 'hashed',
@@ -208,6 +270,8 @@ class Site extends Model
             'last_uptime_at' => 'datetime',
             'uptime_ok' => 'boolean',
             'last_crawled_at' => 'datetime',
+            'preview_section_views' => 'array',
+            'delivery_findings' => 'array',
         ];
     }
 }

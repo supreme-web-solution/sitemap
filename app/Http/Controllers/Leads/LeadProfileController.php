@@ -20,6 +20,7 @@ use App\Services\Billing\UsageMeter;
 use App\Services\Outreach\DefaultEmailTemplates;
 use App\Services\Outreach\DefaultFollowUpSequences;
 use App\Services\Outreach\MergeFieldRenderer;
+use App\Services\Preview\PreviewLink;
 use App\Services\Prospecting\OpportunityScorer;
 use App\Services\Prospecting\ProfileVerifier;
 use App\Services\Prospecting\SalesAssistant;
@@ -40,7 +41,10 @@ class LeadProfileController extends Controller
         $defaults->ensureFor($currentTeam);
         $sequences->ensureFor($currentTeam);
 
-        $lead->load('site:id,lead_id,slug,approved_at');
+        $lead->load(['site' => fn ($query) => $query
+            ->select('id', 'lead_id', 'team_id', 'slug', 'approved_at', 'views_count')
+            ->with('team'),
+        ]);
 
         return Inertia::render('leads/Edit', [
             'lead' => [
@@ -65,8 +69,9 @@ class LeadProfileController extends Controller
                 'siteGenerationError' => $lead->site_generation_error,
                 'site' => $lead->site ? [
                     'id' => $lead->site->id,
-                    'previewUrl' => route('sites.preview', $lead->site->slug),
+                    'previewUrl' => PreviewLink::page($lead->site),
                     'approvedAt' => $lead->site->approved_at?->toISOString(),
+                    'viewsCount' => (int) $lead->site->views_count,
                 ] : null,
                 'portalUrl' => $lead->portalUrl(),
                 'portalAvailable' => $usage->allows($currentTeam, PlanFeature::ClientPortal),
@@ -128,6 +133,8 @@ class LeadProfileController extends Controller
                 'completedAt' => $task->completed_at?->toISOString(),
                 'assignee' => $task->assignee?->name,
             ]),
+            'inboxConnected' => $currentTeam->mailConnection !== null,
+            'imapSyncEnabled' => (bool) config('inbox.imap_sync_enabled'),
         ]);
     }
 

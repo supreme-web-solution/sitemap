@@ -15,6 +15,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { index as emailTemplatesIndex } from '@/routes/email-templates';
+import { index as mailInboxIndex } from '@/routes/mail-inbox';
+import { store as storeInboundEmail } from '@/routes/leads/inbound-email';
 import { store as storeOutreach } from '@/routes/leads/outreach';
 import type { EmailTemplate, LeadProfile } from '@/types';
 
@@ -39,6 +41,11 @@ const form = useForm({
     mode: 'send' as 'send' | 'log',
     subject: '',
     body: '',
+});
+
+const replyForm = useForm({
+    subject: '',
+    snippet: '',
 });
 
 const applyTemplate = () => {
@@ -173,8 +180,54 @@ const textareaClass =
             </div>
             <p class="text-xs text-muted-foreground">
                 Sending sets the stage to Contacted and schedules a follow-up in
-                3 days. Replies go to your own email address.
+                3 days. Connect your
+                <Link
+                    :href="mailInboxIndex({ current_team: teamSlug })"
+                    class="font-medium text-primary hover:underline"
+                    >email inbox</Link
+                >
+                to import replies automatically, or log one below.
             </p>
+
+            <div class="mt-2 grid gap-3 border-t border-border pt-4">
+                <h3 class="text-sm font-medium">Log email reply</h3>
+                <div class="grid gap-2">
+                    <Label for="reply-subject">Subject</Label>
+                    <Input id="reply-subject" v-model="replyForm.subject" />
+                    <InputError :message="replyForm.errors.subject" />
+                </div>
+                <div class="grid gap-2">
+                    <Label for="reply-snippet">Reply excerpt</Label>
+                    <textarea
+                        id="reply-snippet"
+                        v-model="replyForm.snippet"
+                        rows="4"
+                        :class="textareaClass"
+                    />
+                    <InputError :message="replyForm.errors.snippet" />
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    :disabled="replyForm.processing"
+                    data-test="log-inbound-email"
+                    @click="
+                        replyForm.post(
+                            storeInboundEmail.url({
+                                current_team: teamSlug,
+                                lead: lead.id,
+                            }),
+                            { preserveScroll: true },
+                        )
+                    "
+                >
+                    <LoaderCircle
+                        v-if="replyForm.processing"
+                        class="animate-spin"
+                    />
+                    Log reply on timeline
+                </Button>
+            </div>
         </div>
     </section>
 </template>

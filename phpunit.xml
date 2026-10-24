@@ -36,5 +36,6 @@
         <env name="ANTHROPIC_API_KEY" value="" force="true"/>
         <env name="OPENAI_API_KEY" value="" force="true"/>
         <env name="SITE_PLANNER" value="" force="true"/>
+        <env name="ADMIN_EMAILS" value="" force="true"/>
     </php>
 </phpunit>

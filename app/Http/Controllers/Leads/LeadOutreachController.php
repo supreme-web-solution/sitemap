@@ -11,6 +11,7 @@ use App\Mail\OutreachEmail;
 use App\Models\Lead;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
+use App\Services\Mail\OutboundThreadRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +22,7 @@ class LeadOutreachController extends Controller
     /**
      * Send an email to the lead, or log that you contacted them another way.
      */
-    public function store(SendOutreachRequest $request, Team $currentTeam, Lead $lead, UsageMeter $usage): RedirectResponse
+    public function store(SendOutreachRequest $request, Team $currentTeam, Lead $lead, UsageMeter $usage, OutboundThreadRecorder $threads): RedirectResponse
     {
         $user = $request->user();
         $sending = $request->validated('mode') === 'send';
@@ -35,11 +36,16 @@ class LeadOutreachController extends Controller
         if ($sending) {
             $usage->consume($currentTeam, UsageMetric::Emails);
 
+            $subject = $request->validated('subject');
+            $messageId = $threads->generateMessageId();
+            $threads->record($lead, $subject, $messageId);
+
             Mail::to($lead->email)->queue(new OutreachEmail(
-                $request->validated('subject'),
+                $subject,
                 $request->validated('body'),
                 $user->name,
                 $user->email,
+                $messageId,
             ));
         }
 

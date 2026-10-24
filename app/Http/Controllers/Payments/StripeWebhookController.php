@@ -34,7 +34,10 @@ class StripeWebhookController extends Controller
             $invoice = $account->team->invoices()->find($session['metadata']['invoice_id'] ?? 0);
 
             if ($invoice !== null) {
-                $gateway->settle($invoice, $session);
+                if ($gateway->settle($invoice, $session)) {
+                    $invoice->load('lead');
+                    $gateway->syncPaymentMethodFromCheckout($invoice->lead, $account, $session);
+                }
             }
         }
 

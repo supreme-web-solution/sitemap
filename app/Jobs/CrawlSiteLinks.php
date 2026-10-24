@@ -6,6 +6,7 @@ use App\Models\Site;
 use App\Models\SiteBrokenLink;
 use App\Services\Audit\SafeHttpFetcher;
 use App\Services\Audit\UnsafeUrlException;
+use App\Services\SiteBuilder\DeliveryHeuristics;
 use App\Services\SiteBuilder\SiteRenderer;
 use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -35,7 +36,7 @@ class CrawlSiteLinks implements ShouldBeUnique, ShouldQueue
     /**
      * Fetch pages of the published (or preview) site and record links that do not resolve.
      */
-    public function handle(SiteRenderer $renderer, SafeHttpFetcher $fetcher): void
+    public function handle(SiteRenderer $renderer, SafeHttpFetcher $fetcher, DeliveryHeuristics $heuristics): void
     {
         $html = $renderer->render($this->site, asPreview: ! $this->site->isPublished()) ?? '';
         $urls = $this->extractUrls($html);
@@ -60,7 +61,10 @@ class CrawlSiteLinks implements ShouldBeUnique, ShouldQueue
             SiteBrokenLink::query()->create(['site_id' => $this->site->id, ...$link]);
         }
 
-        $this->site->forceFill(['last_crawled_at' => now()])->save();
+        $this->site->forceFill([
+            'last_crawled_at' => now(),
+            'delivery_findings' => $heuristics->inspect($html),
+        ])->save();
     }
 
     /**

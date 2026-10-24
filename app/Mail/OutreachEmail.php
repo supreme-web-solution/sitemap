@@ -8,6 +8,7 @@ use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Symfony\Component\Mime\Email;
 
 class OutreachEmail extends Mailable
 {
@@ -21,6 +22,7 @@ class OutreachEmail extends Mailable
         public string $emailBody,
         public string $senderName,
         public string $senderEmail,
+        public ?string $outboundMessageId = null,
     ) {}
 
     /**
@@ -31,6 +33,11 @@ class OutreachEmail extends Mailable
         return new Envelope(
             replyTo: [new Address($this->senderEmail, $this->senderName)],
             subject: $this->emailSubject,
+            using: filled($this->outboundMessageId)
+                ? [function (Email $message): void {
+                    $message->getHeaders()->addIdHeader('Message-ID', $this->outboundMessageId);
+                }]
+                : [],
         );
     }
 

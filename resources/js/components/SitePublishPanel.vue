@@ -26,6 +26,11 @@ import {
     destroy as unpublishSite,
     store as publishSite,
 } from '@/routes/sites/publish';
+import {
+    destroy as unpublishStaging,
+    promote as promoteStaging,
+    store as publishStaging,
+} from '@/routes/sites/staging';
 import type { SiteDomain, SitePublishing } from '@/types';
 
 const props = defineProps<{
@@ -91,6 +96,30 @@ const togglePublish = () => {
 const copyValue = async (value: string) => {
     await copy(value);
     toast.success('Copied');
+};
+
+const toggleStaging = () => {
+    const url = props.publishing.isStagingPublished
+        ? unpublishStaging.url(routeArgs())
+        : publishStaging.url(routeArgs());
+
+    router[props.publishing.isStagingPublished ? 'delete' : 'post'](
+        url,
+        {},
+        { preserveScroll: true },
+    );
+};
+
+const promoteToLive = () => {
+    if (
+        !confirm(
+            'Publish this site to production using the staging build? Custom domain DNS must still be verified.',
+        )
+    ) {
+        return;
+    }
+
+    router.post(promoteStaging.url(routeArgs()), {}, { preserveScroll: true });
 };
 </script>
 
@@ -271,6 +300,73 @@ const copyValue = async (value: string) => {
                 </div>
             </li>
         </ul>
+
+        <div
+            class="mt-4 rounded-xl border border-dashed p-4"
+            data-test="staging-panel"
+        >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-sm font-semibold">Staging host</h3>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Review on a production-like URL at
+                        <code class="text-xs">{{ publishing.stagingHostname }}</code>
+                        before going live. Staging is hidden from search engines
+                        and does not need a custom domain.
+                    </p>
+                    <p
+                        v-if="publishing.isStagingPublished"
+                        class="mt-2 text-sm"
+                    >
+                        <a
+                            :href="publishing.stagingUrl"
+                            target="_blank"
+                            rel="noopener"
+                            class="inline-flex items-center gap-1 font-medium underline"
+                        >
+                            {{ publishing.stagingUrl }}
+                            <ExternalLink class="size-3.5" />
+                        </a>
+                        <span
+                            v-if="publishing.stagingPublishedAt"
+                            class="text-muted-foreground"
+                        >
+                            · staging since
+                            {{
+                                formatRelativeTime(publishing.stagingPublishedAt)
+                            }}
+                        </span>
+                    </p>
+                    <p v-else class="mt-2 text-xs text-muted-foreground">
+                        Point DNS wildcard
+                        <code>* .{{ publishing.stagingBaseHost }}</code>
+                        at the app edge when you deploy.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        data-test="toggle-staging"
+                        @click="toggleStaging"
+                    >
+                        {{
+                            publishing.isStagingPublished
+                                ? 'Remove staging'
+                                : 'Publish to staging'
+                        }}
+                    </Button>
+                    <Button
+                        v-if="publishing.canPromoteFromStaging"
+                        type="button"
+                        data-test="promote-staging"
+                        @click="promoteToLive"
+                    >
+                        Promote to live
+                    </Button>
+                </div>
+            </div>
+        </div>
 
         <form
             class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end"

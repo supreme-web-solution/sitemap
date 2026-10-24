@@ -12,10 +12,10 @@ class DispatchSiteGeneration
     /**
      * Queue the website build, collecting Google reviews first when they have not been fetched yet.
      */
-    public function handle(Lead $lead): void
+    public function handle(Lead $lead, ?int $designTemplateId = null): void
     {
         if (! $this->shouldFetchReviews($lead)) {
-            GenerateLeadSite::dispatch($lead);
+            GenerateLeadSite::dispatch($lead, $designTemplateId);
 
             return;
         }
@@ -25,7 +25,7 @@ class DispatchSiteGeneration
             'reviews_fetch_error' => null,
         ]);
 
-        FetchLeadReviews::dispatch($lead, thenGenerate: true);
+        FetchLeadReviews::dispatch($lead, thenGenerate: true, designTemplateId: $designTemplateId);
     }
 
     /**

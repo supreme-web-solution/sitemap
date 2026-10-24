@@ -13,10 +13,16 @@ class SitePreviewController extends Controller
 {
     /**
      * Show a page of the public live preview of a generated website.
+     *
+     * Signed-in members of the owning team may add `?editor=1` to get the visual editor, and
+     * `?internal=1` to skip the expiry, password and view counter. For everyone else both
+     * parameters change nothing about who may see the page.
      */
     public function __invoke(Request $request, Site $site, SiteRenderer $renderer, string $path = ''): Response|View
     {
-        $internal = $request->boolean('internal');
+        $isMember = $this->isTeamMember($request, $site);
+        $editor = $isMember && $request->boolean('editor');
+        $internal = $isMember && ($editor || $request->boolean('internal'));
 
         if (! $internal && $site->preview_expires_at?->isPast()) {
             abort(410, 'This preview has expired.');
@@ -26,14 +32,23 @@ class SitePreviewController extends Controller
             return response()->view('previews.password', ['site' => $site]);
         }
 
-        $html = $renderer->render($site, asPreview: true, path: $path);
+        $html = $renderer->render($site, asPreview: true, path: $path, editor: $editor);
 
         abort_if($html === null, 404);
 
-        if ($path === '' && ! $request->boolean('internal')) {
+        if ($path === '' && ! $request->boolean('internal') && ! $editor) {
             $site->recordView();
         }
 
-        return response($html)->header('X-Robots-Tag', 'noindex, nofollow');
+        $response = response($html)->header('X-Robots-Tag', 'noindex, nofollow');
+
+        return $editor ? $response->header('Cache-Control', 'no-store, private') : $response;
+    }
+
+    protected function isTeamMember(Request $request, Site $site): bool
+    {
+        $user = $request->user();
+
+        return $user !== null && $user->belongsToTeam($site->team);
     }
 }

@@ -7,8 +7,8 @@
 @endphp
 <section id="reviews" class="block reviews-block">
     <div class="container">
-        <span class="section-label">Reviews</span>
-        <h2 class="section-title">What our customers say</h2>
+        <span class="section-label"{!! $e->label('reviews_label') !!}>{{ $e->copy('reviews_label', 'Reviews') }}</span>
+        <h2 class="section-title"{!! $e->label('reviews_title') !!}>{{ $e->copy('reviews_title', 'What our customers say') }}</h2>
         @if ($lead->rating && $lead->reviews_count > 0)
             <p class="reviews-summary">
                 <span class="stars" aria-hidden="true">@for ($i = 0; $i < 5; $i++) @include('sites.icons.star') @endfor</span>

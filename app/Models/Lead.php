@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
 use App\Enums\LostReason;
+use App\Enums\PaymentProvider;
 use App\Enums\SiteGenerationStatus;
 use App\Enums\SiteVibe;
 use App\Observers\LeadObserver;
@@ -66,6 +67,9 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $phone_e164
  * @property Carbon|null $messaging_consent_at
  * @property Carbon|null $messaging_opted_out_at
+ * @property string|null $stripe_customer_id
+ * @property string|null $stripe_payment_method_id
+ * @property string|null $paypal_vault_id
  * @property Carbon|null $reviews_fetched_at
  * @property SiteGenerationStatus $reviews_fetch_status
  * @property string|null $reviews_fetch_error
@@ -166,17 +170,35 @@ class Lead extends Model
     }
 
     /**
-     * Get the teammate responsible for this lead.
-     *
-     * @return BelongsTo<User, $this>
+     * Whether Stripe can charge this lead off-session for recurring billing.
      */
-    public function assignee(): BelongsTo
+    public function hasStripeCardOnFile(): bool
     {
-        return $this->belongsTo(User::class, 'assigned_user_id');
+        return filled($this->stripe_customer_id) && filled($this->stripe_payment_method_id);
     }
 
     /**
-     * Get the follow-up sequences this lead is enrolled in.
+     * Whether PayPal can charge this lead off-session for recurring billing.
+     */
+    public function hasPayPalVaultOnFile(): bool
+    {
+        return filled($this->paypal_vault_id);
+    }
+
+    /**
+     * Whether the given payment provider can auto-charge this lead.
+     */
+    public function hasCardOnFileFor(PaymentProvider $provider): bool
+    {
+        return match ($provider) {
+            PaymentProvider::Stripe => $this->hasStripeCardOnFile(),
+            PaymentProvider::PayPal => $this->hasPayPalVaultOnFile(),
+            default => false,
+        };
+    }
+
+    /**
+     * Get the follow-up sequence enrollments for the lead.
      *
      * @return HasMany<SequenceEnrollment, $this>
      */

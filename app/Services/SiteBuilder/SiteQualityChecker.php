@@ -184,4 +184,28 @@ class SiteQualityChecker
     {
         return compact('key', 'label', 'status', 'detail');
     }
+
+    /**
+     * Instruction sent to the existing AI editor for a quality finding.
+     */
+    public static function aiInstruction(string $key): ?string
+    {
+        return match ($key) {
+            'headline' => 'Shorten the headline to at most 90 characters while keeping the business name and city. Do not invent claims.',
+            'contact' => 'Do not invent a phone number or email. If contact details are missing, make the contact section ask the visitor to reach out without fake numbers.',
+            'services' => 'Write three specific services using only details already on the site. Do not invent licenses or guarantees.',
+            'hours' => 'Do not invent opening hours. If hours are missing, hide the hours section.',
+            'gallery' => 'Do not invent photos. If there are no photos, hide the gallery section.',
+            'reviews' => 'If customer reviews exist, keep the Customer reviews section on. If they do not, switch it off.',
+            'claims' => 'Remove unverified claims such as licensed, insured, 24/7, award-winning, or family-owned unless they already appear in the business notes.',
+            'seo-snippet' => 'Lengthen the tagline and about text so a search snippet can be at least 70 characters, without inventing facts.',
+            'seo-local' => 'Mention the known city in the headline and about text. Do not invent an address.',
+            'seo-service-pages' => 'Expand each service description with unique local detail already known. Do not invent credentials.',
+            'alt' => 'Write short, factual captions in the about or gallery copy that describe the photos. Do not invent what the photos show.',
+            'lang' => 'Do not change facts. Keep the copy in clear English.',
+            'viewport' => 'Keep the layout simple so it works on a phone. Do not add new claims.',
+            'image-weight' => 'Do not embed large images in the copy. Refer to existing photos only.',
+            default => null,
+        };
+    }
 }

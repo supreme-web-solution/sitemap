@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Actions\Invoices\MarkInvoicePaid;
+use App\Enums\RecurringCollectionMode;
 use App\Models\Invoice;
 use App\Models\PaymentAccount;
 use Closure;
@@ -26,8 +27,30 @@ class PayPalGateway implements PaymentGateway
 
     public function startPayment(Invoice $invoice, PaymentAccount $account, string $returnUrl, string $cancelUrl): string
     {
+        $invoice->loadMissing('recurringInvoice', 'lead');
+
         $credentials = $account->credentials;
         $amount = number_format($invoice->total_cents / 100, 2, '.', '');
+
+        $paypalSource = [
+            'experience_context' => [
+                'brand_name' => Str::limit($invoice->team->name, 120, ''),
+                'user_action' => 'PAY_NOW',
+                'shipping_preference' => 'NO_SHIPPING',
+                'return_url' => $returnUrl,
+                'cancel_url' => $cancelUrl,
+            ],
+        ];
+
+        if ($this->shouldSavePaymentMethod($invoice)) {
+            $paypalSource['attributes'] = [
+                'vault' => [
+                    'store_in_vault' => 'ON_SUCCESS',
+                    'usage_type' => 'MERCHANT',
+                    'customer_type' => 'CONSUMER',
+                ],
+            ];
+        }
 
         $response = $this->send(fn () => $this->request($credentials)
             ->withHeaders(['PayPal-Request-Id' => (string) Str::uuid()])
@@ -39,13 +62,7 @@ class PayPalGateway implements PaymentGateway
                     'description' => Str::limit('Invoice '.$invoice->number, 120, ''),
                     'amount' => ['currency_code' => strtoupper($invoice->currency), 'value' => $amount],
                 ]],
-                'payment_source' => ['paypal' => ['experience_context' => [
-                    'brand_name' => Str::limit($invoice->team->name, 120, ''),
-                    'user_action' => 'PAY_NOW',
-                    'shipping_preference' => 'NO_SHIPPING',
-                    'return_url' => $returnUrl,
-                    'cancel_url' => $cancelUrl,
-                ]]],
+                'payment_source' => ['paypal' => $paypalSource],
             ]));
 
         $link = collect($response->json('links', []))->first(fn (array $link) => in_array($link['rel'] ?? '', ['payer-action', 'approve'], true));
@@ -85,7 +102,13 @@ class PayPalGateway implements PaymentGateway
             ? $capture->json()
             : $this->send(fn () => $this->request($credentials)->get($path))->json();
 
-        return $this->settle($invoice, (array) $order);
+        $paid = $this->settle($invoice, (array) $order);
+
+        if ($paid) {
+            $this->syncVaultFromOrder($invoice, (array) $order);
+        }
+
+        return $paid;
     }
 
     /**
@@ -112,6 +135,73 @@ class PayPalGateway implements PaymentGateway
         $this->markPaid->handle($invoice, 'paypal', $capture['id'] ?? $order['id'] ?? null);
 
         return true;
+    }
+
+    /**
+     * Charge a vaulted PayPal payment method for a recurring invoice.
+     */
+    public function attemptOffSessionCharge(Invoice $invoice, PaymentAccount $account): bool
+    {
+        $invoice->loadMissing('lead');
+
+        $lead = $invoice->lead;
+
+        if (! $lead->hasPayPalVaultOnFile()) {
+            return false;
+        }
+
+        $credentials = $account->credentials;
+        $amount = number_format($invoice->total_cents / 100, 2, '.', '');
+
+        $response = $this->send(fn () => $this->request($credentials)
+            ->withHeaders(['PayPal-Request-Id' => (string) Str::uuid()])
+            ->post('/v2/checkout/orders', [
+                'intent' => 'CAPTURE',
+                'purchase_units' => [[
+                    'reference_id' => $invoice->number,
+                    'custom_id' => (string) $invoice->id,
+                    'description' => Str::limit('Invoice '.$invoice->number, 120, ''),
+                    'amount' => ['currency_code' => strtoupper($invoice->currency), 'value' => $amount],
+                ]],
+                'payment_source' => [
+                    'token' => [
+                        'id' => $lead->paypal_vault_id,
+                        'type' => 'PAYMENT_METHOD_TOKEN',
+                    ],
+                ],
+            ]));
+
+        if ($response->failed()) {
+            return false;
+        }
+
+        $order = (array) $response->json();
+
+        if (($order['status'] ?? '') !== 'COMPLETED') {
+            return false;
+        }
+
+        return $this->settle($invoice, $order);
+    }
+
+    /**
+     * Keep the lead's vaulted PayPal token after Checkout when auto-charge is enabled.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    public function syncVaultFromOrder(Invoice $invoice, array $order): void
+    {
+        if (! $this->shouldSavePaymentMethod($invoice)) {
+            return;
+        }
+
+        $vaultId = $order['payment_source']['paypal']['attributes']['vault']['id'] ?? null;
+
+        if (! is_string($vaultId) || $vaultId === '') {
+            return;
+        }
+
+        $invoice->lead->forceFill(['paypal_vault_id' => $vaultId])->save();
     }
 
     public function refundPayment(Invoice $invoice, PaymentAccount $account): void
@@ -226,5 +316,14 @@ class PayPalGateway implements PaymentGateway
         return ($credentials['mode'] ?? 'live') === 'sandbox'
             ? 'https://api-m.sandbox.paypal.com'
             : 'https://api-m.paypal.com';
+    }
+
+    protected function shouldSavePaymentMethod(Invoice $invoice): bool
+    {
+        $schedule = $invoice->recurringInvoice;
+
+        return $schedule !== null
+            && $schedule->collection_mode === RecurringCollectionMode::AutoCharge
+            && $schedule->autoCharges();
     }
 }

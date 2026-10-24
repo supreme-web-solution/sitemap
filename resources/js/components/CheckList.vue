@@ -6,11 +6,15 @@ import {
     XCircle,
 } from '@lucide/vue';
 import type { Component } from 'vue';
+import { Button } from '@/components/ui/button';
 
 type Status = 'pass' | 'warn' | 'fail' | 'verified' | 'inferred' | 'missing';
 
-defineProps<{
+const props = defineProps<{
     items: { key: string; label: string; status: Status; detail: string }[];
+    onFix?: (key: string) => void;
+    fixableKeys?: string[];
+    busy?: boolean;
 }>();
 
 const tones: Record<Status, { icon: Component; classes: string }> = {
@@ -20,6 +24,20 @@ const tones: Record<Status, { icon: Component; classes: string }> = {
     inferred: { icon: AlertTriangle, classes: 'text-amber-500' },
     fail: { icon: XCircle, classes: 'text-rose-500' },
     missing: { icon: CircleDashed, classes: 'text-muted-foreground' },
+};
+
+const canFix = (item: { key: string; status: Status }) => {
+    if (!props.onFix) {
+        return false;
+    }
+
+    if (item.status !== 'warn' && item.status !== 'fail') {
+        return false;
+    }
+
+    return props.fixableKeys === undefined
+        ? true
+        : props.fixableKeys.includes(item.key);
 };
 </script>
 
@@ -37,7 +55,7 @@ const tones: Record<Status, { icon: Component; classes: string }> = {
                     tones[item.status].classes,
                 ]"
             />
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
                 <p class="text-sm font-medium">
                     {{ item.label }}
                     <span
@@ -50,6 +68,17 @@ const tones: Record<Status, { icon: Component; classes: string }> = {
                     >
                 </p>
                 <p class="text-sm text-muted-foreground">{{ item.detail }}</p>
+                <Button
+                    v-if="canFix(item)"
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    class="mt-2"
+                    :disabled="busy"
+                    @click="onFix?.(item.key)"
+                >
+                    Fix with AI
+                </Button>
             </div>
         </li>
     </ul>

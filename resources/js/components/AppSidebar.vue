@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    Compass,
     FileText,
     Gauge,
     Globe,
+    Inbox,
     Layers,
+    Megaphone,
+    Rocket,
     ShieldCheck,
     Kanban,
     LayoutGrid,
@@ -18,11 +22,14 @@ import {
     Search,
     Settings,
     Target,
+    TrendingUp,
     Wallet,
     Users,
+    HandCoins,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
+import NavCollapsibleSection from '@/components/NavCollapsibleSection.vue';
 import NavMain from '@/components/NavMain.vue';
 import SidebarSearch from '@/components/SidebarSearch.vue';
 import TeamSwitcher from '@/components/TeamSwitcher.vue';
@@ -39,11 +46,13 @@ import { index as adminPlansIndex } from '@/routes/admin/plans';
 import { index as adminTeamsIndex } from '@/routes/admin/teams';
 import { index as adminUsersIndex } from '@/routes/admin/users';
 import { index as emailTemplatesIndex } from '@/routes/email-templates';
+import { index as mailInboxIndex } from '@/routes/mail-inbox';
 import { edit as idealCustomerEdit } from '@/routes/ideal-customer';
 import { index as researchIndex } from '@/routes/research';
 import { index as reportsIndex } from '@/routes/reports';
 import { index as sequencesIndex } from '@/routes/sequences';
 import { index as invoicesIndex } from '@/routes/invoices';
+import { index as recurringIndex } from '@/routes/recurring-invoices';
 import { board as leadsBoard, index as leadsIndex } from '@/routes/leads';
 import { index as messagingIndex } from '@/routes/messaging';
 import { index as packagesIndex } from '@/routes/packages';
@@ -58,105 +67,32 @@ import type { LeadStatus, NavItem } from '@/types';
 
 const page = usePage();
 
+const team = computed(() => page.props.currentTeam);
+
 const dashboardUrl = computed(() =>
-    page.props.currentTeam ? dashboard(page.props.currentTeam.slug).url : '/',
+    team.value ? dashboard(team.value.slug).url : '/',
 );
 
-const overviewItems = computed<NavItem[]>(() => {
-    const team = page.props.currentTeam;
-
-    return [
-        {
-            title: 'Dashboard',
-            href: dashboardUrl.value,
-            icon: LayoutGrid,
-            exact: true,
-        },
-        ...(team
-            ? [
-                  {
-                      title: 'Leads',
-                      href: leadsIndex({ current_team: team.slug }).url,
-                      icon: MapPinned,
-                  },
-                  {
-                      title: 'Pipeline board',
-                      href: leadsBoard({ current_team: team.slug }).url,
-                      icon: Kanban,
-                  },
-                  {
-                      title: 'Websites',
-                      href: sitesIndex({ current_team: team.slug }).url,
-                      icon: Globe,
-                  },
-                  {
-                      title: 'Email Studio',
-                      href: emailTemplatesIndex({ current_team: team.slug })
-                          .url,
-                      icon: Mail,
-                  },
-                  {
-                      title: 'Sequences',
-                      href: sequencesIndex({ current_team: team.slug }).url,
-                      icon: Repeat,
-                  },
-                  {
-                      title: 'Reports',
-                      href: reportsIndex({ current_team: team.slug }).url,
-                      icon: FileText,
-                  },
-                  {
-                      title: 'Niche research',
-                      href: researchIndex({ current_team: team.slug }).url,
-                      icon: Search,
-                  },
-                  {
-                      title: 'Ideal customer',
-                      href: idealCustomerEdit({ current_team: team.slug }).url,
-                      icon: Target,
-                  },
-                  {
-                      title: 'Messaging',
-                      href: messagingIndex({ current_team: team.slug }).url,
-                      icon: MessageSquareText,
-                  },
-                  {
-                      title: 'Proposals',
-                      href: proposalsIndex({ current_team: team.slug }).url,
-                      icon: FileText,
-                  },
-                  {
-                      title: 'Packages',
-                      href: packagesIndex({ current_team: team.slug }).url,
-                      icon: Package,
-                  },
-                  {
-                      title: 'Invoices',
-                      href: invoicesIndex({ current_team: team.slug }).url,
-                      icon: Receipt,
-                  },
-                  {
-                      title: 'Payments',
-                      href: paymentsIndex({ current_team: team.slug }).url,
-                      icon: Wallet,
-                  },
-              ]
-            : []),
-    ];
-});
+const homeItems = computed<NavItem[]>(() => [
+    {
+        title: 'Dashboard',
+        href: dashboardUrl.value,
+        icon: LayoutGrid,
+        exact: true,
+    },
+]);
 
 const pipelineStages: { status: LeadStatus; title: string; dot: string }[] = [
     { status: 'new', title: 'New leads', dot: 'bg-sky-500' },
+    { status: 'site_generated', title: 'Site generated', dot: 'bg-indigo-500' },
     { status: 'contacted', title: 'Contacted', dot: 'bg-amber-500' },
     { status: 'interested', title: 'Interested', dot: 'bg-violet-500' },
     { status: 'won', title: 'Won', dot: 'bg-emerald-500' },
     { status: 'lost', title: 'Lost', dot: 'bg-rose-400' },
 ];
 
-const pipelineItems = computed<NavItem[]>(() => {
-    const team = page.props.currentTeam;
-
-    if (!team) {
+const pipelineShortcuts = computed<NavItem[]>(() => {
+    if (!team.value) {
         return [];
     }
 
@@ -164,10 +100,143 @@ const pipelineItems = computed<NavItem[]>(() => {
         title: stage.title,
         dot: stage.dot,
         href: leadsIndex(
-            { current_team: team.slug },
+            { current_team: team.value!.slug },
             { query: { status: stage.status } },
         ).url,
     }));
+});
+
+const discoverItems = computed<NavItem[]>(() => {
+    if (!team.value) {
+        return [];
+    }
+
+    const slug = team.value.slug;
+
+    return [
+        {
+            title: 'Leads',
+            href: leadsIndex({ current_team: slug }).url,
+            icon: MapPinned,
+            exact: true,
+        },
+        {
+            title: 'Niche research',
+            href: researchIndex({ current_team: slug }).url,
+            icon: Search,
+        },
+        {
+            title: 'Ideal customer',
+            href: idealCustomerEdit({ current_team: slug }).url,
+            icon: Target,
+        },
+    ];
+});
+
+const buildItems = computed<NavItem[]>(() => {
+    if (!team.value) {
+        return [];
+    }
+
+    return [
+        {
+            title: 'Websites',
+            href: sitesIndex({ current_team: team.value.slug }).url,
+            icon: Globe,
+        },
+    ];
+});
+
+const sellItems = computed<NavItem[]>(() => {
+    if (!team.value) {
+        return [];
+    }
+
+    const slug = team.value.slug;
+
+    return [
+        {
+            title: 'Pipeline board',
+            href: leadsBoard({ current_team: slug }).url,
+            icon: Kanban,
+            exact: true,
+        },
+        {
+            title: 'Email Studio',
+            href: emailTemplatesIndex({ current_team: slug }).url,
+            icon: Mail,
+        },
+        {
+            title: 'Email inbox',
+            href: mailInboxIndex({ current_team: slug }).url,
+            icon: Inbox,
+        },
+        {
+            title: 'Sequences',
+            href: sequencesIndex({ current_team: slug }).url,
+            icon: Repeat,
+        },
+        {
+            title: 'Messaging',
+            href: messagingIndex({ current_team: slug }).url,
+            icon: MessageSquareText,
+        },
+        {
+            title: 'Proposals',
+            href: proposalsIndex({ current_team: slug }).url,
+            icon: FileText,
+        },
+        {
+            title: 'Packages',
+            href: packagesIndex({ current_team: slug }).url,
+            icon: Package,
+        },
+    ];
+});
+
+const growItems = computed<NavItem[]>(() => {
+    if (!team.value) {
+        return [];
+    }
+
+    const slug = team.value.slug;
+
+    return [
+        {
+            title: 'Invoices',
+            href: invoicesIndex({ current_team: slug }).url,
+            icon: Receipt,
+        },
+        {
+            title: 'Recurring billing',
+            href: recurringIndex({ current_team: slug }).url,
+            icon: HandCoins,
+        },
+        {
+            title: 'Payments',
+            href: paymentsIndex({ current_team: slug }).url,
+            icon: Wallet,
+        },
+        {
+            title: 'Reports',
+            href: reportsIndex({ current_team: slug }).url,
+            icon: FileText,
+        },
+    ];
+});
+
+const deliverItems = computed<NavItem[]>(() => {
+    if (!team.value) {
+        return [];
+    }
+
+    return [
+        {
+            title: 'Branding & previews',
+            href: brandingEdit({ current_team: team.value.slug }).url,
+            icon: Palette,
+        },
+    ];
 });
 
 const adminItems: NavItem[] = [
@@ -177,30 +246,19 @@ const adminItems: NavItem[] = [
     { title: 'Plans', href: adminPlansIndex().url, icon: Layers },
 ];
 
-const toolItems = computed<NavItem[]>(() => [
-    ...(page.props.currentTeam
+const workspaceItems = computed<NavItem[]>(() => [
+    ...(team.value
         ? [
               {
                   title: 'Plan & usage',
-                  href: planIndex({ current_team: page.props.currentTeam.slug }).url,
+                  href: planIndex({ current_team: team.value.slug }).url,
                   icon: Gauge,
-              },
-              {
-                  title: 'Branding',
-                  href: brandingEdit({ current_team: page.props.currentTeam.slug }).url,
-                  icon: Palette,
               },
           ]
         : []),
     { title: 'Teams', href: teamsIndex().url, icon: Users },
     { title: 'Settings', href: editProfile().url, icon: Settings },
 ]);
-
-const leadsUrl = computed(() =>
-    page.props.currentTeam
-        ? leadsIndex({ current_team: page.props.currentTeam.slug }).url
-        : '/',
-);
 </script>
 
 <template>
@@ -220,19 +278,49 @@ const leadsUrl = computed(() =>
             <SidebarSearch />
         </SidebarHeader>
 
-        <SidebarContent class="gap-2 pt-2">
-            <NavMain label="Overview" :items="overviewItems" />
-            <NavMain v-if="page.props.auth.isAdmin" label="Admin" :items="adminItems" />
+        <SidebarContent class="gap-1 pt-1">
+            <NavMain label="Home" :items="homeItems" />
+
+            <template v-if="team">
+                <NavCollapsibleSection
+                    label="Discover"
+                    :icon="Compass"
+                    :items="discoverItems"
+                    :sub-items="pipelineShortcuts"
+                    sub-label="Pipeline stages"
+                    :action="{ title: 'New search', href: dashboardUrl }"
+                />
+                <NavCollapsibleSection
+                    label="Build"
+                    :icon="Globe"
+                    :items="buildItems"
+                />
+                <NavCollapsibleSection
+                    label="Sell"
+                    :icon="Megaphone"
+                    :items="sellItems"
+                />
+                <NavCollapsibleSection
+                    label="Grow"
+                    :icon="TrendingUp"
+                    :items="growItems"
+                />
+                <NavCollapsibleSection
+                    label="Deliver"
+                    :icon="Rocket"
+                    :items="deliverItems"
+                />
+            </template>
+
             <NavMain
-                v-if="pipelineItems.length"
-                label="Pipeline"
-                :items="pipelineItems"
-                :action="{ title: 'New search', href: leadsUrl }"
+                v-if="page.props.auth.isAdmin"
+                label="Admin"
+                :items="adminItems"
             />
         </SidebarContent>
 
-        <SidebarFooter class="gap-3 px-3 pb-4">
-            <NavMain label="Tools" :items="toolItems" class="px-0" />
+        <SidebarFooter class="gap-2 px-3 pb-4">
+            <NavMain label="Workspace" :items="workspaceItems" />
             <TeamSwitcher />
         </SidebarFooter>
     </Sidebar>

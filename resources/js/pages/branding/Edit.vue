@@ -1,18 +1,36 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { LoaderCircle } from '@lucide/vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    destroy as destroyPreviewDomain,
+    store as storePreviewDomain,
+    verify as verifyPreviewDomainRoute,
+} from '@/routes/branding/preview-domain';
 import { update } from '@/routes/branding';
-import { usePage } from '@inertiajs/vue3';
+
+type DnsRecord = {
+    type: string;
+    name: string;
+    value: string;
+    purpose: string;
+};
 
 const props = defineProps<{
     canManage: boolean;
+    canUsePreviewDomain: boolean;
     brand: { name: string; logoUrl: string; color: string; email: string };
     preview: { name: string; poweredBy: boolean };
+    previewDomain: {
+        hostname: string;
+        verified: boolean;
+        checkError: string | null;
+        dnsRecords: DnsRecord[];
+    } | null;
 }>();
 
 defineOptions({
@@ -20,6 +38,7 @@ defineOptions({
 });
 
 const page = usePage();
+const teamSlug = page.props.currentTeam?.slug ?? '';
 
 const form = useForm({
     name: props.brand.name,
@@ -28,15 +47,33 @@ const form = useForm({
     email: props.brand.email,
 });
 
+const previewDomainForm = useForm({
+    hostname: props.previewDomain?.hostname ?? '',
+});
+
 const submit = () => {
     form.transform((data) => ({
         name: data.name || null,
         logo_url: data.logo_url || null,
         color: data.color || null,
         email: data.email || null,
-    })).put(update.url(page.props.currentTeam?.slug ?? ''), {
+    })).put(update.url(teamSlug), {
         preserveScroll: true,
     });
+};
+
+const savePreviewDomain = () => {
+    previewDomainForm.post(storePreviewDomain.url(teamSlug), {
+        preserveScroll: true,
+    });
+};
+
+const verifyPreviewDomain = () => {
+    router.post(verifyPreviewDomainRoute.url(teamSlug), {}, { preserveScroll: true });
+};
+
+const removePreviewDomain = () => {
+    router.delete(destroyPreviewDomain.url(teamSlug), { preserveScroll: true });
 };
 </script>
 
@@ -94,5 +131,72 @@ const submit = () => {
                 </Button>
             </div>
         </form>
+
+        <section v-if="previewDomain" class="grid gap-4 panel p-5">
+            <div>
+                <h2 class="text-lg font-semibold">Preview domain</h2>
+                <p class="text-sm text-muted-foreground">
+                    Serve shareable website previews on your own hostname (for example
+                    <span class="font-mono">previews.youragency.com</span>) instead of this app’s URL.
+                </p>
+            </div>
+
+            <form v-if="canManage" class="grid gap-3" @submit.prevent="savePreviewDomain">
+                <div class="grid gap-2">
+                    <Label for="preview-hostname">Hostname</Label>
+                    <Input
+                        id="preview-hostname"
+                        v-model="previewDomainForm.hostname"
+                        placeholder="previews.youragency.com"
+                    />
+                    <InputError :message="previewDomainForm.errors.hostname" />
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <Button type="submit" :disabled="previewDomainForm.processing">Save hostname</Button>
+                    <Button
+                        v-if="previewDomain.hostname"
+                        type="button"
+                        variant="secondary"
+                        @click="verifyPreviewDomain"
+                    >
+                        Check DNS
+                    </Button>
+                    <Button
+                        v-if="previewDomain.hostname"
+                        type="button"
+                        variant="ghost"
+                        @click="removePreviewDomain"
+                    >
+                        Remove
+                    </Button>
+                </div>
+            </form>
+
+            <p v-if="previewDomain.verified" class="text-sm text-emerald-600 dark:text-emerald-400">
+                Verified — outreach and copy-link use this hostname.
+            </p>
+            <p v-else-if="previewDomain.checkError" class="text-sm text-destructive">
+                {{ previewDomain.checkError }}
+            </p>
+
+            <div v-if="previewDomain.dnsRecords.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-muted-foreground">
+                            <th class="pb-2 pr-3">Type</th>
+                            <th class="pb-2 pr-3">Name</th>
+                            <th class="pb-2 pr-3">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(record, index) in previewDomain.dnsRecords" :key="index">
+                            <td class="py-1 pr-3 font-mono">{{ record.type }}</td>
+                            <td class="py-1 pr-3 font-mono">{{ record.name }}</td>
+                            <td class="py-1 pr-3 font-mono">{{ record.value }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 </template>

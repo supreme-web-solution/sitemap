@@ -39,6 +39,13 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, LeadSearch> $leadSearches
  * @property-read Collection<int, Lead> $leads
  * @property-read Collection<int, Site> $sites
+ * @property array<string, int>|null $score_weights
+ * @property array<string, mixed>|null $ideal_customer
+ * @property string|null $preview_hostname
+ * @property string|null $preview_hostname_token
+ * @property Carbon|null $preview_hostname_verified_at
+ * @property Carbon|null $preview_hostname_checked_at
+ * @property string|null $preview_hostname_check_error
  */
 #[Fillable(['name', 'slug', 'is_personal'])]
 class Team extends Model
@@ -83,6 +90,39 @@ class Team extends Model
     }
 
     /**
+     * Limit the query to teams whose branded preview hostname is verified.
+     *
+     * @param  Builder<Team>  $query
+     */
+    public function scopeVerifiedPreviewHostname(Builder $query, string $hostname): void
+    {
+        $query->where('preview_hostname', strtolower($hostname))
+            ->whereNotNull('preview_hostname_verified_at');
+    }
+
+    /**
+     * Whether the team serves previews on its own hostname.
+     */
+    public function hasVerifiedPreviewHostname(): bool
+    {
+        return filled($this->preview_hostname) && $this->preview_hostname_verified_at !== null;
+    }
+
+    /**
+     * Origin (scheme + host) for shareable preview links, when verified.
+     */
+    public function brandedPreviewOrigin(): ?string
+    {
+        if (! $this->hasVerifiedPreviewHostname()) {
+            return null;
+        }
+
+        $scheme = config('sites.force_https') ? 'https' : 'http';
+
+        return $scheme.'://'.strtolower((string) $this->preview_hostname);
+    }
+
+    /**
      * Get the team's SMS and WhatsApp connection.
      *
      * @return HasOne<MessagingAccount, $this>
@@ -90,6 +130,16 @@ class Team extends Model
     public function messagingAccount(): HasOne
     {
         return $this->hasOne(MessagingAccount::class);
+    }
+
+    /**
+     * Get the team's connected email inbox for reply sync.
+     *
+     * @return HasOne<MailConnection, $this>
+     */
+    public function mailConnection(): HasOne
+    {
+        return $this->hasOne(MailConnection::class);
     }
 
     /**
@@ -341,6 +391,29 @@ class Team extends Model
     }
 
     /**
+     * Opportunity score weights for this team, falling back to the app defaults.
+     *
+     * @return array<string, int>
+     */
+    public function scoreWeights(): array
+    {
+        $defaults = config('prospecting.score_weights');
+        $custom = $this->score_weights;
+
+        if (! is_array($custom)) {
+            return $defaults;
+        }
+
+        $weights = [];
+
+        foreach ($defaults as $key => $fallback) {
+            $weights[$key] = (int) ($custom[$key] ?? $fallback);
+        }
+
+        return array_sum($weights) === 100 ? $weights : $defaults;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -350,6 +423,7 @@ class Team extends Model
         return [
             'is_personal' => 'boolean',
             'ideal_customer' => 'array',
+            'score_weights' => 'array',
         ];
     }
 

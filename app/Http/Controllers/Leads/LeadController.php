@@ -26,7 +26,7 @@ class LeadController extends Controller
         $filters = $request->filters();
 
         $leads = $currentTeam->leads()
-            ->with('site:id,lead_id,slug')
+            ->with(['site:id,lead_id,team_id,slug', 'site.team:id,preview_hostname,preview_hostname_verified_at'])
             ->filteredBy($filters)
             ->when(isset($filters['ideal']), fn ($query) => $currentTeam->applyIdealCustomerFilter($query))
             ->sortedBy($filters['sort'] ?? null)

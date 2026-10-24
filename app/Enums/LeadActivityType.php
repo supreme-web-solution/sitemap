@@ -10,6 +10,7 @@ enum LeadActivityType: string
     case SiteGenerated = 'site_generated';
     case WebsiteAudited = 'website_audited';
     case EmailSent = 'email_sent';
+    case EmailReceived = 'email_received';
     case MarkedContacted = 'marked_contacted';
     case FollowUpScheduled = 'follow_up_scheduled';
     case PreviewInterest = 'preview_interest';
@@ -24,6 +25,7 @@ enum LeadActivityType: string
     case MessageSent = 'message_sent';
     case MessageReceived = 'message_received';
     case SiteEdited = 'site_edited';
+    case ProfileEnriched = 'profile_enriched';
 
     /**
      * Get the display label for the activity type.
@@ -37,6 +39,7 @@ enum LeadActivityType: string
             self::SiteGenerated => 'Website generated',
             self::WebsiteAudited => 'Website audited',
             self::EmailSent => 'Email sent',
+            self::EmailReceived => 'Email reply received',
             self::MarkedContacted => 'Marked as contacted',
             self::FollowUpScheduled => 'Follow-up scheduled',
             self::PreviewInterest => 'Prospect replied from preview',
@@ -51,6 +54,7 @@ enum LeadActivityType: string
             self::MessageSent => 'Message sent',
             self::MessageReceived => 'Message received',
             self::SiteEdited => 'Website edited',
+            self::ProfileEnriched => 'Profile enriched',
         };
     }
 }

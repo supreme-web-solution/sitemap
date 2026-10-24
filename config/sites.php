@@ -16,6 +16,9 @@ return [
 
     'app_hosts' => array_filter(array_map('trim', explode(',', (string) env('SITES_APP_HOSTS', '')))),
 
+    // Suffix for per-site staging hosts: {site-slug}.{staging_base_host} (defaults to staging.{APP_URL host}).
+    'staging_base_host' => env('SITES_STAGING_BASE_HOST'),
+
     // The hostname customers create a CNAME record for (e.g. sites.yourapp.com).
     'cname_target' => env('SITES_CNAME_TARGET'),
 
@@ -37,5 +40,20 @@ return [
 
     // Seconds a rendered page is kept server-side. Edits clear it sooner.
     'html_cache_seconds' => 3600,
+
+    // Supported visitor locales (ISO 639-1). English is always the default unless overridden per site.
+    'locales' => [
+        'en' => 'English',
+        'es' => 'Español',
+        'fr' => 'Français',
+        'de' => 'Deutsch',
+        'pt' => 'Português',
+    ],
+
+    // Extra locales an agency may add beyond the default.
+    'max_extra_locales' => (int) env('SITES_MAX_EXTRA_LOCALES', 3),
+
+    // OpenAI image model for editor/generation assists.
+    'image_model' => env('OPENAI_IMAGE_MODEL', 'gpt-image-1'),
 
 ];

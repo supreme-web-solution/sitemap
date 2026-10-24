@@ -10,6 +10,7 @@ use App\Mail\OutreachEmail;
 use App\Models\SequenceEnrollment;
 use App\Models\User;
 use App\Services\Billing\UsageMeter;
+use App\Services\Mail\OutboundThreadRecorder;
 use App\Services\Outreach\MergeFieldRenderer;
 use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -43,7 +44,7 @@ class SendSequenceStep implements ShouldBeUnique, ShouldQueue
     /**
      * Send the next email in the sequence, then schedule the following step.
      */
-    public function handle(MergeFieldRenderer $merge, UsageMeter $usage): void
+    public function handle(MergeFieldRenderer $merge, UsageMeter $usage, OutboundThreadRecorder $threads): void
     {
         $enrollment = $this->enrollment->fresh(['lead', 'sequence.steps', 'lead.team']);
 
@@ -86,11 +87,15 @@ class SendSequenceStep implements ShouldBeUnique, ShouldQueue
         $subject = $merge->render($step->subject, $lead, $owner);
         $body = $merge->render($step->body, $lead, $owner);
 
+        $messageId = $threads->generateMessageId();
+        $threads->record($lead, $subject, $messageId);
+
         Mail::to($lead->email)->queue(new OutreachEmail(
             $subject,
             $body,
             $owner->name,
             $owner->email,
+            $messageId,
         ));
 
         $lead->recordActivity(
@@ -99,7 +104,12 @@ class SendSequenceStep implements ShouldBeUnique, ShouldQueue
             ['enrollment_id' => $enrollment->id, 'step' => $step->position],
         );
 
-        $lead->forceFill(['last_contacted_at' => now()])->save();
+        $lead->forceFill([
+            'status' => in_array($lead->status, [LeadStatus::New, LeadStatus::SiteGenerated], true)
+                ? LeadStatus::Contacted
+                : $lead->status,
+            'last_contacted_at' => now(),
+        ])->save();
 
         $next = $enrollment->sequence->steps->firstWhere('position', $step->position + 1);
 

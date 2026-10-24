@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sites;
 
 use App\Http\Controllers\Controller;
 use App\Models\Site;
+use App\Services\Preview\PreviewLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -24,7 +25,7 @@ class PreviewUnlockController extends Controller
 
         $request->session()->put($this->sessionKey($site), true);
 
-        return redirect()->route('sites.preview', $site->slug);
+        return redirect(PreviewLink::page($site));
     }
 
     public static function sessionKey(Site $site): string

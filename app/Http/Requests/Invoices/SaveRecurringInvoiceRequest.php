@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Invoices;
 
 use App\Enums\BillingInterval;
+use App\Enums\PaymentProvider;
+use App\Enums\RecurringCollectionMode;
 use App\Http\Requests\Concerns\HasInvoiceItems;
 use App\Models\RecurringInvoice;
 use App\Models\Team;
@@ -47,6 +49,14 @@ class SaveRecurringInvoiceRequest extends FormRequest
             'due_in_days' => ['required', 'integer', 'min:0', 'max:90'],
             'email_client' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            ...($isNew ? [
+                'collection_mode' => ['required', Rule::enum(RecurringCollectionMode::class)],
+                'payment_provider' => [
+                    'nullable',
+                    Rule::enum(PaymentProvider::class),
+                    Rule::requiredIf(fn () => $this->input('collection_mode') === RecurringCollectionMode::AutoCharge->value),
+                ],
+            ] : []),
             ...$this->itemRules(),
         ];
     }
@@ -56,6 +66,35 @@ class SaveRecurringInvoiceRequest extends FormRequest
      */
     public function after(): array
     {
-        return [fn (Validator $validator) => $this->validateMinimumTotal($validator)];
+        return [
+            fn (Validator $validator) => $this->validateMinimumTotal($validator),
+            function (Validator $validator) {
+                if ($this->input('collection_mode') !== RecurringCollectionMode::AutoCharge->value) {
+                    return;
+                }
+
+                /** @var Team $team */
+                $team = $this->route('current_team');
+                $provider = PaymentProvider::tryFrom((string) $this->input('payment_provider'));
+
+                if ($provider === null || ! in_array($provider, [PaymentProvider::Stripe, PaymentProvider::PayPal], true)) {
+                    $validator->errors()->add(
+                        'payment_provider',
+                        __('Choose Stripe or PayPal for automatic charging.'),
+                    );
+
+                    return;
+                }
+
+                if (! $team->paymentAccounts()->where('provider', $provider)->exists()) {
+                    $validator->errors()->add(
+                        'collection_mode',
+                        __('Connect :provider on the Payments page before enabling automatic charging.', [
+                            'provider' => $provider->label(),
+                        ]),
+                    );
+                }
+            },
+        ];
     }
 }

@@ -4,6 +4,7 @@ use App\Enums\SiteGenerationStatus;
 use App\Enums\SiteVibe;
 use App\Jobs\GenerateLeadSite;
 use App\Models\Lead;
+use App\Models\Site;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -112,6 +113,28 @@ test('uploads must be images', function () {
             'logo' => UploadedFile::fake()->create('logo.pdf', 10, 'application/pdf'),
         ]))
         ->assertSessionHasErrors('logo');
+});
+
+test('lead profile exposes preview and view count for the redesign workflow', function () {
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'website' => 'https://client.example',
+    ]);
+    Site::factory()->create([
+        'lead_id' => $lead->id,
+        'team_id' => $user->currentTeam->id,
+        'views_count' => 2,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('leads.edit', ['current_team' => $user->currentTeam->slug, 'lead' => $lead->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('leads/Edit')
+            ->where('lead.website', 'https://client.example')
+            ->where('lead.site.viewsCount', 2)
+            ->where('lead.site.previewUrl', fn ($url) => is_string($url) && $url !== ''),
+        );
 });
 
 test('another team lead cannot be reviewed', function () {

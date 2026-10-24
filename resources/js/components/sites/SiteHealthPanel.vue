@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router, useForm } from '@inertiajs/vue3';
 import { LoaderCircle } from '@lucide/vue';
+import CheckList from '@/components/CheckList.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,12 @@ const props = defineProps<{
     health: SiteHealth;
     transferredAt: string | null;
     transferredToEmail: string | null;
+    canFix?: boolean;
+    fixing?: boolean;
+}>();
+
+const emit = defineEmits<{
+    fix: [key: string];
 }>();
 
 const args = { current_team: props.teamSlug, site: props.siteId };
@@ -49,6 +56,14 @@ const transfer = () =>
                 · crawled {{ formatRelativeTime(health.lastCrawledAt) }}
             </template>
         </p>
+        <CheckList
+            v-if="health.findings.length"
+            class="mt-4"
+            :items="health.findings"
+            :on-fix="canFix ? (key) => emit('fix', key) : undefined"
+            :fixable-keys="['alt']"
+            :busy="fixing"
+        />
         <ul v-if="health.brokenLinks.length" class="mt-3 grid gap-1 text-sm">
             <li v-for="link in health.brokenLinks" :key="link.id" class="break-all">
                 {{ link.url }}

@@ -50,7 +50,7 @@ class FetchLeadReviews implements ShouldBeUnique, ShouldQueue
      * When $thenGenerate is true the website is built once the reviews are in,
      * whether or not they could be fetched.
      */
-    public function __construct(public Lead $lead, public bool $thenGenerate = false)
+    public function __construct(public Lead $lead, public bool $thenGenerate = false, public ?int $designTemplateId = null)
     {
         $this->onQueue(Queues::DEFAULT);
     }
@@ -136,7 +136,7 @@ class FetchLeadReviews implements ShouldBeUnique, ShouldQueue
     protected function finish(): void
     {
         if ($this->thenGenerate) {
-            GenerateLeadSite::dispatch($this->lead);
+            GenerateLeadSite::dispatch($this->lead, $this->designTemplateId);
         }
     }
 

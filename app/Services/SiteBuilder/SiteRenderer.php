@@ -3,9 +3,12 @@
 namespace App\Services\SiteBuilder;
 
 use App\Enums\ReviewsStyle;
+use App\Enums\SiteLayoutVariant;
 use App\Enums\SiteSection;
+use App\Http\Controllers\Sites\PreviewSectionViewController;
 use App\Models\Lead;
 use App\Models\Site;
+use App\Services\Preview\PreviewLink;
 
 class SiteRenderer
 {
@@ -26,29 +29,42 @@ class SiteRenderer
     /**
      * Render one page of the site as a self-contained HTML document, or null when the site has no such page.
      */
-    public function render(Site $site, bool $asPreview = false, string $path = '', ?SiteUrls $urls = null): ?string
+    public function render(Site $site, bool $asPreview = false, string $path = '', ?SiteUrls $urls = null, bool $editor = false, bool $asStaging = false): ?string
     {
-        $page = $this->pages->resolve($site, $path);
+        $site->loadMissing(['lead', 'designTemplate']);
+
+        $parsed = SiteLocales::parsePath($site, $path);
+        $locale = $parsed['locale'];
+        $innerPath = $parsed['path'];
+        $defaultLocale = SiteLocales::default($site->content);
+        $content = SiteLocales::merge($site->content, $locale);
+
+        $renderSite = clone $site;
+        $renderSite->content = $content;
+
+        $page = $this->pages->resolve($renderSite, $innerPath);
 
         if ($page === null) {
             return null;
         }
 
         $urls ??= $asPreview
-            ? SiteUrls::preview($site, request()->boolean('internal'))
-            : SiteUrls::root();
+            ? SiteUrls::preview($site, request()->boolean('internal') || $editor, $editor, $locale)
+            : SiteUrls::root(defaultLocale: $defaultLocale, locale: $locale);
+
+        $editor = $editor && $asPreview;
 
         $lead = $site->lead;
-        $content = $site->content;
         $photos = $lead->photoUrls();
         $hours = $this->orderedHours($lead->opening_hours);
         $mapEmbedUrl = $this->mapEmbedUrl($lead->name, $lead->address);
         $reviews = $lead->testimonials();
         $reviewsStyle = $this->reviewsStyle($content, $reviews->count());
-        $seo = $this->seo->for($site, $page, $urls, $asPreview);
+        $seo = $this->seo->for($renderSite, $page, $urls, $asPreview, $asStaging, $content);
+        $layoutVariant = $site->designTemplate?->layout_variant ?? SiteLayoutVariant::Standard;
 
         return view('sites.pages.'.$page['type'], [
-            'site' => $site,
+            'site' => $renderSite,
             'lead' => $lead,
             'content' => $content,
             'page' => $page,
@@ -56,7 +72,7 @@ class SiteRenderer
             'seo' => $seo,
             'seoBuilder' => $this->seo,
             'breadcrumbs' => $seo['breadcrumbs'],
-            'nav' => $this->navigation($site, $urls),
+            'nav' => $this->navigation($renderSite, $urls, $content),
             'services' => $this->pages->services($content),
             'posts' => $page['type'] === 'blog' ? $this->pages->posts($site) : collect(),
             'sections' => $this->visibleSections($content, $photos, $hours, $mapEmbedUrl, $reviews->count()),
@@ -65,13 +81,28 @@ class SiteRenderer
             'reviewsUrl' => $lead->reviewsUrl(),
             'onAccent' => $this->readableTextOn($content['accent']),
             'template' => $site->template->value,
-            'asPreview' => $asPreview,
+            'layoutClass' => $layoutVariant->bodyClass(),
+            'locale' => $locale,
+            'localeSwitcher' => count(SiteLocales::available($site->content)) > 1
+                ? SiteLocales::switcher($site, $urls, $page['path'])
+                : [],
+            'asPreview' => $asPreview && ! $editor,
+            'editing' => $editor,
+            'e' => new SiteEditing($content, $editor),
+            'designCss' => SiteDesign::css($content),
+            'designFontsUrl' => SiteDesign::fontsUrl($content),
             'claimEmail' => $asPreview ? $site->team->owner()?->email : null,
             'packages' => $asPreview
                 ? $site->team->packages()->where('is_active', true)->orderBy('id')->get()
                 : collect(),
-            'commentAction' => $asPreview ? route('sites.preview.comments', $site->slug) : null,
-            'packageAction' => $asPreview ? route('sites.preview.packages', $site->slug) : null,
+            'commentAction' => $asPreview ? PreviewLink::action('sites.preview.comments', $site) : null,
+            'packageAction' => $asPreview ? PreviewLink::action('sites.preview.packages', $site) : null,
+            'internalPreview' => request()->boolean('internal') || $editor,
+            'sectionBeacons' => $asPreview && ! $editor && $site->exists && ! request()->boolean('internal')
+                ? collect(PreviewSectionViewController::KEYS)
+                    ->mapWithKeys(fn (string $key) => [$key => PreviewLink::action('sites.preview.sections', $site, ['section' => $key])])
+                    ->all()
+                : [],
             'logoUrl' => $lead->logoUrl(),
             'heroImage' => $photos[0] ?? null,
             'galleryPhotos' => $photos,
@@ -85,14 +116,19 @@ class SiteRenderer
     /**
      * Build the main menu: Home, then every page the site has.
      *
+     * @param  array<string, mixed>  $content
      * @return list<array{key: string, label: string, url: string}>
      */
-    public function navigation(Site $site, SiteUrls $urls): array
+    public function navigation(Site $site, SiteUrls $urls, array $content): array
     {
-        $items = [['key' => 'home', 'label' => 'Home', 'url' => $urls->to()]];
+        $items = [['key' => 'home', 'label' => SiteLocales::pageLabel($content, 'home'), 'url' => $urls->to()]];
 
         foreach ($this->pages->available($site) as $page) {
-            $items[] = ['key' => $page, 'label' => SitePages::PAGE_LABELS[$page], 'url' => $urls->to($page)];
+            $items[] = [
+                'key' => $page,
+                'label' => SiteLocales::pageLabel($content, $page),
+                'url' => $urls->to($page),
+            ];
         }
 
         return $items;

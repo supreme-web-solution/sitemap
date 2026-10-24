@@ -226,6 +226,7 @@ class RuleBasedCopywriter implements SiteCopywriter
                 'pages' => SitePages::OPTIONAL,
                 'services' => $this->withSlugs($services),
                 'faqs' => $this->faqs($lead),
+                'custom_pages' => SiteCustomPages::seedForLead($lead),
             ],
         );
     }

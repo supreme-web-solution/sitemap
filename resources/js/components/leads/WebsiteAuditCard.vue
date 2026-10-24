@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3';
-import { LoaderCircle, ScanSearch } from '@lucide/vue';
-import { computed } from 'vue';
+import { LoaderCircle, Palette, ScanSearch } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import CheckList from '@/components/CheckList.vue';
 import { Button } from '@/components/ui/button';
 import { formatRelativeTime } from '@/lib/format';
 import { store as storeAudit } from '@/routes/leads/audit';
+import { store as storeBrand } from '@/routes/leads/brand';
 import type { LeadProfile } from '@/types';
 
 const props = defineProps<{
@@ -14,14 +15,38 @@ const props = defineProps<{
 
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
+const compareVersion = ref(0);
+const pullingBrand = ref(false);
 
 const isAuditing = computed(() => props.lead.websiteAuditStatus === 'queued');
+
+const generatedPreview = computed(() =>
+    props.lead.site
+        ? `${props.lead.site.previewUrl}?internal=1&v=${compareVersion.value}`
+        : null,
+);
 
 const runAudit = () => {
     router.post(
         storeAudit.url({ current_team: teamSlug.value, lead: props.lead.id }),
         {},
         { preserveScroll: true, only: ['lead'] },
+    );
+};
+
+const pullBrand = () => {
+    pullingBrand.value = true;
+    router.post(
+        storeBrand.url({ current_team: teamSlug.value, lead: props.lead.id }),
+        {},
+        {
+            preserveScroll: true,
+            only: ['lead'],
+            onFinish: () => {
+                pullingBrand.value = false;
+                compareVersion.value++;
+            },
+        },
     );
 };
 
@@ -34,7 +59,7 @@ const failedChecks = computed(
 </script>
 
 <template>
-    <section class="panel p-5">
+    <section id="website-audit-card" class="panel p-5">
         <h2 class="text-base font-semibold">Website audit</h2>
 
         <p v-if="!lead.website" class="mt-2 text-sm text-muted-foreground">
@@ -47,7 +72,7 @@ const failedChecks = computed(
                 {{ lead.website }}
             </p>
 
-            <div class="mt-4 flex items-center gap-3">
+            <div class="mt-4 flex flex-wrap items-center gap-3">
                 <Button
                     size="sm"
                     variant="outline"
@@ -58,6 +83,17 @@ const failedChecks = computed(
                     <LoaderCircle v-if="isAuditing" class="animate-spin" />
                     <ScanSearch v-else />
                     {{ lead.websiteAudit ? 'Run again' : 'Audit website' }}
+                </Button>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    :disabled="pullingBrand"
+                    data-test="pull-brand"
+                    @click="pullBrand"
+                >
+                    <LoaderCircle v-if="pullingBrand" class="animate-spin" />
+                    <Palette v-else />
+                    Pull brand
                 </Button>
                 <span
                     v-if="lead.websiteAuditedAt"
@@ -93,6 +129,30 @@ const failedChecks = computed(
                     </div>
                     <CheckList class="mt-4" :items="lead.websiteAudit.checks" />
                 </template>
+            </div>
+
+            <div
+                v-if="generatedPreview"
+                class="mt-5 grid gap-3 md:grid-cols-2"
+                data-test="old-vs-new"
+            >
+                <div class="grid gap-2">
+                    <p class="text-sm font-medium">Their site</p>
+                    <iframe
+                        :src="lead.website ?? undefined"
+                        title="Current website"
+                        sandbox=""
+                        class="h-64 w-full rounded-xl border bg-white"
+                    />
+                </div>
+                <div class="grid gap-2">
+                    <p class="text-sm font-medium">Generated preview</p>
+                    <iframe
+                        :src="generatedPreview"
+                        title="Generated website"
+                        class="h-64 w-full rounded-xl border bg-white"
+                    />
+                </div>
             </div>
         </template>
     </section>

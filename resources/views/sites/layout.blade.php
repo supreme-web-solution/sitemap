@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ $locale ?? 'en' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -26,6 +26,9 @@
         .brand-logo { height: 2.5rem; width: auto; max-width: 9rem; object-fit: contain; }
         .gallery { display: grid; gap: 1rem; margin-top: 2.5rem; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
         .gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); }
+        .locale-switcher { display: none; gap: .65rem; font-size: .85rem; margin-right: .5rem; }
+        .locale-switcher a { text-decoration: none; opacity: .75; }
+        .locale-switcher a[aria-current="page"] { opacity: 1; font-weight: 700; }
         .nav { display: none; gap: 1.75rem; font-size: .95rem; }
         .nav a { text-decoration: none; opacity: .8; }
         .nav a:hover { opacity: 1; }
@@ -171,17 +174,43 @@
         }
         @media (min-width: 700px) { .reviews-grid { columns: 2; } }
         @media (min-width: 1000px) { .reviews-grid { columns: 3; } }
+        @media (min-width: 900px) { .locale-switcher { display: inline-flex; } }
+        .layout-split-hero .hero .container { display: grid; gap: 2rem; align-items: center; }
+        @media (min-width: 900px) { .layout-split-hero .hero .container { grid-template-columns: 1fr 1fr; } }
+        .layout-card-services .services { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .layout-card-services .service { box-shadow: 0 12px 30px rgba(15,23,42,.08); }
+        .layout-editorial-hero .hero h1 { max-width: 22ch; font-style: italic; }
     </style>
     @include('sites.themes.'.$template)
+    @if ($designFontsUrl)
+        <link rel="stylesheet" href="{{ $designFontsUrl }}" media="print" onload="this.media='all'">
+    @endif
+    @if ($designCss)
+        <style>{!! $designCss !!}</style>
+    @endif
+    <style>
+        [data-sec-style="tint"] > section:not(.cta-band) { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+        [data-sec-style="accent"] > section:not(.cta-band) { background: var(--accent); color: var(--on-accent); }
+        [data-sec-style="dark"] > section:not(.cta-band) { background: #0f172a; color: #f8fafc; }
+        [data-sec-style="accent"] .section-label, [data-sec-style="accent"] .more-link { color: inherit; }
+        [data-sec-style="dark"] .section-label, [data-sec-style="dark"] .more-link { color: color-mix(in srgb, var(--accent) 65%, #fff); }
+        [data-sec-style="accent"] .service, [data-sec-style="accent"] .faq details, [data-sec-style="accent"] .review-card,
+        [data-sec-style="dark"] .service, [data-sec-style="dark"] .faq details, [data-sec-style="dark"] .review-card {
+            background: color-mix(in srgb, currentColor 8%, transparent); border-color: color-mix(in srgb, currentColor 20%, transparent); color: inherit;
+        }
+    </style>
+    @if ($editing)
+        @include('sites.partials.editor-styles')
+    @endif
 </head>
-<body class="{{ $asPreview ? 'has-claim-bar' : '' }}">
+<body class="{{ trim(($layoutClass ?? '').' '.($asPreview ? 'has-claim-bar' : '')) }}">
     <header class="site-header">
         <div class="container">
             <a href="{{ $urls->to() }}" class="brand">
                 @if ($logoUrl)
-                    <img class="brand-logo" src="{{ $logoUrl }}" alt="{{ $lead->name }} logo">
+                    <img class="brand-logo" src="{{ $logoUrl }}" alt="{{ $lead->name }} logo"{!! $e->image('logo', null, 'Logo') !!}>
                 @else
-                    <span class="brand-mark">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($lead->name, 0, 1)) }}</span>
+                    <span class="brand-mark"{!! $e->image('logo', null, 'Logo') !!}>{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($lead->name, 0, 1)) }}</span>
                 @endif
                 <span>{{ $lead->name }}</span>
             </a>
@@ -191,6 +220,13 @@
                 @endforeach
             </nav>
             <div class="header-actions">
+                @if (! empty($localeSwitcher))
+                    <nav class="locale-switcher" aria-label="Languages">
+                        @foreach ($localeSwitcher as $item)
+                            <a href="{{ $item['url'] }}" @if (($locale ?? 'en') === $item['code']) aria-current="page" @endif>{{ $item['label'] }}</a>
+                        @endforeach
+                    </nav>
+                @endif
                 @if ($phoneHref)
                     <a class="btn btn-primary header-call" href="{{ $phoneHref }}">@include('sites.icons.phone') <span>{{ $lead->phone }}</span></a>
                 @endif
@@ -226,6 +262,57 @@
 
     @if ($phoneHref)
         <a class="btn btn-primary mobile-call" href="{{ $phoneHref }}">@include('sites.icons.phone') Call {{ $lead->name }}</a>
+    @endif
+
+    @if (! empty($sectionBeacons))
+        <script>
+            (() => {
+                if (new URLSearchParams(location.search).get('internal') === '1') {
+                    return;
+                }
+
+                const token = @json(csrf_token());
+                const beacons = @json($sectionBeacons);
+                const seen = {};
+
+                const ping = (key) => {
+                    if (seen[key] || ! beacons[key]) {
+                        return;
+                    }
+
+                    seen[key] = true;
+                    fetch(beacons[key], {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': token,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            Accept: 'application/json',
+                        },
+                        credentials: 'same-origin',
+                    });
+                };
+
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            ping(entry.target.id);
+                        }
+                    });
+                }, { threshold: 0.35 });
+
+                Object.keys(beacons).forEach((key) => {
+                    const node = document.getElementById(key);
+
+                    if (node) {
+                        observer.observe(node);
+                    }
+                });
+            })();
+        </script>
+    @endif
+
+    @if ($editing)
+        @include('sites.partials.editor-bridge')
     @endif
 
     @if ($asPreview)

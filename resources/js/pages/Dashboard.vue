@@ -21,6 +21,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DashboardHero from '@/components/dashboard/DashboardHero.vue';
+import WorkTodayPanel from '@/components/dashboard/WorkTodayPanel.vue';
 import GaugeArc from '@/components/dashboard/GaugeArc.vue';
 import LineChart from '@/components/dashboard/LineChart.vue';
 import MiniBars from '@/components/dashboard/MiniBars.vue';
@@ -51,6 +52,7 @@ import type {
     DashboardPipeline,
     DashboardSite,
     DashboardStats,
+    DashboardWorkToday,
     Team,
 } from '@/types';
 
@@ -61,6 +63,7 @@ const props = defineProps<{
     chart: DashboardChart;
     activity: DashboardActivity[];
     followUps: DashboardFollowUps;
+    workToday: DashboardWorkToday;
     tasks: {
         dueCount: number;
         items: {
@@ -249,6 +252,8 @@ const setFollowUp = (leadId: number, date: string | null) => {
     >
         <div class="flex min-w-0 flex-col gap-8">
             <DashboardHero />
+
+            <WorkTodayPanel :work-today="workToday" :team-slug="teamSlug" />
 
             <section>
                 <h2 class="mb-4 text-lg font-semibold tracking-tight">

@@ -97,6 +97,7 @@ export type LeadActivityType =
     | 'site_generated'
     | 'website_audited'
     | 'email_sent'
+    | 'email_received'
     | 'marked_contacted'
     | 'follow_up_scheduled'
     | 'preview_interest'
@@ -154,6 +155,23 @@ export type DashboardFollowUps = {
     items: FollowUp[];
 };
 
+export type DashboardWorkTodayItem = {
+    kind: 'hot_lead' | 'send_preview' | 'follow_up' | 'task';
+    leadId: number;
+    title: string;
+    detail: string;
+    status?: LeadStatus;
+    score?: number;
+    tier?: OpportunityTier;
+    previewUrl?: string;
+    isOverdue?: boolean;
+};
+
+export type DashboardWorkToday = {
+    count: number;
+    items: DashboardWorkTodayItem[];
+};
+
 export type SiteVersion = {
     id: number;
     label: string | null;
@@ -189,7 +207,12 @@ export type LeadProfile = {
     detailsConfirmedAt: string | null;
     siteGenerationStatus: SiteGenerationStatus;
     siteGenerationError: string | null;
-    site: { id: number; previewUrl: string; approvedAt: string | null } | null;
+    site: {
+        id: number;
+        previewUrl: string;
+        approvedAt: string | null;
+        viewsCount: number;
+    } | null;
     status: LeadStatus;
     lostReason: string | null;
     assignedUserId: number | null;
@@ -255,6 +278,17 @@ export type SiteFaq = {
     answer: string;
 };
 
+export type SiteCustomPage = {
+    kind: 'landing' | 'location';
+    slug: string;
+    title: string;
+    headline: string;
+    intro?: string;
+    body: string;
+    cta_label?: string;
+    city?: string;
+};
+
 export type SiteContent = {
     accent: string;
     headline: string;
@@ -266,6 +300,32 @@ export type SiteContent = {
     pages?: string[];
     services: SiteService[];
     faqs: SiteFaq[];
+    copy?: Record<string, string>;
+    design?: { font?: string; radius?: string; spacing?: string };
+    section_styles?: Record<string, string>;
+    custom_pages?: SiteCustomPage[];
+};
+
+export type SiteDocument = SiteContent & { template: string };
+
+export type SiteCopyField = {
+    key: string;
+    label: string;
+    max: number;
+    multiline: boolean;
+};
+
+export type SiteDesignChoices = {
+    font: Option[];
+    radius: Option[];
+    spacing: Option[];
+    sectionStyle: Option[];
+};
+
+export type SiteMedia = {
+    logo: string | null;
+    photos: string[];
+    maxPhotos: number;
 };
 
 export type DnsRecord = {
@@ -288,8 +348,14 @@ export type SiteDomain = {
 export type SitePublishing = {
     isPublished: boolean;
     publishedAt: string | null;
+    isStagingPublished: boolean;
+    stagingPublishedAt: string | null;
+    stagingUrl: string;
+    stagingHostname: string;
+    stagingBaseHost: string;
     liveUrl: string | null;
     canPublish: boolean;
+    canPromoteFromStaging: boolean;
     dnsConfigured: boolean;
     domains: SiteDomain[];
 };
@@ -339,15 +405,22 @@ export type SiteSummary = {
 export type EditableSite = {
     id: number;
     name: string;
+    leadCategory: string | null;
+    leadCity: string | null;
     leadId: number;
+    leadWebsite: string | null;
     template: string;
     content: SiteContent;
     previewUrl: string;
+    editorUrl: string;
+    revision: number;
+    media: SiteMedia;
     viewsCount: number;
     updatedAt: string | null;
     generationStatus: SiteGenerationStatus;
     previewExpiresAt: string | null;
     hasPreviewPassword: boolean;
+    sectionViews: { key: string; label: string; views: number }[];
     transferredAt: string | null;
     transferredToEmail: string | null;
 };
@@ -357,6 +430,7 @@ export type SiteHealth = {
     lastUptimeAt: string | null;
     lastCrawledAt: string | null;
     brokenLinks: { id: number; url: string; status: number | null; error: string | null }[];
+    findings: CheckItem[];
     backupCount: number;
     comments: {
         id: number;
@@ -480,6 +554,10 @@ export type RecurringSchedule = {
     endsOn: string | null;
     dueInDays: number;
     emailClient: boolean;
+    collectionMode: 'invoice' | 'auto_charge';
+    collectionModeLabel: string;
+    paymentProvider: string | null;
+    leadHasCardOnFile: boolean;
     notes: string | null;
     status: 'active' | 'paused' | 'ended';
     items: { description: string; quantity: number; unitPrice: number }[];

@@ -5,6 +5,9 @@
     <link rel="canonical" href="{{ $seo['canonical'] }}">
     <meta property="og:url" content="{{ $seo['canonical'] }}">
 @endif
+@foreach ($seo['alternates'] ?? [] as $alternate)
+    <link rel="alternate" hreflang="{{ $alternate['hreflang'] }}" href="{{ $alternate['href'] }}">
+@endforeach
 <meta property="og:site_name" content="{{ $lead->name }}">
 <meta property="og:type" content="{{ $seo['type'] }}">
 <meta property="og:title" content="{{ $seo['title'] }}">

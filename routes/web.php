@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminLaunchReadinessController;
 use App\Http\Controllers\Admin\AdminPlanController;
 use App\Http\Controllers\Admin\AdminTeamController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -15,15 +16,19 @@ use App\Http\Controllers\Leads\CompetitorAuditController;
 use App\Http\Controllers\Leads\LeadActivityController;
 use App\Http\Controllers\Leads\LeadAuditController;
 use App\Http\Controllers\Leads\LeadBoardController;
+use App\Http\Controllers\Leads\LeadBrandController;
 use App\Http\Controllers\Leads\LeadController;
+use App\Http\Controllers\Leads\LeadEnrichmentController;
 use App\Http\Controllers\Leads\LeadExportController;
 use App\Http\Controllers\Leads\LeadImportController;
+use App\Http\Controllers\Leads\LeadInboundEmailController;
 use App\Http\Controllers\Leads\LeadOutreachController;
 use App\Http\Controllers\Leads\LeadProfileController;
 use App\Http\Controllers\Leads\LeadReviewController;
 use App\Http\Controllers\Leads\LeadSearchController;
 use App\Http\Controllers\Leads\LeadTaskController;
 use App\Http\Controllers\Leads\SequenceEnrollmentController;
+use App\Http\Controllers\Mail\MailInboxController;
 use App\Http\Controllers\Messaging\LeadConsentController;
 use App\Http\Controllers\Messaging\LeadMessageController;
 use App\Http\Controllers\Messaging\MessagingAccountController;
@@ -47,45 +52,59 @@ use App\Http\Controllers\Sites\DomainAllowedController;
 use App\Http\Controllers\Sites\LeadSiteController;
 use App\Http\Controllers\Sites\PreviewCommentController;
 use App\Http\Controllers\Sites\PreviewPackageController;
+use App\Http\Controllers\Sites\PreviewSectionViewController;
 use App\Http\Controllers\Sites\PreviewUnlockController;
 use App\Http\Controllers\Sites\SiteChatController;
 use App\Http\Controllers\Sites\SiteConceptController;
 use App\Http\Controllers\Sites\SiteController;
+use App\Http\Controllers\Sites\SiteDesignTemplateController;
 use App\Http\Controllers\Sites\SiteDomainController;
+use App\Http\Controllers\Sites\SiteEditController;
 use App\Http\Controllers\Sites\SiteExportController;
 use App\Http\Controllers\Sites\SiteHealthController;
+use App\Http\Controllers\Sites\SiteLocaleController;
+use App\Http\Controllers\Sites\SiteMediaController;
 use App\Http\Controllers\Sites\SitePostController;
 use App\Http\Controllers\Sites\SitePreviewController;
 use App\Http\Controllers\Sites\SitePreviewInterestController;
 use App\Http\Controllers\Sites\SitePreviewSettingsController;
 use App\Http\Controllers\Sites\SitePublishController;
+use App\Http\Controllers\Sites\SiteStagingController;
 use App\Http\Controllers\Sites\SiteTransferController;
 use App\Http\Controllers\Sites\SiteVersionController;
 use App\Http\Controllers\Teams\BrandingController;
+use App\Http\Controllers\Teams\BrandingPreviewHostnameController;
 use App\Http\Controllers\Teams\IdealCustomerController;
 use App\Http\Controllers\Teams\PlanUsageController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Middleware\EnsureBrandedPreviewHost;
 use App\Http\Middleware\EnsureTeamMembership;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
 
-Route::get('p/concept/{siteConcept}', ConceptPreviewController::class)->name('sites.concepts.preview');
-Route::get('p/{site:slug}/{path?}', SitePreviewController::class)->where('path', '.*')->name('sites.preview');
+Route::middleware(EnsureBrandedPreviewHost::class)->group(function () {
+    Route::get('p/concept/{siteConcept}', ConceptPreviewController::class)->name('sites.concepts.preview');
+    Route::get('p/{site:slug}/{path?}', SitePreviewController::class)->where('path', '.*')->name('sites.preview');
+    Route::post('p/{site:slug}/interest', SitePreviewInterestController::class)
+        ->middleware('throttle:preview-interest')
+        ->name('sites.preview.interest');
+    Route::post('p/{site:slug}/unlock', [PreviewUnlockController::class, 'store'])
+        ->middleware('throttle:preview-interest')
+        ->name('sites.preview.unlock');
+    Route::post('p/{site:slug}/comments', [PreviewCommentController::class, 'store'])
+        ->middleware('throttle:preview-interest')
+        ->name('sites.preview.comments');
+    Route::post('p/{site:slug}/packages', [PreviewPackageController::class, 'store'])
+        ->middleware('throttle:preview-interest')
+        ->name('sites.preview.packages');
+    Route::post('p/{site:slug}/sections/{section}', PreviewSectionViewController::class)
+        ->middleware('throttle:preview-sections')
+        ->name('sites.preview.sections');
+});
+
 Route::get('internal/domains/allowed', DomainAllowedController::class)->name('domains.allowed');
-Route::post('p/{site:slug}/interest', SitePreviewInterestController::class)
-    ->middleware('throttle:preview-interest')
-    ->name('sites.preview.interest');
-Route::post('p/{site:slug}/unlock', [PreviewUnlockController::class, 'store'])
-    ->middleware('throttle:preview-interest')
-    ->name('sites.preview.unlock');
-Route::post('p/{site:slug}/comments', [PreviewCommentController::class, 'store'])
-    ->middleware('throttle:preview-interest')
-    ->name('sites.preview.comments');
-Route::post('p/{site:slug}/packages', [PreviewPackageController::class, 'store'])
-    ->middleware('throttle:preview-interest')
-    ->name('sites.preview.packages');
 
 Route::get('i/{invoice:public_token}', [InvoicePayController::class, 'show'])->name('invoices.public');
 Route::post('i/{invoice:public_token}/pay/{provider}', [InvoicePayController::class, 'pay'])
@@ -120,6 +139,7 @@ Route::prefix('admin')
     ->middleware(['auth', EnsureUserIsAdmin::class])
     ->group(function () {
         Route::get('/', AdminDashboardController::class)->name('dashboard');
+        Route::get('launch-readiness', AdminLaunchReadinessController::class)->name('launch-readiness');
 
         Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
@@ -162,14 +182,28 @@ Route::prefix('{current_team}')
         Route::post('leads/{lead}/audit', [LeadAuditController::class, 'store'])
             ->middleware('throttle:lead-audits')
             ->name('leads.audit.store');
+        Route::post('leads/{lead}/brand', [LeadBrandController::class, 'store'])
+            ->middleware('throttle:lead-audits')
+            ->name('leads.brand.store');
+        Route::post('leads/{lead}/enrichment', [LeadEnrichmentController::class, 'store'])
+            ->middleware('throttle:lead-audits')
+            ->name('leads.enrichment.store');
         Route::post('leads/{lead}/outreach', [LeadOutreachController::class, 'store'])
             ->middleware('throttle:outreach')
             ->name('leads.outreach.store');
+        Route::post('leads/{lead}/inbound-email', [LeadInboundEmailController::class, 'store'])
+            ->middleware('throttle:outreach')
+            ->name('leads.inbound-email.store');
         Route::post('leads/{lead}/reviews', [LeadReviewController::class, 'store'])
             ->middleware('throttle:review-fetches')
             ->name('leads.reviews.store');
         Route::patch('leads/{lead}/reviews/{review}', [LeadReviewController::class, 'update'])->name('leads.reviews.update');
         Route::post('leads/{lead}/notes', [LeadActivityController::class, 'store'])->name('leads.notes.store');
+
+        Route::get('mail-inbox', [MailInboxController::class, 'index'])->name('mail-inbox.index');
+        Route::put('mail-inbox', [MailInboxController::class, 'store'])->name('mail-inbox.store');
+        Route::post('mail-inbox/sync', [MailInboxController::class, 'sync'])->name('mail-inbox.sync');
+        Route::delete('mail-inbox', [MailInboxController::class, 'destroy'])->name('mail-inbox.destroy');
 
         Route::get('email-templates', [EmailTemplateController::class, 'index'])->name('email-templates.index');
         Route::post('email-templates', [EmailTemplateController::class, 'store'])->name('email-templates.store');
@@ -196,6 +230,8 @@ Route::prefix('{current_team}')
         Route::get('ideal-customer', [IdealCustomerController::class, 'edit'])->name('ideal-customer.edit');
         Route::put('ideal-customer', [IdealCustomerController::class, 'update'])->name('ideal-customer.update');
 
+        Route::get('site-design-templates', [SiteDesignTemplateController::class, 'index'])
+            ->name('site-design-templates.index');
         Route::post('leads/{lead}/site', [LeadSiteController::class, 'store'])
             ->middleware('throttle:site-generation')
             ->name('leads.site.store');
@@ -208,6 +244,19 @@ Route::prefix('{current_team}')
         Route::get('sites', [SiteController::class, 'index'])->name('sites.index');
         Route::get('sites/{site}/edit', [SiteController::class, 'edit'])->name('sites.edit');
         Route::put('sites/{site}', [SiteController::class, 'update'])->name('sites.update');
+        Route::post('sites/{site}/edits', [SiteEditController::class, 'store'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.edits.store');
+        Route::post('sites/{site}/media', [SiteMediaController::class, 'store'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.media.store');
+        Route::post('sites/{site}/locales', [SiteLocaleController::class, 'store'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.locales.store');
+        Route::delete('sites/{site}/media', [SiteMediaController::class, 'destroy'])->name('sites.media.destroy');
+        Route::post('sites/{site}/media/undo', [SiteMediaController::class, 'undo'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.media.undo');
         Route::get('sites/{site}/export', SiteExportController::class)->name('sites.export');
         Route::post('sites/{site}/posts', [SitePostController::class, 'store'])->name('sites.posts.store');
         Route::put('sites/{site}/posts/{post}', [SitePostController::class, 'update'])->name('sites.posts.update');
@@ -217,6 +266,9 @@ Route::prefix('{current_team}')
         Route::delete('sites/{site}/domains/{domain}', [SiteDomainController::class, 'destroy'])->name('sites.domains.destroy');
         Route::post('sites/{site}/publish', [SitePublishController::class, 'store'])->name('sites.publish.store');
         Route::delete('sites/{site}/publish', [SitePublishController::class, 'destroy'])->name('sites.publish.destroy');
+        Route::post('sites/{site}/staging', [SiteStagingController::class, 'store'])->name('sites.staging.store');
+        Route::delete('sites/{site}/staging', [SiteStagingController::class, 'destroy'])->name('sites.staging.destroy');
+        Route::post('sites/{site}/staging/promote', [SiteStagingController::class, 'promote'])->name('sites.staging.promote');
         Route::post('sites/{site}/versions/{version}/restore', [SiteVersionController::class, 'restore'])->name('sites.versions.restore');
         Route::post('sites/{site}/chat', [SiteChatController::class, 'store'])
             ->middleware('throttle:site-generation')
@@ -255,6 +307,9 @@ Route::prefix('{current_team}')
         Route::get('plan', PlanUsageController::class)->name('plan.index');
         Route::get('branding', [BrandingController::class, 'edit'])->name('branding.edit');
         Route::put('branding', [BrandingController::class, 'update'])->name('branding.update');
+        Route::post('branding/preview-domain', [BrandingPreviewHostnameController::class, 'store'])->name('branding.preview-domain.store');
+        Route::post('branding/preview-domain/verify', [BrandingPreviewHostnameController::class, 'verify'])->name('branding.preview-domain.verify');
+        Route::delete('branding/preview-domain', [BrandingPreviewHostnameController::class, 'destroy'])->name('branding.preview-domain.destroy');
 
         Route::post('leads/{lead}/portal', [LeadPortalController::class, 'store'])->name('leads.portal.store');
         Route::delete('leads/{lead}/portal', [LeadPortalController::class, 'destroy'])->name('leads.portal.destroy');

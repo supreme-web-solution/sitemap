@@ -7,6 +7,8 @@ use App\Models\LeadTask;
 use App\Models\Site;
 use App\Models\Team;
 use App\Models\TeamInvitation;
+use App\Services\Preview\PreviewLink;
+use App\Services\Prospecting\OpportunityScorer;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
@@ -57,12 +59,13 @@ class DashboardController extends Controller
                 'revenue' => (int) $wonLeads->sum('deal_value'),
             ],
             'followUps' => $this->followUps($team),
+            'workToday' => $this->workToday($team),
             'tasks' => $this->tasks($team),
             'pipeline' => $this->pipeline($team),
             'chart' => $this->chart($team),
             'activity' => $this->activity($team),
             'recentSites' => $team->sites()
-                ->with('lead:id,name,category,city,status')
+                ->with(['lead:id,name,category,city,status', 'team'])
                 ->latest()
                 ->orderByDesc('id')
                 ->limit(6)
@@ -75,10 +78,145 @@ class DashboardController extends Controller
                     'leadStatus' => $site->lead->status->value,
                     'template' => $site->template->label(),
                     'viewsCount' => $site->views_count,
-                    'previewUrl' => route('sites.preview', $site->slug),
+                    'previewUrl' => PreviewLink::page($site),
                     'createdAt' => $site->created_at->toISOString(),
                 ]),
         ]);
+    }
+
+    /**
+     * Actionable items for today: hot leads, previews to send, due follow-ups and tasks.
+     *
+     * @return array{count: int, items: list<array<string, mixed>>}
+     */
+    protected function workToday(Team $team): array
+    {
+        $items = [];
+
+        $hotThreshold = (int) config('prospecting.score_tiers.hot');
+
+        $team->leads()
+            ->whereNotIn('status', [LeadStatus::Won, LeadStatus::Lost])
+            ->where('opportunity_score', '>=', $hotThreshold)
+            ->orderByDesc('opportunity_score')
+            ->limit(4)
+            ->get(['id', 'name', 'category', 'city', 'status', 'opportunity_score'])
+            ->each(function ($lead) use (&$items): void {
+                $items[] = [
+                    'kind' => 'hot_lead',
+                    'leadId' => $lead->id,
+                    'title' => $lead->name,
+                    'detail' => trim(collect([$lead->category, $lead->city])->filter()->join(' · '))
+                        ?: 'High opportunity score',
+                    'score' => (int) $lead->opportunity_score,
+                    'tier' => OpportunityScorer::tier($lead->opportunity_score),
+                    'status' => $lead->status->value,
+                ];
+            });
+
+        $team->leads()
+            ->whereIn('status', [LeadStatus::New, LeadStatus::SiteGenerated])
+            ->whereHas('site', fn ($query) => $query->where('views_count', 0))
+            ->with(['site' => fn ($query) => $query->select('id', 'lead_id', 'team_id', 'slug', 'views_count')->with('team')])
+            ->orderByDesc('updated_at')
+            ->limit(4)
+            ->get(['id', 'name', 'category', 'city', 'status'])
+            ->each(function ($lead) use (&$items): void {
+                if ($lead->site === null) {
+                    return;
+                }
+
+                $items[] = [
+                    'kind' => 'send_preview',
+                    'leadId' => $lead->id,
+                    'title' => $lead->name,
+                    'detail' => 'Website ready — share the preview link',
+                    'previewUrl' => PreviewLink::page($lead->site),
+                    'status' => $lead->status->value,
+                ];
+            });
+
+        foreach ($this->followUps($team)['items'] as $followUp) {
+            if (! $followUp['isOverdue'] && ! $followUp['isDueToday']) {
+                continue;
+            }
+
+            $items[] = [
+                'kind' => 'follow_up',
+                'leadId' => $followUp['id'],
+                'title' => $followUp['name'],
+                'detail' => $followUp['isOverdue'] ? 'Follow-up overdue' : 'Follow-up due today',
+                'status' => $followUp['status'],
+                'isOverdue' => $followUp['isOverdue'],
+            ];
+        }
+
+        foreach ($this->tasks($team)['items'] as $task) {
+            if (! $task['isOverdue'] && ! $task['isDueToday']) {
+                continue;
+            }
+
+            $items[] = [
+                'kind' => 'task',
+                'leadId' => $task['leadId'],
+                'title' => $task['title'],
+                'detail' => $task['leadName'],
+                'isOverdue' => $task['isOverdue'],
+            ];
+        }
+
+        $items = $this->consolidateWorkTodayItems($items);
+
+        return [
+            'count' => count($items),
+            'items' => array_slice($items, 0, 10),
+        ];
+    }
+
+    /**
+     * Keep one row per lead, preferring the most actionable kind and merging copy-link/score fields.
+     *
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    protected function consolidateWorkTodayItems(array $items): array
+    {
+        $priority = [
+            'send_preview' => 40,
+            'follow_up' => 30,
+            'task' => 20,
+            'hot_lead' => 10,
+        ];
+
+        /** @var array<int, array<string, mixed>> $byLead */
+        $byLead = [];
+
+        foreach ($items as $item) {
+            $leadId = (int) $item['leadId'];
+
+            if (! isset($byLead[$leadId])) {
+                $byLead[$leadId] = $item;
+
+                continue;
+            }
+
+            $existing = $byLead[$leadId];
+            $incomingWins = ($priority[$item['kind']] ?? 0) > ($priority[$existing['kind']] ?? 0);
+            $primary = $incomingWins ? $item : $existing;
+            $secondary = $incomingWins ? $existing : $item;
+
+            $byLead[$leadId] = [
+                ...$primary,
+                'previewUrl' => $primary['previewUrl'] ?? $secondary['previewUrl'] ?? null,
+                'score' => $primary['score'] ?? $secondary['score'] ?? null,
+                'tier' => $primary['tier'] ?? $secondary['tier'] ?? null,
+                'isOverdue' => ($primary['isOverdue'] ?? false) || ($secondary['isOverdue'] ?? false),
+            ];
+        }
+
+        usort($byLead, fn (array $a, array $b): int => ($priority[$b['kind']] ?? 0) <=> ($priority[$a['kind']] ?? 0));
+
+        return array_values($byLead);
     }
 
     /**

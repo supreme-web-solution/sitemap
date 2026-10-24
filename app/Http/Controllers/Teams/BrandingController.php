@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Teams;
 
+use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Team;
+use App\Services\Billing\UsageMeter;
+use App\Services\Preview\TeamPreviewHostnameVerifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -15,10 +18,13 @@ class BrandingController extends Controller
     /**
      * Show the agency identity used on the portal, proposals and invoices.
      */
-    public function edit(Request $request, Team $currentTeam): Response
+    public function edit(Request $request, Team $currentTeam, UsageMeter $usage, TeamPreviewHostnameVerifier $verifier): Response
     {
+        $canUsePreviewDomain = $usage->allows($currentTeam, PlanFeature::WhiteLabel);
+
         return Inertia::render('branding/Edit', [
             'canManage' => $request->user()->can('update', $currentTeam),
+            'canUsePreviewDomain' => $canUsePreviewDomain,
             'brand' => [
                 'name' => $currentTeam->brand_name ?? '',
                 'logoUrl' => $currentTeam->brand_logo_url ?? '',
@@ -26,6 +32,14 @@ class BrandingController extends Controller
                 'email' => $currentTeam->brand_email ?? '',
             ],
             'preview' => $currentTeam->brand(),
+            'previewDomain' => $canUsePreviewDomain ? [
+                'hostname' => $currentTeam->preview_hostname ?? '',
+                'verified' => $currentTeam->hasVerifiedPreviewHostname(),
+                'checkError' => $currentTeam->preview_hostname_check_error,
+                'dnsRecords' => filled($currentTeam->preview_hostname)
+                    ? $verifier->instructions($currentTeam)
+                    : [],
+            ] : null,
         ]);
     }
 

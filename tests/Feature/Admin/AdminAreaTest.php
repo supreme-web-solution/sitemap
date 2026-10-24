@@ -5,6 +5,7 @@ use App\Enums\UsageMetric;
 use App\Models\Plan;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\AdminEmails;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -22,11 +23,8 @@ test('only administrators listed in ADMIN_EMAILS can open the admin area', funct
 });
 
 test('admin emails are matched ignoring case and surrounding spaces', function () {
-    putenv('ADMIN_EMAILS= Boss@Example.com , second@example.com ');
-    $config = require config_path('admin.php');
-    putenv('ADMIN_EMAILS');
-
-    expect($config['emails'])->toBe(['boss@example.com', 'second@example.com']);
+    expect(AdminEmails::parse(' Boss@Example.com , second@example.com '))
+        ->toBe(['boss@example.com', 'second@example.com']);
 });
 
 test('the admin flag is shared with the browser', function () {

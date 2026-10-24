@@ -4,6 +4,7 @@ namespace App\Services\Outreach;
 
 use App\Models\Lead;
 use App\Models\User;
+use App\Services\Preview\PreviewLink;
 
 class MergeFieldRenderer
 {
@@ -56,7 +57,7 @@ class MergeFieldRenderer
      */
     public function values(Lead $lead, User $sender): array
     {
-        $lead->loadMissing('site:id,lead_id,slug', 'team:id,name');
+        $lead->loadMissing('site:id,lead_id,team_id,slug', 'team:id,name');
 
         $topIssue = collect($lead->website_audit['checks'] ?? [])
             ->firstWhere('status', 'fail')['detail'] ?? '';
@@ -66,7 +67,7 @@ class MergeFieldRenderer
             'category' => $lead->category ?? 'business',
             'city' => $lead->city ?? '',
             'rating' => $lead->rating !== null ? (string) $lead->rating : '',
-            'preview_url' => $lead->site ? route('sites.preview', $lead->site->slug) : '',
+            'preview_url' => $lead->site ? PreviewLink::page($lead->site) : '',
             'top_issue' => $topIssue,
             'sender_name' => $sender->name,
             'team_name' => $lead->team->name,

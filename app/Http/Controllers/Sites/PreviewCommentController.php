@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Sites;
 use App\Enums\LeadActivityType;
 use App\Http\Controllers\Controller;
 use App\Models\Site;
+use App\Services\Preview\PreviewLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -44,6 +45,6 @@ class PreviewCommentController extends Controller
             ['section' => $data['section'] ?? null],
         );
 
-        return to_route('sites.preview', ['site' => $site->slug, 'thanks' => 1, 'internal' => 1]);
+        return redirect(PreviewLink::page($site, internal: true, query: ['thanks' => 1]));
     }
 }

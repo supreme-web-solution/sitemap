@@ -16,10 +16,15 @@ class SiteEditor
     {
         $site->loadMissing('lead');
 
-        return $this->copywriter->revise(
+        $draft = $this->copywriter->revise(
             $site->lead,
             new SiteDraft($site->template, $site->content),
             $instruction,
+        );
+
+        return new SiteDraft(
+            $draft->template,
+            SiteContentSchema::preserveEditorFields($site->content, $draft->content),
         );
     }
 }

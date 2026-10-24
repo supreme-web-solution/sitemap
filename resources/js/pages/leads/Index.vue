@@ -43,6 +43,7 @@ import {
     index as leadsIndex,
     update as updateLead,
 } from '@/routes/leads';
+import SiteDesignTemplatePicker from '@/components/sites/SiteDesignTemplatePicker.vue';
 import { store as generateSite } from '@/routes/leads/site';
 import { edit as editSite } from '@/routes/sites';
 import type {
@@ -235,20 +236,23 @@ const updateLeadDetails = (
 };
 
 const generatingLeadId = ref<number | null>(null);
+const designPickerLead = ref<Lead | null>(null);
 
-const generateWebsite = (lead: Lead) => {
-    generatingLeadId.value = lead.id;
-
-    router.post(
-        generateSite.url({ current_team: teamSlug.value, lead: lead.id }),
-        {},
-        {
-            preserveScroll: true,
-            only: ['leads'],
-            onFinish: () => (generatingLeadId.value = null),
-        },
-    );
+const openDesignPicker = (lead: Lead) => {
+    designPickerLead.value = lead;
 };
+
+const closeDesignPicker = () => {
+    if (designPickerLead.value) {
+        generatingLeadId.value = null;
+    }
+    designPickerLead.value = null;
+};
+
+const designPickerOpen = computed(() => designPickerLead.value !== null);
+
+const generateSiteUrl = (lead: Lead) =>
+    generateSite.url({ current_team: teamSlug.value, lead: lead.id });
 
 const searchStatusVariant = (status: LeadSearch['status']) =>
     status === 'failed'
@@ -758,7 +762,12 @@ const searchStatusVariant = (status: LeadSearch['status']) =>
                                         size="sm"
                                         data-test="generate-site-button"
                                         :disabled="generatingLeadId !== null"
-                                        @click="generateWebsite(lead)"
+                                        @click="
+                                            () => {
+                                                generatingLeadId = lead.id;
+                                                openDesignPicker(lead);
+                                            }
+                                        "
                                     >
                                         <LoaderCircle
                                             v-if="generatingLeadId === lead.id"
@@ -838,5 +847,16 @@ const searchStatusVariant = (status: LeadSearch['status']) =>
                 </div>
             </div>
         </section>
+
+        <SiteDesignTemplatePicker
+            v-if="designPickerLead"
+            :open="designPickerOpen"
+            :team-slug="teamSlug"
+            :lead-id="designPickerLead.id"
+            :lead-name="designPickerLead.name"
+            :lead-category="designPickerLead.category"
+            :generate-url="generateSiteUrl(designPickerLead)"
+            @close="closeDesignPicker"
+        />
     </div>
 </template>

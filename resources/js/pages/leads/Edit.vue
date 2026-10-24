@@ -27,8 +27,10 @@ import LeadSequenceCard from '@/components/leads/LeadSequenceCard.vue';
 import LeadTasksCard from '@/components/leads/LeadTasksCard.vue';
 import ReviewSummaryCard from '@/components/leads/ReviewSummaryCard.vue';
 import SalesAssistantCard from '@/components/leads/SalesAssistantCard.vue';
+import LogReplyCard from '@/components/leads/LogReplyCard.vue';
 import OutreachCard from '@/components/leads/OutreachCard.vue';
 import VerificationCard from '@/components/leads/VerificationCard.vue';
+import RedesignWorkflowCard from '@/components/leads/RedesignWorkflowCard.vue';
 import WebsiteAuditCard from '@/components/leads/WebsiteAuditCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,6 +80,8 @@ const props = defineProps<{
         completedAt: string | null;
         assignee: string | null;
     }[];
+    inboxConnected: boolean;
+    imapSyncEnabled: boolean;
 }>();
 
 defineOptions({
@@ -161,6 +165,12 @@ const removePhotos = () => {
     form.photos = [];
     form.remove_photos = true;
     photoPreviews.value = [];
+};
+
+const scrollToWorkflowTarget = (target: 'audit' | 'outreach') => {
+    const id =
+        target === 'audit' ? 'website-audit-card' : 'lead-outreach-card';
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 const submit = (generate: boolean) => {
@@ -256,6 +266,15 @@ const textareaClass =
 
         <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
             <div class="flex min-w-0 flex-col gap-6">
+                <RedesignWorkflowCard
+                    :lead="lead"
+                    :team-slug="teamSlug"
+                    :is-building="isBuilding"
+                    :generating="form.processing && form.generate"
+                    @generate="submit(true)"
+                    @scroll-to="scrollToWorkflowTarget"
+                />
+
                 <div
                     v-if="isBuilding || lead.site || lead.siteGenerationError"
                     class="flex flex-col gap-3 panel p-4 md:flex-row md:items-center md:justify-between"
@@ -558,10 +577,17 @@ const textareaClass =
                 <LeadConceptsCard :lead-id="lead.id" :concepts="concepts" />
                 <ClientPortalCard :lead="lead" />
                 <LeadMessagesCard :lead-id="lead.id" :messaging="messaging" />
-                <OutreachCard
-                    :lead="lead"
-                    :templates="emailTemplates"
-                    :merge-values="mergeValues"
+                <div id="lead-outreach-card">
+                    <OutreachCard
+                        :lead="lead"
+                        :templates="emailTemplates"
+                        :merge-values="mergeValues"
+                    />
+                </div>
+                <LogReplyCard
+                    :lead-id="lead.id"
+                    :inbox-connected="inboxConnected"
+                    :imap-sync-enabled="imapSyncEnabled"
                 />
                 <WebsiteAuditCard :lead="lead" />
                 <CompetitorAuditCard :lead="lead" />

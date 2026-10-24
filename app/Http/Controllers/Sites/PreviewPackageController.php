@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\Proposal;
 use App\Models\Site;
+use App\Services\Preview\PreviewLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,7 @@ class PreviewPackageController extends Controller
      */
     public function store(Request $request, Site $site): RedirectResponse
     {
-        $thanks = to_route('sites.preview', ['site' => $site->slug, 'thanks' => 1, 'internal' => 1]);
+        $thanks = redirect(PreviewLink::page($site, internal: true, query: ['thanks' => 1]));
 
         $data = $request->validate([
             'package_id' => ['required', 'integer', Rule::exists('packages', 'id')->where('team_id', $site->team_id)->where('is_active', true)],

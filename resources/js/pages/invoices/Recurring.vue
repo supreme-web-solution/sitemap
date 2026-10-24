@@ -17,6 +17,10 @@ defineProps<{
     schedules: RecurringSchedule[];
     leads: { id: number; name: string; email: string | null }[];
     intervals: { value: string; label: string }[];
+    collectionModes: { value: string; label: string }[];
+    hasStripe: boolean;
+    hasPayPal: boolean;
+    autoChargeProviders: { value: string; label: string }[];
     today: string;
 }>();
 
@@ -79,7 +83,7 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
         <div class="flex flex-wrap items-center justify-between gap-3">
             <Heading
                 title="Recurring billing"
-                description="Bill clients for hosting, maintenance or SEO on a schedule. Each cycle issues a new invoice with its own pay link and emails it to the client."
+                description="Bill clients on a schedule. Send a pay link each cycle, or charge a saved Stripe card automatically after the client pays once."
             />
             <Button size="sm" @click="creating = !creating">
                 <Plus /> New schedule
@@ -91,6 +95,10 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
             :team-slug="teamSlug"
             :leads="leads"
             :intervals="intervals"
+            :collection-modes="collectionModes"
+            :has-stripe="hasStripe"
+            :has-pay-pal="hasPayPal"
+            :auto-charge-providers="autoChargeProviders"
             :today="today"
             @saved="creating = false"
         />
@@ -105,6 +113,10 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
                 :team-slug="teamSlug"
                 :leads="leads"
                 :intervals="intervals"
+                :collection-modes="collectionModes"
+                :has-stripe="hasStripe"
+                :has-pay-pal="hasPayPal"
+                :auto-charge-providers="autoChargeProviders"
                 :today="today"
                 :schedule="schedule"
                 @saved="editingId = null"
@@ -124,7 +136,16 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
                     </p>
                     <p class="text-sm text-muted-foreground">
                         {{ schedule.total }} ·
-                        {{ schedule.intervalLabel.toLowerCase() }}
+                        {{ schedule.intervalLabel.toLowerCase() }} ·
+                        {{ schedule.collectionModeLabel.toLowerCase() }}
+                        <template
+                            v-if="
+                                schedule.collectionMode === 'auto_charge' &&
+                                schedule.leadHasCardOnFile
+                            "
+                        >
+                            · card on file</template
+                        >
                         <template
                             v-if="
                                 schedule.nextRunOn &&

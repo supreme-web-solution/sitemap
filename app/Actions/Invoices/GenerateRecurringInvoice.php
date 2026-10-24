@@ -4,9 +4,12 @@ namespace App\Actions\Invoices;
 
 use App\Enums\InvoiceStatus;
 use App\Enums\LeadActivityType;
+use App\Enums\PaymentProvider;
 use App\Mail\InvoiceEmail;
 use App\Models\Invoice;
 use App\Models\RecurringInvoice;
+use App\Services\Payments\PayPalGateway;
+use App\Services\Payments\StripeGateway;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
@@ -17,8 +20,10 @@ class GenerateRecurringInvoice
      *
      * Safe to run twice at once: only the run that claims the date issues an invoice.
      */
-    public function handle(RecurringInvoice $schedule): ?Invoice
+    public function handle(RecurringInvoice $schedule, ?StripeGateway $stripe = null, ?PayPalGateway $paypal = null): ?Invoice
     {
+        $stripe ??= app(StripeGateway::class);
+        $paypal ??= app(PayPalGateway::class);
         [$next, $cycles] = $schedule->nextRunAfter(today());
 
         $invoice = DB::transaction(function () use ($schedule, $next, $cycles) {
@@ -57,7 +62,30 @@ class GenerateRecurringInvoice
             return $invoice;
         });
 
-        if ($invoice !== null && $schedule->email_client && filled($schedule->lead->email)) {
+        if ($invoice === null) {
+            return null;
+        }
+
+        $invoice->load('items', 'lead', 'recurringInvoice');
+
+        if ($schedule->autoCharges()) {
+            $provider = $schedule->payment_provider;
+            $account = $schedule->team->paymentAccounts()->where('provider', $provider)->first();
+
+            if ($account !== null && $schedule->lead->hasCardOnFileFor($provider)) {
+                $charged = match ($provider) {
+                    PaymentProvider::Stripe => $stripe->attemptOffSessionCharge($invoice->fresh(['items', 'lead']), $account),
+                    PaymentProvider::PayPal => $paypal->attemptOffSessionCharge($invoice->fresh(['items', 'lead']), $account),
+                    default => false,
+                };
+
+                if ($charged) {
+                    return $invoice->fresh();
+                }
+            }
+        }
+
+        if ($schedule->email_client && filled($schedule->lead->email)) {
             $owner = $schedule->team->owner();
 
             Mail::to($schedule->lead->email)->queue(new InvoiceEmail($invoice, $owner?->name ?? $schedule->team->name, $owner?->email));

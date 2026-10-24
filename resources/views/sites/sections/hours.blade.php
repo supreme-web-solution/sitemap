@@ -1,8 +1,8 @@
 <section id="visit" class="block visit-block">
     <div class="container split">
         <div>
-            <span class="section-label">Visit us</span>
-            <h2 class="section-title">Opening Hours</h2>
+            <span class="section-label"{!! $e->label('hours_label') !!}>{{ $e->copy('hours_label', 'Visit us') }}</span>
+            <h2 class="section-title"{!! $e->label('hours_title') !!}>{{ $e->copy('hours_title', 'Opening Hours') }}</h2>
             @if ($hours)
                 <table class="hours">
                     @foreach ($hours as $day => $time)

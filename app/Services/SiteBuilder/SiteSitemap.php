@@ -18,18 +18,23 @@ class SiteSitemap
     {
         $posts = $this->pages->posts($site)->keyBy('slug');
         $lastModified = $site->updated_at;
+        $entries = [];
 
-        $entries = array_map(function (string $path) use ($urls, $posts, $lastModified) {
-            $modified = str_starts_with($path, 'blog/')
-                ? ($posts->get(substr($path, 5))?->updated_at ?? $lastModified)
-                : $lastModified;
+        foreach (SiteLocales::available($site->content) as $locale) {
+            $localizedUrls = $urls->forLocale($locale);
 
-            return sprintf(
-                "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n  </url>",
-                htmlspecialchars($urls->absolute($path), ENT_XML1 | ENT_QUOTES),
-                $modified?->toDateString() ?? now()->toDateString(),
-            );
-        }, $this->pages->paths($site));
+            foreach ($this->pages->paths($site) as $path) {
+                $modified = str_starts_with($path, 'blog/')
+                    ? ($posts->get(substr($path, 5))?->updated_at ?? $lastModified)
+                    : $lastModified;
+
+                $entries[] = sprintf(
+                    "  <url>\n    <loc>%s</loc>\n    <lastmod>%s</lastmod>\n  </url>",
+                    htmlspecialchars($localizedUrls->absolute($path), ENT_XML1 | ENT_QUOTES),
+                    $modified?->toDateString() ?? now()->toDateString(),
+                );
+            }
+        }
 
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
             ."<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"

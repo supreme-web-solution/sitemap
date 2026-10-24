@@ -54,6 +54,10 @@ const icons: Record<LeadActivityType, { icon: Component; tone: string }> = {
         icon: Mail,
         tone: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
     },
+    email_received: {
+        icon: MessageCircleReply,
+        tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300',
+    },
     marked_contacted: {
         icon: PhoneCall,
         tone: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
@@ -184,6 +188,15 @@ const textareaClass =
                         <span v-if="activity.data.message" class="block">{{
                             activity.data.message
                         }}</span>
+                    </p>
+                    <p
+                        v-if="
+                            activity.type === 'email_received' &&
+                            activity.data?.snippet
+                        "
+                        class="mt-1 rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground"
+                    >
+                        {{ activity.data.snippet }}
                     </p>
                     <p class="mt-0.5 text-xs text-muted-foreground">
                         {{ activity.label }} ·

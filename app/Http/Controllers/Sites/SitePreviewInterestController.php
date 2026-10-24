@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Sites\StorePreviewInterestRequest;
 use App\Models\Site;
 use App\Notifications\PreviewInterestNotification;
+use App\Services\Preview\PreviewLink;
 use Illuminate\Http\RedirectResponse;
 
 class SitePreviewInterestController extends Controller
@@ -17,7 +18,7 @@ class SitePreviewInterestController extends Controller
      */
     public function __invoke(StorePreviewInterestRequest $request, Site $site): RedirectResponse
     {
-        $thanks = to_route('sites.preview', ['site' => $site->slug, 'thanks' => 1, 'internal' => 1]);
+        $thanks = redirect(PreviewLink::page($site, internal: true, query: ['thanks' => 1]));
 
         // Bots tend to fill every field, so a filled honeypot is dropped silently.
         if (filled($request->validated('company_url'))) {
