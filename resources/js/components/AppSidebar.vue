@@ -156,7 +156,7 @@ const sellItems = computed<NavItem[]>(() => {
 
     return [
         {
-            title: 'Pipeline board',
+            title: 'Pipeline',
             href: leadsBoard({ current_team: slug }).url,
             icon: Kanban,
             exact: true,
@@ -182,14 +182,14 @@ const sellItems = computed<NavItem[]>(() => {
             icon: MessageSquareText,
         },
         {
-            title: 'Proposals',
-            href: proposalsIndex({ current_team: slug }).url,
-            icon: FileText,
-        },
-        {
             title: 'Packages',
             href: packagesIndex({ current_team: slug }).url,
             icon: Package,
+        },
+        {
+            title: 'Proposals',
+            href: proposalsIndex({ current_team: slug }).url,
+            icon: FileText,
         },
     ];
 });
@@ -286,8 +286,6 @@ const workspaceItems = computed<NavItem[]>(() => [
                     label="Discover"
                     :icon="Compass"
                     :items="discoverItems"
-                    :sub-items="pipelineShortcuts"
-                    sub-label="Pipeline stages"
                     :action="{ title: 'New search', href: dashboardUrl }"
                 />
                 <NavCollapsibleSection
@@ -299,6 +297,8 @@ const workspaceItems = computed<NavItem[]>(() => [
                     label="Sell"
                     :icon="Megaphone"
                     :items="sellItems"
+                    :sub-items="pipelineShortcuts"
+                    sub-label="By stage"
                 />
                 <NavCollapsibleSection
                     label="Grow"

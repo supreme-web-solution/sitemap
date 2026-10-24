@@ -55,8 +55,18 @@ const copyPreview = async (url: string) => {
     }
 };
 
-const leadUrl = (leadId: number) =>
-    editLead({ current_team: props.teamSlug, lead: leadId }).url;
+const leadUrl = (item: DashboardWorkTodayItem) => {
+    const base = editLead({
+        current_team: props.teamSlug,
+        lead: item.leadId,
+    }).url;
+
+    if (item.kind === 'send_preview' || item.kind === 'follow_up') {
+        return `${base}#lead-outreach-card`;
+    }
+
+    return base;
+};
 </script>
 
 <template>
@@ -93,7 +103,7 @@ const leadUrl = (leadId: number) =>
                 </span>
                 <div class="min-w-0 flex-1">
                     <Link
-                        :href="leadUrl(item.leadId)"
+                        :href="leadUrl(item)"
                         class="block truncate text-sm font-medium hover:text-primary"
                     >
                         {{ item.title }}

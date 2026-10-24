@@ -29,6 +29,66 @@ test('the board groups leads into a column per stage and only shows the current 
             ->where('columns.4.count', 1));
 });
 
+test('the board only loads a first page per column but reports the full count', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    Lead::factory()->count(20)->for($team)->create(['status' => LeadStatus::New]);
+
+    $this->actingAs($user)
+        ->get(route('leads.board', ['current_team' => $team->slug]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('columns.0.count', 20)
+            ->has('columns.0.leads', 15)
+            ->where('step', 15)
+            ->where('totalLeads', 20));
+
+    $this->actingAs($user)
+        ->get(route('leads.board', ['current_team' => $team->slug, 'limits' => ['new' => 20]]))
+        ->assertInertia(fn (Assert $page) => $page->has('columns.0.leads', 20));
+});
+
+test('board filters narrow both the cards and the column counts', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    Lead::factory()->for($team)->create(['name' => 'Austin Plumbing', 'city' => 'Austin', 'status' => LeadStatus::New]);
+    Lead::factory()->for($team)->create(['name' => 'Dallas Roofing', 'city' => 'Dallas', 'status' => LeadStatus::New]);
+    Lead::factory()->for($team)->create(['name' => 'Austin Dental', 'city' => 'Austin', 'status' => LeadStatus::Contacted]);
+    Lead::factory()->create(['name' => 'Austin Other Team', 'city' => 'Austin', 'status' => LeadStatus::New]);
+
+    $this->actingAs($user)
+        ->get(route('leads.board', ['current_team' => $team->slug, 'search' => 'Austin']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('columns.0.count', 1)
+            ->where('columns.0.leads.0.name', 'Austin Plumbing')
+            ->where('columns.2.count', 1)
+            ->where('filters.search', 'Austin')
+            ->where('totalLeads', 3));
+});
+
+test('board filters can show only follow-ups that are due', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    Lead::factory()->for($team)->create(['name' => 'Due Lead', 'next_follow_up_at' => today()->subDay()]);
+    Lead::factory()->for($team)->create(['name' => 'Later Lead', 'next_follow_up_at' => today()->addDays(5)]);
+
+    $this->actingAs($user)
+        ->get(route('leads.board', ['current_team' => $team->slug, 'follow_up' => 'due']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('columns.0.count', 1)
+            ->where('columns.0.leads.0.name', 'Due Lead'));
+});
+
+test('the board rejects column limits that are too large', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('leads.board', ['current_team' => $user->currentTeam->slug, 'limits' => ['new' => 5000]]))
+        ->assertSessionHasErrors('limits.new');
+});
+
 test('moving a lead between stages is recorded on its timeline', function () {
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create();
