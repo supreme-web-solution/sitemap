@@ -24,6 +24,15 @@ export const formatRelativeTime = (iso: string, now = Date.now()): string => {
     return 'just now';
 };
 
+/**
+ * Short clock time for chat bubbles (e.g. "5:38 PM").
+ */
+export const formatMessageClockTime = (iso: string): string =>
+    new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(new Date(iso));
+
 export const formatCurrency = (value: number): string =>
     new Intl.NumberFormat(undefined, {
         style: 'currency',

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
 import { LoaderCircle, Save, Trash2 } from '@lucide/vue';
-import { computed } from 'vue';
+import { computed, nextTick } from 'vue';
+import { injectMergeFieldTarget } from '@/composables/useMergeFieldTarget';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,37 @@ const emit = defineEmits<{ saved: [] }>();
 
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
+const mergeTarget = injectMergeFieldTarget();
+
+const registerMergeInsert = (
+    field: 'subject' | 'body',
+    element: HTMLInputElement | HTMLTextAreaElement,
+) => {
+    if (!mergeTarget) {
+        return;
+    }
+
+    mergeTarget.value = {
+        insertToken: (token: string) => {
+            const current = field === 'subject' ? form.subject : form.body;
+            const start = element.selectionStart ?? current.length;
+            const end = element.selectionEnd ?? start;
+            const next = current.slice(0, start) + token + current.slice(end);
+
+            if (field === 'subject') {
+                form.subject = next;
+            } else {
+                form.body = next;
+            }
+
+            nextTick(() => {
+                element.focus();
+                const cursor = start + token.length;
+                element.setSelectionRange(cursor, cursor);
+            });
+        },
+    };
+};
 
 const form = useForm({
     name: props.template?.name ?? '',
@@ -91,6 +123,13 @@ const textareaClass =
                     :id="`subject-${template?.id ?? 'new'}`"
                     v-model="form.subject"
                     required
+                    placeholder="e.g. A free website idea for {{business_name}}"
+                    @focus="
+                        registerMergeInsert(
+                            'subject',
+                            $event.target as HTMLInputElement,
+                        )
+                    "
                 />
                 <InputError :message="form.errors.subject" />
             </div>
@@ -103,7 +142,14 @@ const textareaClass =
                 v-model="form.body"
                 rows="8"
                 required
+                placeholder="Use tags from the panel on the right — click here first, then click a tag."
                 :class="textareaClass"
+                @focus="
+                    registerMergeInsert(
+                        'body',
+                        $event.target as HTMLTextAreaElement,
+                    )
+                "
             />
             <InputError :message="form.errors.body" />
         </div>

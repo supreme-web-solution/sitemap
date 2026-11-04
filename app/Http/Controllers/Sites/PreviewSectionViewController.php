@@ -16,7 +16,7 @@ class PreviewSectionViewController extends Controller
      *
      * @var list<string>
      */
-    public const KEYS = ['hero', 'services', 'about', 'reviews', 'gallery', 'visit', 'faq', 'contact'];
+    public const KEYS = ['hero', 'services', 'about', 'process', 'why', 'reviews', 'gallery', 'areas', 'visit', 'faq', 'contact'];
 
     /**
      * Count a public preview visitor looking at one section. Editor loads are ignored.
@@ -56,8 +56,11 @@ class PreviewSectionViewController extends Controller
             'hero' => 'Hero',
             'services' => SiteSection::Services->label(),
             'about' => SiteSection::About->label(),
+            'process' => SiteSection::Process->label(),
+            'why' => SiteSection::Why->label(),
             'reviews' => SiteSection::Reviews->label(),
             'gallery' => SiteSection::Gallery->label(),
+            'areas' => SiteSection::Areas->label(),
             'visit' => SiteSection::Hours->label(),
             'faq' => SiteSection::Faq->label(),
             'contact' => SiteSection::Contact->label(),

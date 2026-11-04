@@ -36,7 +36,14 @@ return [
         'timeout_seconds' => (int) env('AUDIT_TIMEOUT', 8),
         'max_bytes' => (int) env('AUDIT_MAX_BYTES', 1_500_000),
         'max_redirects' => 3,
-        'user_agent' => env('AUDIT_USER_AGENT', 'SitemapAuditBot/1.0'),
+        'user_agent' => env(
+            'AUDIT_USER_AGENT',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        ),
+        // Optional ScraperAPI key — retries audit/brand fetches when Cloudflare blocks the direct request.
+        'scraper_api_key' => env('SCRAPER_API_KEY'),
+        'scraper_render' => (bool) env('AUDIT_SCRAPER_RENDER', true),
+        'scraper_timeout_seconds' => (int) env('AUDIT_SCRAPER_TIMEOUT', 90),
     ],
 
     /*

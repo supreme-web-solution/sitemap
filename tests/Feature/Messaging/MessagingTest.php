@@ -69,14 +69,16 @@ test('lead phone numbers are normalised to e164 when saved', function () {
     expect($lead->refresh()->phone_e164)->toBeNull();
 });
 
-test('an owner connects messaging after the key checks out and the key is stored encrypted', function () {
-    Http::fake(['zernio.com/*' => Http::response(['accounts' => []])]);
+test('teams connect with one business number and whatsapp links when the provider returns it', function () {
+    config(['services.zernio.api_key' => 'zk_platform']);
+    Http::fake(['zernio.com/*' => Http::response(['accounts' => [
+        ['id' => 'wa_1', 'phoneNumber' => '+15550001111', 'channels' => ['sms', 'whatsapp']],
+    ]])]);
     $user = User::factory()->create();
     $team = $user->currentTeam;
 
     $this->actingAs($user)->put(route('messaging.store', $team->slug), [
-        'api_key' => 'zk_live_abc',
-        'sms_from' => '+15550001111',
+        'phone' => '+15550001111',
         'timezone' => 'America/Chicago',
         'quiet_start_hour' => 20,
         'quiet_end_hour' => 9,
@@ -84,21 +86,36 @@ test('an owner connects messaging after the key checks out and the key is stored
 
     $account = $team->refresh()->messagingAccount;
 
-    expect($account->api_key)->toBe('zk_live_abc')
-        ->and($account->webhook_key)->toHaveLength(32)
-        ->and(DB::table('messaging_accounts')->value('api_key'))->not->toContain('zk_live_abc');
+    expect($account->sms_from)->toBe('+15550001111')
+        ->and($account->whatsapp_account_id)->toBe('wa_1')
+        ->and($account->api_key)->toBeNull();
 });
 
-test('a rejected key is not saved', function () {
+test('connect is blocked when messaging is not configured on the server', function () {
+    config(['services.zernio.api_key' => null]);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->put(route('messaging.store', $user->currentTeam->slug), [
+        'phone' => '+15550001111',
+        'timezone' => 'America/Chicago',
+        'quiet_start_hour' => 20,
+        'quiet_end_hour' => 9,
+    ])->assertSessionHasErrors('phone');
+
+    expect($user->currentTeam->refresh()->messagingAccount)->toBeNull();
+});
+
+test('a rejected provider key does not save a connection', function () {
+    config(['services.zernio.api_key' => 'bad']);
     Http::fake(['zernio.com/*' => Http::response(['error' => 'nope'], 401)]);
     $user = User::factory()->create();
 
     $this->actingAs($user)->put(route('messaging.store', $user->currentTeam->slug), [
-        'api_key' => 'bad',
+        'phone' => '+15550001111',
         'timezone' => 'America/Chicago',
         'quiet_start_hour' => 20,
         'quiet_end_hour' => 9,
-    ])->assertSessionHasErrors('api_key');
+    ])->assertSessionHasErrors('phone');
 
     expect($user->currentTeam->refresh()->messagingAccount)->toBeNull();
 });

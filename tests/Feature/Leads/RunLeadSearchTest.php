@@ -50,6 +50,42 @@ function runLeadSearch(LeadSearch $search): RunLeadSearch
     return $job;
 }
 
+test('a completed search stores listing extras from the provider row', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'job_id' => 'job-extras',
+            'status' => 'completed',
+            'truncated' => false,
+            'data' => [
+                mindcasePlace([
+                    'placeId' => 'ChIJ-extras',
+                    'emails' => ['contact@extras.test'],
+                    'additionalPhones' => ['5125550100', '5125550101'],
+                    'socials' => [
+                        'instagram' => ['https://www.instagram.com/extras'],
+                        'facebook' => ['https://www.facebook.com/extras'],
+                    ],
+                ]),
+            ],
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->create();
+
+    runLeadSearch($search);
+
+    $lead = $search->team->leads()->sole();
+
+    expect($lead->email)->toBe('contact@extras.test')
+        ->and($lead->additional_phones)->toBe(['5125550100', '5125550101'])
+        ->and($lead->social_links)->toMatchArray([
+            'instagram' => 'https://www.instagram.com/extras',
+            'facebook' => 'https://www.facebook.com/extras',
+        ]);
+});
+
 test('a completed search stores open businesses as team leads', function () {
     config(['services.mindcase.key' => 'mk_test_key']);
     Http::preventStrayRequests();
@@ -76,6 +112,8 @@ test('a completed search stores open businesses as team leads', function () {
         ->completed_at->not->toBeNull();
 
     $lead = $search->team->leads()->sole();
+
+    expect($lead->email)->toBe('hello@austinpro.test');
 
     expect($lead)
         ->place_id->toBe('ChIJ-austin-pro-plumbing')

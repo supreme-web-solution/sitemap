@@ -2,64 +2,42 @@
 
 namespace App\Services\SiteBuilder;
 
+use App\Ai\Agents\SiteLocaleCopyTranslator;
+use App\Ai\Support\LocaleCopySubmission;
 use App\Models\Site;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
+use App\Services\Ai\AiAvailability;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SiteLocaleTranslator
 {
     /**
-     * Translate the public copy for one locale using the configured AI provider.
+     * Translate the public copy for one locale using the Laravel AI agent.
      *
      * @return array<string, mixed>
      */
     public function translate(Site $site, string $locale): array
     {
-        $apiKey = config('services.openai.key');
-
-        if (! filled($apiKey)) {
+        if (! AiAvailability::anthropicConfigured()) {
             return $this->fallback($site, $locale);
         }
 
         $source = $this->sourceBundle($site->content);
+        $submission = new LocaleCopySubmission;
 
         try {
-            $response = Http::baseUrl('https://api.openai.com/v1')
-                ->withToken($apiKey)
-                ->acceptJson()
-                ->timeout(60)
-                ->post('chat/completions', [
-                    'model' => config('services.openai.model'),
-                    'max_completion_tokens' => 4000,
-                    'messages' => [
-                        [
-                            'role' => 'system',
-                            'content' => 'You translate website copy. Return only JSON matching the input shape. Keep facts, names, phone numbers and addresses unchanged. Do not invent offers.',
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => 'Target locale: '.$locale."\n\nCopy JSON:\n".json_encode($source, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                        ],
-                    ],
-                    'response_format' => ['type' => 'json_object'],
-                ])
-                ->throw();
+            (new SiteLocaleCopyTranslator($submission))->prompt(
+                'Target locale: '.$locale."\n\nCopy JSON:\n".json_encode($source, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            );
 
-            $content = $response->json('choices.0.message.content');
-            $decoded = is_string($content) ? json_decode($content, true) : null;
-
-            if (! is_array($decoded)) {
-                return $this->fallback($site, $locale);
+            if ($submission->bundle !== null) {
+                return $submission->bundle;
             }
-
-            return $decoded;
-        } catch (ConnectionException|RequestException $exception) {
+        } catch (Throwable $exception) {
             Log::warning('Site locale translation failed.', ['site_id' => $site->id, 'locale' => $locale, 'message' => $exception->getMessage()]);
-
-            return $this->fallback($site, $locale);
         }
+
+        return $this->fallback($site, $locale);
     }
 
     /**

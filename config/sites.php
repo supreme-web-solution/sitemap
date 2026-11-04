@@ -2,6 +2,9 @@
 
 return [
 
+    // Tool-based edit executor (describe template, set fields, blueprints). Falls back to JSON planner if disabled.
+    'use_edit_executor' => env('SITE_EDIT_USE_EXECUTOR', true),
+
     /*
     |--------------------------------------------------------------------------
     | Custom domains
@@ -53,7 +56,13 @@ return [
     // Extra locales an agency may add beyond the default.
     'max_extra_locales' => (int) env('SITES_MAX_EXTRA_LOCALES', 3),
 
-    // OpenAI image model for editor/generation assists.
-    'image_model' => env('OPENAI_IMAGE_MODEL', 'gpt-image-1'),
+    // Photo generation: openai | openrouter | auto (OpenAI key wins when set).
+    'image_driver' => env('SITE_IMAGE_DRIVER', 'auto'),
+
+    // OpenAI Image API model when SITE_IMAGE_DRIVER=openai (requires OPENAI_API_KEY).
+    'image_model' => env('OPENAI_IMAGE_MODEL', 'gpt-image-2.5-flare'),
+
+    // OpenRouter image model when SITE_IMAGE_DRIVER=openrouter or auto + OPENROUTER_API_KEY.
+    'openrouter_image_model' => env('OPENROUTER_IMAGE_MODEL', 'google/gemini-2.5-flash-image'),
 
 ];

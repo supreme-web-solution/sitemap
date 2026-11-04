@@ -27,8 +27,9 @@ class RecurringInvoiceController extends Controller
             'schedules' => $currentTeam->recurringInvoices()
                 ->with('lead:id,name,email')
                 ->latest('id')
-                ->get()
-                ->map(fn (RecurringInvoice $schedule) => [
+                ->paginate(25)
+                ->withQueryString()
+                ->through(fn (RecurringInvoice $schedule) => [
                     'id' => $schedule->id,
                     'leadId' => $schedule->lead_id,
                     'leadName' => $schedule->lead->name,

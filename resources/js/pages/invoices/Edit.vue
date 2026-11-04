@@ -9,6 +9,13 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { formatRelativeTime } from '@/lib/format';
 import { invoiceStatusClasses, invoiceStatusLabel } from '@/lib/invoiceStatus';
 import {
@@ -166,8 +173,14 @@ const copyLink = async () => {
     }
 };
 
-const selectClass =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
+const leadIdSelect = computed({
+    get: () =>
+        form.lead_id === '' ? undefined : String(form.lead_id),
+    set: (value: string | undefined) => {
+        form.lead_id = value ? Number(value) : '';
+    },
+});
+
 const textareaClass =
     'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
 
@@ -301,40 +314,39 @@ const itemError = (index: number, field: string): string | undefined =>
         <form class="flex flex-col gap-6" @submit.prevent="submit">
             <section class="grid gap-4 panel p-5 sm:grid-cols-2">
                 <div class="grid gap-2">
-                    <Label for="invoice-lead">Client</Label>
-                    <select
-                        id="invoice-lead"
-                        v-model="form.lead_id"
-                        :disabled="!isDraft"
-                        :class="selectClass"
-                    >
-                        <option value="" disabled>Choose a lead…</option>
-                        <option
-                            v-for="lead in leads"
-                            :key="lead.id"
-                            :value="lead.id"
-                        >
-                            {{ lead.name }}
-                        </option>
-                    </select>
+                    <Label>Client</Label>
+                    <Select v-model="leadIdSelect" :disabled="!isDraft">
+                        <SelectTrigger class="w-full" aria-label="Client">
+                            <SelectValue placeholder="Choose a lead…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="lead in leads"
+                                :key="lead.id"
+                                :value="String(lead.id)"
+                            >
+                                {{ lead.name }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                     <InputError :message="form.errors.lead_id" />
                 </div>
                 <div class="grid gap-2">
-                    <Label for="invoice-kind">Type</Label>
-                    <select
-                        id="invoice-kind"
-                        v-model="form.kind"
-                        :disabled="!isDraft"
-                        :class="selectClass"
-                    >
-                        <option
-                            v-for="kind in kinds"
-                            :key="kind.value"
-                            :value="kind.value"
-                        >
-                            {{ kind.label }}
-                        </option>
-                    </select>
+                    <Label>Type</Label>
+                    <Select v-model="form.kind" :disabled="!isDraft">
+                        <SelectTrigger class="w-full" aria-label="Invoice type">
+                            <SelectValue placeholder="Invoice type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="kind in kinds"
+                                :key="kind.value"
+                                :value="kind.value"
+                            >
+                                {{ kind.label }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div class="grid gap-2">
                     <Label for="invoice-due">Due date</Label>

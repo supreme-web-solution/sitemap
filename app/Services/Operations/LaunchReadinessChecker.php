@@ -4,6 +4,7 @@ namespace App\Services\Operations;
 
 use App\Models\MailConnection;
 use App\Models\Team;
+use App\Services\SiteBuilder\LeadPhotoGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Redis;
@@ -344,15 +345,29 @@ class LaunchReadinessChecker
             $checks[] = $this->pass('integrations', 'mindcase', 'Mindcase API', 'MINDCASE_API_KEY is set.');
         }
 
-        $hasAi = filled(config('services.anthropic.key')) || filled(config('services.openai.key'));
+        $hasAnthropic = filled(config('services.anthropic.key'));
 
-        $checks[] = $hasAi
-            ? $this->pass('integrations', 'ai_keys', 'AI site planning', 'An Anthropic or OpenAI key is configured.')
-            : $this->warn('integrations', 'ai_keys', 'AI site planning', 'No AI key found; rule-based copy will be used.', 'Set ANTHROPIC_API_KEY or OPENAI_API_KEY for richer sites.');
+        $checks[] = $hasAnthropic
+            ? $this->pass('integrations', 'ai_anthropic', 'AI copy & planning', 'ANTHROPIC_API_KEY is set (site builds, AI edits, sequences, translations).')
+            : $this->warn('integrations', 'ai_anthropic', 'AI copy & planning', 'ANTHROPIC_API_KEY is missing; rule-based copy is used.', 'Set ANTHROPIC_API_KEY and ANTHROPIC_MODEL (e.g. claude-sonnet-4-6).');
+
+        $imageDriver = LeadPhotoGenerator::resolveDriver();
+        $hasImages = match ($imageDriver) {
+            'openrouter' => filled(config('services.openrouter.key')),
+            default => filled(config('services.openai.key')),
+        };
+
+        $checks[] = $hasImages
+            ? $this->pass('integrations', 'ai_site_images', 'AI editor photos', strtoupper($imageDriver).' is configured for hero/editor photo generation.')
+            : $this->warn('integrations', 'ai_site_images', 'AI editor photos', 'No image API key is set.', 'Set OPENROUTER_API_KEY (recommended) or OPENAI_API_KEY; see SITE_IMAGE_DRIVER in .env.example.');
 
         $checks[] = filled(config('services.zernio.base_url'))
             ? $this->pass('integrations', 'zernio', 'Zernio messaging', rtrim((string) config('services.zernio.base_url'), '/'))
             : $this->warn('integrations', 'zernio', 'Zernio messaging', 'ZERNIO_BASE_URL is empty.');
+
+        $checks[] = filled(config('services.zernio.api_key'))
+            ? $this->pass('integrations', 'zernio_key', 'Zernio API key', 'ZERNIO_API_KEY is set (teams connect numbers only).')
+            : $this->warn('integrations', 'zernio_key', 'Zernio API key', 'ZERNIO_API_KEY is empty.', 'Set ZERNIO_API_KEY so teams do not paste their own key.');
     }
 
     /**

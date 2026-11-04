@@ -6,6 +6,13 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { store, update } from '@/routes/recurring-invoices';
 import type { RecurringSchedule } from '@/types';
 
@@ -119,8 +126,14 @@ const submit = () => {
 const itemError = (index: number, field: string): string | undefined =>
     (form.errors as Record<string, string>)[`items.${index}.${field}`];
 
-const selectClass =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60 dark:bg-input/30';
+const leadIdSelect = computed({
+    get: () =>
+        form.lead_id === '' ? undefined : String(form.lead_id),
+    set: (value: string | undefined) => {
+        form.lead_id = value ? Number(value) : '';
+    },
+});
+
 const textareaClass =
     'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
 </script>
@@ -141,40 +154,39 @@ const textareaClass =
 
         <div class="grid gap-4 sm:grid-cols-3">
             <div class="grid gap-2">
-                <Label for="recurring-lead">Client</Label>
-                <select
-                    id="recurring-lead"
-                    v-model="form.lead_id"
-                    :disabled="isEditing"
-                    :class="selectClass"
-                >
-                    <option value="" disabled>Choose a lead…</option>
-                    <option
-                        v-for="lead in leads"
-                        :key="lead.id"
-                        :value="lead.id"
-                    >
-                        {{ lead.name }}
-                    </option>
-                </select>
+                <Label>Client</Label>
+                <Select v-model="leadIdSelect" :disabled="isEditing">
+                    <SelectTrigger class="w-full" aria-label="Client">
+                        <SelectValue placeholder="Choose a lead…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="lead in leads"
+                            :key="lead.id"
+                            :value="String(lead.id)"
+                        >
+                            {{ lead.name }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
                 <InputError :message="form.errors.lead_id" />
             </div>
             <div class="grid gap-2">
-                <Label for="recurring-interval">Repeats</Label>
-                <select
-                    id="recurring-interval"
-                    v-model="form.interval"
-                    :disabled="isEditing"
-                    :class="selectClass"
-                >
-                    <option
-                        v-for="interval in intervals"
-                        :key="interval.value"
-                        :value="interval.value"
-                    >
-                        {{ interval.label }}
-                    </option>
-                </select>
+                <Label>Repeats</Label>
+                <Select v-model="form.interval" :disabled="isEditing">
+                    <SelectTrigger class="w-full" aria-label="Repeats">
+                        <SelectValue placeholder="Choose frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="interval in intervals"
+                            :key="interval.value"
+                            :value="interval.value"
+                        >
+                            {{ interval.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
                 <InputError :message="form.errors.interval" />
             </div>
             <div class="grid gap-2">
@@ -221,42 +233,46 @@ const textareaClass =
                 </label>
             </div>
             <div v-if="!isEditing" class="grid gap-2 sm:col-span-3">
-                <Label for="recurring-collection">Collection</Label>
-                <select
-                    id="recurring-collection"
+                <Label>Collection</Label>
+                <Select
                     v-model="form.collection_mode"
-                    :class="selectClass"
                     :disabled="!hasStripe && !hasPayPal"
                 >
-                    <option
-                        v-for="mode in collectionModes"
-                        :key="mode.value"
-                        :value="mode.value"
-                        :disabled="
-                            !canAutoCharge && mode.value === 'auto_charge'
-                        "
-                    >
-                        {{ mode.label }}
-                    </option>
-                </select>
+                    <SelectTrigger class="w-full" aria-label="Collection">
+                        <SelectValue placeholder="How to collect" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="mode in collectionModes"
+                            :key="mode.value"
+                            :value="mode.value"
+                            :disabled="
+                                !canAutoCharge && mode.value === 'auto_charge'
+                            "
+                        >
+                            {{ mode.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
                 <div
                     v-if="form.collection_mode === 'auto_charge' && canAutoCharge"
                     class="grid gap-2"
                 >
-                    <Label for="recurring-provider">Payment provider</Label>
-                    <select
-                        id="recurring-provider"
-                        v-model="form.payment_provider"
-                        :class="selectClass"
-                    >
-                        <option
-                            v-for="provider in autoChargeProviders"
-                            :key="provider.value"
-                            :value="provider.value"
-                        >
-                            {{ provider.label }}
-                        </option>
-                    </select>
+                    <Label>Payment provider</Label>
+                    <Select v-model="form.payment_provider">
+                        <SelectTrigger class="w-full" aria-label="Payment provider">
+                            <SelectValue placeholder="Choose provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="provider in autoChargeProviders"
+                                :key="provider.value"
+                                :value="provider.value"
+                            >
+                                {{ provider.label }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <p
                     v-if="!canAutoCharge"

@@ -226,6 +226,8 @@ class RuleBasedCopywriter implements SiteCopywriter
                 'pages' => SitePages::OPTIONAL,
                 'services' => $this->withSlugs($services),
                 'faqs' => $this->faqs($lead),
+                'process' => SiteProofPoints::process($lead, []),
+                'why' => SiteProofPoints::why($lead, []),
                 'custom_pages' => SiteCustomPages::seedForLead($lead),
             ],
         );
@@ -236,7 +238,7 @@ class RuleBasedCopywriter implements SiteCopywriter
      */
     public function revise(Lead $lead, SiteDraft $current, string $instruction): SiteDraft
     {
-        $content = $current->content;
+        $content = SiteStructuralIntent::apply($lead, $current->content, $instruction);
 
         foreach (['headline' => SiteContentSchema::HEADLINE_MAX, 'tagline' => 200, 'cta_label' => 40] as $field => $max) {
             if (preg_match('/'.$field.'(?:\s+to|\s*:)\s*[\'\"](.+?)[\'\"]/i', $instruction, $match) === 1) {
@@ -249,6 +251,47 @@ class RuleBasedCopywriter implements SiteCopywriter
         }
 
         return new SiteDraft($current->template, $content);
+    }
+
+    /**
+     * Cycle or set a section layout when the instruction asks to redesign it.
+     *
+     * @param  array<string, mixed>  $variants
+     * @return array<string, string>
+     */
+    /**
+     * @param  array<string, mixed>|null  $layoutBefore
+     */
+    public function applyLayoutVariants(
+        array $variants,
+        string $instruction,
+        ?array $layoutBefore = null,
+        ?string $userInstruction = null,
+    ): array {
+        $clean = SectionVariants::clean($variants);
+        $before = SectionVariants::withDefaults($layoutBefore);
+        $user = trim($userInstruction ?? $instruction);
+        $lower = Str::lower($user);
+        $wantsVisual = SiteChatInstruction::wantsSectionVisualChange($user);
+
+        foreach (array_keys(SectionVariants::CATALOG) as $section) {
+            $label = SectionVariants::CATALOG[$section]['label'];
+            $explicitRedesign = Str::contains($lower, [
+                'redesign the '.$section,
+                'redesign the '.Str::lower($label),
+            ]);
+
+            $mentioned = in_array($section, SiteChatInstruction::mentionedSections($user), true);
+
+            if (! $explicitRedesign && ! ($wantsVisual && $mentioned)) {
+                continue;
+            }
+
+            $current = $before[$section] ?? $clean[$section] ?? SectionVariants::CATALOG[$section]['default'];
+            $clean[$section] = SectionVariants::pickForChat($section, $user, $current);
+        }
+
+        return SectionVariants::clean($clean);
     }
 
     /**

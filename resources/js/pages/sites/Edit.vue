@@ -65,6 +65,7 @@ const props = defineProps<{
     templates: Option[];
     palettes: Record<string, string[]>;
     sectionOptions: Option[];
+    sectionVariantChoices: Record<string, Option[]>;
     designChoices: SiteDesignChoices;
     copyFields: SiteCopyField[];
     chat: SiteChat;
@@ -172,6 +173,9 @@ const improve = (payload: {
     field?: string;
     section?: string;
     body?: string;
+    redesign?: boolean;
+    design_target?: string;
+    preview_edits?: { region: string; selector: string; tag: string; text?: string; href?: string }[];
 }) => {
     void workspace.value?.flush();
     router.post(
@@ -188,25 +192,42 @@ const fixWithAi = (key: string) => {
     router.post(
         storeChat.url({ current_team: teamSlug.value, site: props.site.id }),
         { fix: key },
-        { preserveScroll: true },
+        { preserveScroll: true, onSuccess: reloadCanvas },
     );
 };
 
 const { start: startPolling, stop: stopPolling } = usePoll(
     3000,
-    { only: ['site', 'reviews', 'quality', 'chat', 'versions'] },
+    { only: ['site', 'reviews', 'quality', 'versions'] },
+    { autoStart: false },
+);
+
+const { start: startChatPolling, stop: stopChatPolling } = usePoll(
+    2000,
+    { only: ['chat', 'site', 'quality', 'versions'] },
     { autoStart: false },
 );
 
 watch(
-    () =>
-        isRegenerating.value || isFetchingReviews.value || isEditingWithAi.value,
+    () => isRegenerating.value || isFetchingReviews.value,
     (busy) => (busy ? startPolling() : stopPolling()),
+    { immediate: true },
+);
+
+watch(
+    isEditingWithAi,
+    (busy) => (busy ? startChatPolling() : stopChatPolling()),
     { immediate: true },
 );
 
 watch(isFetchingReviews, (fetching, wasFetching) => {
     if (!fetching && wasFetching) {
+        reloadCanvas();
+    }
+});
+
+watch(isEditingWithAi, (editing, wasEditing) => {
+    if (!editing && wasEditing) {
         reloadCanvas();
     }
 });
@@ -267,6 +288,7 @@ const copyLink = async () => {
             :templates="templates"
             :palettes="palettes"
             :section-options="sectionOptions"
+            :section-variant-choices="sectionVariantChoices"
             :reviews-styles="reviewsStyles"
             :design-choices="designChoices"
             :copy-fields="copyFields"
@@ -354,7 +376,11 @@ const copyLink = async () => {
             </template>
 
             <template #ai>
-                <SiteChatPanel :site-id="site.id" :chat="chat" embedded />
+                <SiteChatPanel
+                    :site-id="site.id"
+                    :chat="chat"
+                    embedded
+                />
             </template>
         </SiteEditorWorkspace>
 

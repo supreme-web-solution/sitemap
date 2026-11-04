@@ -3,6 +3,7 @@
 namespace App\Services\Messaging;
 
 use App\Models\MessagingAccount;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -12,9 +13,42 @@ class ZernioClient
 {
     public function __construct(private readonly string $apiKey) {}
 
+    public static function platformKey(): ?string
+    {
+        $key = config('services.zernio.api_key');
+
+        return filled($key) ? (string) $key : null;
+    }
+
+    public static function usesPlatformKey(): bool
+    {
+        return self::platformKey() !== null;
+    }
+
+    /**
+     * @throws MessagingException
+     */
+    public static function platform(): self
+    {
+        $key = self::platformKey();
+
+        if ($key === null) {
+            throw new MessagingException(__('Messaging is not configured on the server.'));
+        }
+
+        return new self($key);
+    }
+
+    /**
+     * @throws MessagingException
+     */
     public static function for(MessagingAccount $account): self
     {
-        return new self($account->api_key);
+        if (filled($account->api_key)) {
+            return new self($account->api_key);
+        }
+
+        return self::platform();
     }
 
     /**
@@ -24,7 +58,119 @@ class ZernioClient
      */
     public function verify(): void
     {
-        $this->check($this->send(fn () => $this->http()->get('/accounts')));
+        $this->listAccountRows();
+    }
+
+    /**
+     * Map one business number to SMS sending and WhatsApp (when the provider links them).
+     *
+     * @return array{sms_from: string, whatsapp_account_id: string|null}
+     *
+     * @throws MessagingException
+     */
+    public function linkSendingNumber(string $e164): array
+    {
+        $whatsappAccountId = null;
+
+        foreach ($this->listAccountRows() as $row) {
+            if (! is_array($row) || ! $this->accountRowMatchesPhone($row, $e164)) {
+                continue;
+            }
+
+            if ($this->accountRowSupportsWhatsApp($row)) {
+                $id = $row['id'] ?? $row['accountId'] ?? $row['account_id'] ?? null;
+
+                if (filled($id)) {
+                    $whatsappAccountId = (string) $id;
+                }
+            }
+        }
+
+        return [
+            'sms_from' => $e164,
+            'whatsapp_account_id' => $whatsappAccountId,
+        ];
+    }
+
+    /**
+     * @return list<mixed>
+     *
+     * @throws MessagingException
+     */
+    private function listAccountRows(): array
+    {
+        $response = $this->send(fn () => $this->http()->get('/accounts'));
+        $this->check($response);
+
+        $payload = $response->json();
+
+        if (is_array($payload) && isset($payload['accounts']) && is_array($payload['accounts'])) {
+            return $payload['accounts'];
+        }
+
+        if (is_array($payload) && isset($payload['data']) && is_array($payload['data'])) {
+            return $payload['data'];
+        }
+
+        return is_array($payload) ? $payload : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function accountRowMatchesPhone(array $row, string $e164): bool
+    {
+        $candidates = [
+            $row['phone'] ?? null,
+            $row['phoneNumber'] ?? null,
+            $row['from'] ?? null,
+            $row['sender'] ?? null,
+            $row['e164'] ?? null,
+        ];
+
+        $target = PhoneNumber::digits($e164);
+
+        if ($target === null) {
+            return false;
+        }
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            if (PhoneNumber::digits($candidate) === $target) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function accountRowSupportsWhatsApp(array $row): bool
+    {
+        $channel = strtolower((string) ($row['channel'] ?? $row['type'] ?? ''));
+
+        if (str_contains($channel, 'whatsapp') || $channel === 'wa') {
+            return true;
+        }
+
+        $channels = $row['channels'] ?? $row['capabilities'] ?? null;
+
+        if (is_array($channels)) {
+            foreach ($channels as $item) {
+                $label = strtolower((string) $item);
+
+                if (str_contains($label, 'whatsapp') || $label === 'wa') {
+                    return true;
+                }
+            }
+        }
+
+        return (bool) ($row['whatsapp'] ?? $row['supportsWhatsApp'] ?? false);
     }
 
     /**

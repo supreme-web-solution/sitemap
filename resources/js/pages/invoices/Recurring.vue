@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Pause, Pencil, Play, Plus, Trash2 } from '@lucide/vue';
+import { Pause, Pencil, Play, Plus, Repeat, Trash2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import PaginationBar from '@/components/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import RecurringInvoiceForm from '@/components/invoices/RecurringInvoiceForm.vue';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { index as invoicesIndex } from '@/routes/invoices';
 import {
     destroy,
     index as recurringIndex,
     toggle,
 } from '@/routes/recurring-invoices';
-import type { RecurringSchedule, Team } from '@/types';
+import type { Paginated, RecurringSchedule, Team } from '@/types';
 
 defineProps<{
-    schedules: RecurringSchedule[];
+    schedules: Paginated<RecurringSchedule>;
     leads: { id: number; name: string; email: string | null }[];
     intervals: { value: string; label: string }[];
     collectionModes: { value: string; label: string }[];
@@ -104,7 +106,7 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
         />
 
         <div
-            v-for="schedule in schedules"
+            v-for="schedule in schedules.data"
             :key="schedule.id"
             data-test="schedule"
         >
@@ -208,12 +210,15 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
             </article>
         </div>
 
-        <p
-            v-if="!schedules.length && !creating"
-            class="panel p-8 text-center text-sm text-muted-foreground"
+        <PaginationBar v-if="schedules.data.length" :paginator="schedules" />
+
+        <EmptyState
+            v-if="!schedules.data.length && !creating"
+            title="No recurring billing yet"
+            description="Add a monthly or yearly schedule for hosting, maintenance, or care plans after a client accepts a proposal."
+            :icon="Repeat"
         >
-            No recurring billing yet. Add a schedule for a client on a hosting
-            or maintenance plan.
-        </p>
+            <Button @click="creating = true"><Plus /> Add schedule</Button>
+        </EmptyState>
     </div>
 </template>

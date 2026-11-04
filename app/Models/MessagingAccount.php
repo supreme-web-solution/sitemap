@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * A team's own Zernio connection for SMS and WhatsApp.
+ * A team's SMS and WhatsApp sending settings (API key optional when the platform provides ZERNIO_API_KEY).
  *
  * @property int $id
  * @property int $team_id
- * @property string $api_key
+ * @property string|null $api_key
  * @property string $webhook_secret
  * @property string $webhook_key
  * @property string|null $sms_from

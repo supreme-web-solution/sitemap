@@ -12,6 +12,7 @@ use App\Http\Controllers\Invoices\InvoiceActionController;
 use App\Http\Controllers\Invoices\InvoiceController;
 use App\Http\Controllers\Invoices\InvoicePayController;
 use App\Http\Controllers\Invoices\RecurringInvoiceController;
+use App\Http\Controllers\Leads\BulkSequenceEnrollmentController;
 use App\Http\Controllers\Leads\CompetitorAuditController;
 use App\Http\Controllers\Leads\LeadActivityController;
 use App\Http\Controllers\Leads\LeadAuditController;
@@ -42,6 +43,7 @@ use App\Http\Controllers\Payments\PaystackWebhookController;
 use App\Http\Controllers\Payments\StripeWebhookController;
 use App\Http\Controllers\Portal\ClientPortalController;
 use App\Http\Controllers\Portal\LeadPortalController;
+use App\Http\Controllers\Portal\PublicWebsiteAuditController;
 use App\Http\Controllers\Proposals\PackageController;
 use App\Http\Controllers\Proposals\ProposalActionController;
 use App\Http\Controllers\Proposals\ProposalController;
@@ -120,6 +122,9 @@ Route::post('q/{proposal:public_token}/accept', [ProposalPublicController::class
 Route::post('q/{proposal:public_token}/decline', [ProposalPublicController::class, 'decline'])
     ->middleware('throttle:invoice-payments')
     ->name('proposals.public.decline');
+
+Route::get('report/{lead:website_audit_public_token}', [PublicWebsiteAuditController::class, 'show'])
+    ->name('website-audit.public');
 
 Route::get('c/{lead:portal_token}', [ClientPortalController::class, 'show'])->name('portal.show');
 Route::post('c/{lead:portal_token}/approve', [ClientPortalController::class, 'approve'])
@@ -211,10 +216,12 @@ Route::prefix('{current_team}')
         Route::delete('email-templates/{emailTemplate}', [EmailTemplateController::class, 'destroy'])->name('email-templates.destroy');
 
         Route::get('sequences', [FollowUpSequenceController::class, 'index'])->name('sequences.index');
+        Route::post('sequences/generate', [FollowUpSequenceController::class, 'generate'])->name('sequences.generate');
         Route::post('sequences', [FollowUpSequenceController::class, 'store'])->name('sequences.store');
         Route::put('sequences/{followUpSequence}', [FollowUpSequenceController::class, 'update'])->name('sequences.update');
         Route::delete('sequences/{followUpSequence}', [FollowUpSequenceController::class, 'destroy'])->name('sequences.destroy');
 
+        Route::post('leads/bulk-enrollments', [BulkSequenceEnrollmentController::class, 'store'])->name('leads.enrollments.bulk');
         Route::post('leads/{lead}/enrollments', [SequenceEnrollmentController::class, 'store'])->name('leads.enrollments.store');
         Route::delete('leads/{lead}/enrollments/{enrollment}', [SequenceEnrollmentController::class, 'destroy'])->name('leads.enrollments.destroy');
         Route::post('leads/{lead}/tasks', [LeadTaskController::class, 'store'])->name('leads.tasks.store');
@@ -273,6 +280,11 @@ Route::prefix('{current_team}')
         Route::post('sites/{site}/chat', [SiteChatController::class, 'store'])
             ->middleware('throttle:site-generation')
             ->name('sites.chat.store');
+        Route::delete('sites/{site}/chat', [SiteChatController::class, 'destroy'])
+            ->name('sites.chat.destroy');
+        Route::post('sites/{site}/chat/retry', [SiteChatController::class, 'retry'])
+            ->middleware('throttle:site-generation')
+            ->name('sites.chat.retry');
         Route::put('sites/{site}/preview-access', [SitePreviewSettingsController::class, 'update'])->name('sites.preview-access.update');
         Route::post('sites/{site}/health', [SiteHealthController::class, 'store'])->name('sites.health.store');
         Route::post('sites/{site}/transfer', [SiteTransferController::class, 'store'])->name('sites.transfer.store');

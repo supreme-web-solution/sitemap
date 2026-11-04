@@ -69,8 +69,8 @@ const statusClass: Record<string, string> = {
         </p>
 
         <p v-else-if="!messaging.connected" class="mt-3 text-sm text-muted-foreground">
-            Connect your Zernio account to text and WhatsApp leads.
-            <Link :href="messagingIndex.url(teamSlug)" class="underline">Set it up</Link>
+            Connect SMS or WhatsApp on the Messaging page, then chat here.
+            <Link :href="messagingIndex.url(teamSlug)" class="underline">Connect messaging</Link>
         </p>
 
         <p v-else-if="!messaging.phone" class="mt-3 text-sm text-muted-foreground">

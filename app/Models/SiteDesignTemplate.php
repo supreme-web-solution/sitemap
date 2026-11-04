@@ -16,13 +16,14 @@ use Illuminate\Database\Eloquent\Model;
  * @property SiteTemplate $base_template
  * @property SiteDesignStyle $style
  * @property SiteLayoutVariant $layout_variant
+ * @property array<string, string>|null $variants
  * @property list<string> $industries
  * @property string $accent_color
  * @property string|null $description
  * @property int $sort_order
  * @property bool $is_active
  */
-#[Fillable(['slug', 'name', 'base_template', 'style', 'layout_variant', 'industries', 'accent_color', 'description', 'sort_order', 'is_active'])]
+#[Fillable(['slug', 'name', 'base_template', 'style', 'layout_variant', 'variants', 'industries', 'accent_color', 'description', 'sort_order', 'is_active'])]
 class SiteDesignTemplate extends Model
 {
     /**
@@ -77,6 +78,7 @@ class SiteDesignTemplate extends Model
             'base_template' => SiteTemplate::class,
             'style' => SiteDesignStyle::class,
             'layout_variant' => SiteLayoutVariant::class,
+            'variants' => 'array',
             'industries' => 'array',
             'sort_order' => 'integer',
             'is_active' => 'boolean',

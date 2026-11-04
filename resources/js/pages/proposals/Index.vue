@@ -1,22 +1,28 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { Plus } from '@lucide/vue';
+import { FileText, Plus } from '@lucide/vue';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
+import PaginationBar from '@/components/PaginationBar.vue';
+import { EmptyState } from '@/components/ui/empty-state';
+import { index as leadsIndex } from '@/routes/leads';
 import { create, edit } from '@/routes/proposals';
+import type { Paginated } from '@/types';
+
+type ProposalRow = {
+    id: number;
+    number: string;
+    title: string;
+    leadName: string;
+    status: string;
+    statusLabel: string;
+    firstYear: string;
+    sentAt: string | null;
+};
 
 defineProps<{
-    proposals: {
-        id: number;
-        number: string;
-        title: string;
-        leadName: string;
-        status: string;
-        statusLabel: string;
-        firstYear: string;
-        sentAt: string | null;
-    }[];
+    proposals: Paginated<ProposalRow>;
 }>();
 
 defineOptions({
@@ -49,12 +55,25 @@ const statusClasses: Record<string, string> = {
             </Button>
         </div>
 
-        <p v-if="!proposals.length" class="text-sm text-muted-foreground">
-            No proposals yet. Open a lead and choose "New proposal".
-        </p>
+        <EmptyState
+            v-if="!proposals.data.length"
+            title="No proposals yet"
+            description="Send a private link with your packages. When the client accepts, we create the invoice and recurring billing for you."
+            :icon="FileText"
+        >
+            <Button as-child>
+                <Link :href="create(teamSlug)"><Plus /> New proposal</Link>
+            </Button>
+            <Button variant="outline" as-child>
+                <Link :href="leadsIndex({ current_team: teamSlug })">
+                    Open leads
+                </Link>
+            </Button>
+        </EmptyState>
 
-        <div v-else class="panel overflow-x-auto">
-            <table class="w-full text-sm">
+        <div v-else class="flex flex-col gap-3">
+            <div class="panel overflow-hidden">
+            <table class="w-full table-fixed text-sm">
                 <thead class="text-left text-xs text-muted-foreground">
                     <tr>
                         <th class="p-3 font-medium">Proposal</th>
@@ -64,7 +83,7 @@ const statusClasses: Record<string, string> = {
                     </tr>
                 </thead>
                 <tbody class="divide-y">
-                    <tr v-for="proposal in proposals" :key="proposal.id">
+                    <tr v-for="proposal in proposals.data" :key="proposal.id">
                         <td class="p-3">
                             <Link
                                 :href="edit({ current_team: teamSlug, proposal: proposal.id })"
@@ -83,6 +102,8 @@ const statusClasses: Record<string, string> = {
                     </tr>
                 </tbody>
             </table>
+            </div>
+            <PaginationBar :paginator="proposals" />
         </div>
     </div>
 </template>

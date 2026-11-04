@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use App\Models\Team;
 use App\Services\Audit\BrandExtractor;
+use App\Services\Audit\BrandLogoStorage;
+use App\Services\Audit\NonSuccessHttpResponseException;
 use App\Services\Audit\UnsafeUrlException;
 use App\Services\Billing\UsageMeter;
 use Illuminate\Http\Client\ConnectionException;
@@ -19,8 +21,13 @@ class LeadBrandController extends Controller
     /**
      * Pull a brand colour (and logo URL) from the lead's current website.
      */
-    public function store(Team $currentTeam, Lead $lead, UsageMeter $usage, BrandExtractor $extractor): RedirectResponse
-    {
+    public function store(
+        Team $currentTeam,
+        Lead $lead,
+        UsageMeter $usage,
+        BrandExtractor $extractor,
+        BrandLogoStorage $logoStorage,
+    ): RedirectResponse {
         if (blank($lead->website)) {
             throw ValidationException::withMessages([
                 'website' => __('This lead has no website to pull a brand from.'),
@@ -35,26 +42,41 @@ class LeadBrandController extends Controller
             throw ValidationException::withMessages(['website' => $exception->getMessage()]);
         } catch (ConnectionException) {
             throw ValidationException::withMessages(['website' => __('The website could not be reached.')]);
+        } catch (NonSuccessHttpResponseException $exception) {
+            throw ValidationException::withMessages(['website' => $exception->getMessage()]);
         }
 
         $site = $lead->site;
+        $siteAccentUpdated = false;
 
         if ($site !== null && filled($brand['accent'])) {
             $content = $site->content;
             $content['accent'] = $brand['accent'];
             $site->forceFill(['content' => $content])->save();
+            $siteAccentUpdated = true;
         }
 
-        $parts = array_filter([
-            filled($brand['accent']) ? __('colour :accent', ['accent' => $brand['accent']]) : null,
-            filled($brand['logo']) ? __('logo :url', ['url' => $brand['logo']]) : null,
-        ]);
+        $logoSaved = filled($brand['logo']) && $logoStorage->store($lead, $brand['logo']);
+
+        if (! $siteAccentUpdated && ! $logoSaved && blank($brand['accent']) && blank($brand['logo'])) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => __('No brand colour or logo was found on that site.'),
+            ]);
+
+            return back();
+        }
 
         Inertia::flash('toast', [
-            'type' => $parts === [] ? 'error' : 'success',
-            'message' => $parts === []
-                ? __('No brand colour or logo was found on that site.')
-                : __('Pulled :parts. Apply the logo on the lead if you want to keep it.', ['parts' => implode(' · ', $parts)]),
+            'type' => 'success',
+            'message' => __('Brand pulled from their website.'),
+        ]);
+
+        Inertia::flash('brand_pull', [
+            'accent' => $brand['accent'],
+            'logoUrl' => $logoSaved ? $lead->fresh()->logoUrl() : null,
+            'logoSaved' => $logoSaved,
+            'siteAccentUpdated' => $siteAccentUpdated,
         ]);
 
         return back();

@@ -6,19 +6,30 @@ use App\Enums\SiteGenerationStatus;
 use App\Enums\SiteVibe;
 use App\Jobs\GenerateSiteConcept;
 use App\Models\Lead;
+use App\Models\SiteDesignTemplate;
+use App\Services\SiteBuilder\EnsureDesignTemplateCatalog;
 use App\Support\Queues;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 
 class DispatchSiteConcepts
 {
+    public function __construct(protected EnsureDesignTemplateCatalog $catalog) {}
+
     /**
      * Queue one job per design vibe so the three options can generate in parallel.
+     *
+     * Each option is built on a different catalog design (hero, services, about and gallery
+     * layouts), and designs shown last time are avoided so "generate new options" looks new.
      */
     public function handle(Lead $lead): void
     {
+        $this->catalog->ensure();
+
         $batch = (string) Str::ulid();
         $leadId = $lead->id;
+        $recentDesignIds = $lead->concepts()->pluck('design_template_id')->filter()->all();
 
         $lead->update([
             'concepts_status' => SiteGenerationStatus::Queued,
@@ -29,7 +40,12 @@ class DispatchSiteConcepts
 
         Bus::batch(
             collect(SiteVibe::cases())
-                ->map(fn (SiteVibe $vibe) => new GenerateSiteConcept($lead, $batch, $vibe))
+                ->map(fn (SiteVibe $vibe) => new GenerateSiteConcept(
+                    $lead,
+                    $batch,
+                    $vibe,
+                    $this->pickDesign($lead, $vibe, $recentDesignIds)?->id,
+                ))
                 ->all(),
         )
             ->then(function () use ($leadId) {
@@ -51,5 +67,43 @@ class DispatchSiteConcepts
             ->name('site-concepts-'.$leadId)
             ->onQueue(Queues::AI)
             ->dispatch();
+    }
+
+    /**
+     * Choose a catalog design for the vibe: fresh ones first, and ones fitting the lead's industry before the rest.
+     *
+     * @param  list<int>  $recentDesignIds
+     */
+    protected function pickDesign(Lead $lead, SiteVibe $vibe, array $recentDesignIds): ?SiteDesignTemplate
+    {
+        $candidates = SiteDesignTemplate::query()
+            ->active()
+            ->where('base_template', $vibe->template()->value)
+            ->get();
+
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        $fresh = $candidates->reject(fn (SiteDesignTemplate $design) => in_array($design->id, $recentDesignIds, true));
+        $pool = $fresh->isEmpty() ? $candidates : $fresh;
+        $matching = $pool->filter(fn (SiteDesignTemplate $design) => $this->fitsIndustry($design, $lead));
+
+        return ($matching->isNotEmpty() ? $matching : $pool)->random();
+    }
+
+    /**
+     * Whether any industry the design lists appears in the lead's category.
+     */
+    protected function fitsIndustry(SiteDesignTemplate $design, Lead $lead): bool
+    {
+        $category = Str::lower((string) $lead->category);
+
+        if ($category === '') {
+            return false;
+        }
+
+        return Collection::make($design->industries)
+            ->contains(fn (string $industry) => str_contains($category, Str::lower($industry)));
     }
 }

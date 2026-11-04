@@ -14,7 +14,7 @@ test('visiting email studio creates starter templates once', function () {
 
     $this->actingAs($user)->get($url)
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('outreach/Templates')->has('templates', 3)->has('mergeFields'));
+        ->assertInertia(fn (Assert $page) => $page->component('outreach/Templates')->has('templates.data', 3)->has('mergeFields'));
 
     $this->actingAs($user)->get($url);
 

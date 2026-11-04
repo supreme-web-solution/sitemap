@@ -10,9 +10,18 @@ use Illuminate\Support\Facades\Storage;
 test('the visual editor can generate and attach an ai photo', function () {
     Storage::fake('public');
 
-    config(['services.openai.key' => 'test-key']);
+    config([
+        'sites.image_driver' => 'openrouter',
+        'services.openrouter.key' => 'test-key',
+    ]);
 
     Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+            return Http::response([
+                'data' => [['b64_json' => base64_encode('fake-image-bytes'), 'media_type' => 'image/png']],
+            ]);
+        }
+
         if (str_contains($request->url(), 'images/generations')) {
             return Http::response([
                 'data' => [['b64_json' => base64_encode('fake-image-bytes')]],

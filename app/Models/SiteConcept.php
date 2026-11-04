@@ -18,12 +18,14 @@ use Illuminate\Support\Carbon;
  * @property int $lead_id
  * @property string $batch
  * @property SiteTemplate $template
+ * @property int|null $design_template_id
  * @property array<string, mixed> $content
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Lead $lead
+ * @property-read SiteDesignTemplate|null $designTemplate
  */
-#[Fillable(['team_id', 'lead_id', 'batch', 'template', 'content'])]
+#[Fillable(['team_id', 'lead_id', 'batch', 'template', 'design_template_id', 'content'])]
 class SiteConcept extends Model
 {
     /** @use HasFactory<SiteConceptFactory> */
@@ -37,6 +39,16 @@ class SiteConcept extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    /**
+     * Get the catalog design (layout variants) this concept was built with.
+     *
+     * @return BelongsTo<SiteDesignTemplate, $this>
+     */
+    public function designTemplate(): BelongsTo
+    {
+        return $this->belongsTo(SiteDesignTemplate::class);
     }
 
     /**

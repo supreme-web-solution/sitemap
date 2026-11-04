@@ -24,6 +24,7 @@ class ChooseSiteConcept
             $lead,
             $concept->template,
             new SiteDraft($concept->template, $concept->content),
+            $concept->design_template_id,
         );
 
         $lead->forceFill(['vibe' => $concept->template->vibe()])->save();

@@ -5,6 +5,8 @@ namespace App\Jobs;
 use App\Enums\SiteVibe;
 use App\Models\Lead;
 use App\Models\SiteConcept;
+use App\Models\SiteDesignTemplate;
+use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteCopywriter;
 use App\Support\Queues;
 use Illuminate\Bus\Batchable;
@@ -33,7 +35,7 @@ class GenerateSiteConcept implements ShouldBeUnique, ShouldQueue
      */
     public int $backoff = 15;
 
-    public function __construct(public Lead $lead, public string $batch, public SiteVibe $vibe)
+    public function __construct(public Lead $lead, public string $batch, public SiteVibe $vibe, public ?int $designTemplateId = null)
     {
         $this->onQueue(Queues::AI);
     }
@@ -51,17 +53,32 @@ class GenerateSiteConcept implements ShouldBeUnique, ShouldQueue
      */
     public function handle(SiteCopywriter $copywriter): void
     {
-        $draft = $copywriter->write($this->lead, $this->vibe->template());
+        $template = $this->vibe->template();
+        $draft = $copywriter->write($this->lead, $template);
+        $content = $draft->content;
+
+        $design = $this->designTemplateId
+            ? SiteDesignTemplate::query()->where('base_template', $template->value)->find($this->designTemplateId)
+            : null;
+
+        if ($design !== null && in_array($design->accent_color, $template->palette(), true)) {
+            $content['accent'] = $design->accent_color;
+        }
+
+        if ($design !== null) {
+            $content['variants'] = SectionVariants::withDefaults($design->variants);
+        }
 
         SiteConcept::query()->updateOrCreate(
             [
                 'lead_id' => $this->lead->id,
                 'batch' => $this->batch,
-                'template' => $this->vibe->template(),
+                'template' => $template,
             ],
             [
                 'team_id' => $this->lead->team_id,
-                'content' => $draft->content,
+                'design_template_id' => $design?->id,
+                'content' => $content,
             ],
         );
     }

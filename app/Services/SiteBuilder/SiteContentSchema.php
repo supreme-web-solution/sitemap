@@ -21,7 +21,7 @@ class SiteContentSchema
      *
      * @var list<string>
      */
-    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels'];
+    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'section_css', 'variants', 'process', 'why', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels', 'custom_sections'];
 
     /**
      * Validation rules for a site specification.
@@ -38,13 +38,37 @@ class SiteContentSchema
             'cta_label' => ['required', 'string', 'max:40'],
             'about' => ['required', 'string', 'max:2000'],
             'sections' => ['required', 'array', 'min:1'],
-            'sections.*' => ['required', 'distinct', Rule::enum(SiteSection::class)],
+            'sections.*' => [
+                'required',
+                'distinct',
+                'string',
+                'max:72',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_string($value)) {
+                        $fail(__('Invalid homepage section.'));
+
+                        return;
+                    }
+
+                    if (SiteSection::tryFrom($value) !== null || CustomHomeSection::isKey($value)) {
+                        return;
+                    }
+
+                    $fail(__('Unknown homepage section: :section.', ['section' => $value]));
+                },
+            ],
+            'custom_sections' => ['sometimes', 'nullable', 'array', 'max:8'],
+            'custom_sections.*' => ['required', 'array'],
+            'custom_sections.*.label' => ['required', 'string', 'max:40'],
+            'custom_sections.*.headline' => ['required', 'string', 'max:120'],
+            'custom_sections.*.body' => ['required', 'string', 'max:4000'],
             'reviews_style' => ['sometimes', 'nullable', Rule::enum(ReviewsStyle::class)],
             'services' => ['required', 'array', 'min:1', 'max:'.self::MAX_SERVICES],
             'services.*.title' => ['required', 'string', 'max:60'],
             'services.*.description' => ['required', 'string', 'max:250'],
             'services.*.slug' => ['nullable', 'string', 'max:60', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
             'services.*.body' => ['nullable', 'string', 'max:5000'],
+            'services.*.image_path' => ['nullable', 'string', 'max:255'],
             'pages' => ['sometimes', 'array'],
             'pages.*' => ['required', 'distinct', Rule::in(SitePages::OPTIONAL)],
             'faqs' => ['present', 'array', 'max:'.self::MAX_FAQS],
@@ -58,6 +82,16 @@ class SiteContentSchema
             'design.spacing' => ['nullable', Rule::in(SiteDesign::options()['spacing'])],
             'section_styles' => ['sometimes', 'nullable', 'array:'.implode(',', array_column(SiteSection::cases(), 'value'))],
             'section_styles.*' => ['nullable', Rule::in(SiteDesign::SECTION_STYLES)],
+            'variants' => ['sometimes', 'nullable', 'array:'.implode(',', array_keys(SectionVariants::CATALOG))],
+            'section_css' => ['sometimes', 'nullable', 'array:'.implode(',', SiteSectionCss::keys())],
+            'section_css.*' => ['nullable', 'string', 'max:'.SiteSectionCss::MAX_LENGTH],
+            ...self::variantRules(),
+            'process' => ['sometimes', 'array', 'max:6'],
+            'process.*.title' => ['required', 'string', 'max:60'],
+            'process.*.description' => ['required', 'string', 'max:250'],
+            'why' => ['sometimes', 'array', 'max:6'],
+            'why.*.title' => ['required', 'string', 'max:80'],
+            'why.*.description' => ['required', 'string', 'max:250'],
             'page_labels' => ['sometimes', 'nullable', 'array'],
             'page_labels.*' => ['nullable', 'string', 'max:40'],
             'custom_pages' => ['sometimes', 'array', 'max:12'],
@@ -85,7 +119,32 @@ class SiteContentSchema
     {
         $validator->after(function (Validator $v): void {
             self::validateCustomPageSlugs($v->getData(), $v);
+            self::validateCustomHomeSections($v->getData(), $v);
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     */
+    public static function validateCustomHomeSections(array $document, Validator $validator): void
+    {
+        $blocks = $document['custom_sections'] ?? [];
+
+        foreach ($document['sections'] ?? [] as $index => $section) {
+            if (! is_string($section) || ! CustomHomeSection::isKey($section)) {
+                continue;
+            }
+
+            $id = CustomHomeSection::idFromKey($section);
+            $block = $blocks[$id] ?? null;
+
+            if (! is_array($block) || trim((string) ($block['headline'] ?? '')) === '') {
+                $validator->errors()->add(
+                    "sections.{$index}",
+                    __('Custom section :section is missing content.', ['section' => $section]),
+                );
+            }
+        }
     }
 
     /**
@@ -196,6 +255,27 @@ class SiteContentSchema
             $content['section_styles'] = $styles;
         }
 
+        if ($variants = SectionVariants::clean($validated['variants'] ?? null)) {
+            $content['variants'] = $variants;
+        }
+
+        if ($sectionCss = SiteSectionCss::clean($validated['section_css'] ?? null)) {
+            $content['section_css'] = $sectionCss;
+        }
+
+        if (is_array($validated['custom_sections'] ?? null) && $validated['custom_sections'] !== []) {
+            $content['custom_sections'] = $validated['custom_sections'];
+        }
+
+        foreach (['process', 'why'] as $list) {
+            if (array_key_exists($list, $validated)) {
+                $content[$list] = array_values(array_map(
+                    fn (array $item) => ['title' => $item['title'], 'description' => $item['description']],
+                    $validated[$list] ?? [],
+                ));
+            }
+        }
+
         if (! empty($validated['page_labels'])) {
             $content['page_labels'] = array_filter($validated['page_labels'], fn ($label) => filled($label));
         }
@@ -217,5 +297,19 @@ class SiteContentSchema
         }
 
         return SiteLocales::applyValidated($validated, $content);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected static function variantRules(): array
+    {
+        $rules = [];
+
+        foreach (SectionVariants::CATALOG as $section => $definition) {
+            $rules['variants.'.$section] = ['sometimes', 'nullable', Rule::in(array_keys($definition['variants']))];
+        }
+
+        return $rules;
     }
 }

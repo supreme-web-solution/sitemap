@@ -45,6 +45,7 @@ export type Lead = {
     siteGenerationStatus: SiteGenerationStatus;
     siteGenerationError: string | null;
     site: { id: number; previewUrl: string } | null;
+    activeSequences?: { enrollmentId: number; name: string }[];
 };
 
 export type OpportunityTier = 'hot' | 'warm' | 'cold';
@@ -193,7 +194,9 @@ export type LeadProfile = {
     category: string | null;
     description: string | null;
     phone: string | null;
+    additionalPhones?: string[];
     email: string | null;
+    socialLinks?: Record<string, string>;
     address: string | null;
     city: string | null;
     rating: number | null;
@@ -232,6 +235,7 @@ export type LeadProfile = {
     opportunityTier: OpportunityTier | null;
     opportunityBreakdown: ScoreComponent[];
     websiteAudit: WebsiteAudit | null;
+    auditPublicUrl?: string | null;
     websiteAuditedAt: string | null;
     websiteAuditStatus: SiteGenerationStatus;
     portalUrl: string | null;
@@ -243,6 +247,7 @@ export type SiteConceptOption = {
     id: number;
     template: string;
     label: string;
+    layoutSummary: string;
     vibe: string;
     headline: string;
     accent: string;
@@ -303,6 +308,9 @@ export type SiteContent = {
     copy?: Record<string, string>;
     design?: { font?: string; radius?: string; spacing?: string };
     section_styles?: Record<string, string>;
+    variants?: Record<string, string>;
+    process?: { title: string; description: string }[];
+    why?: { title: string; description: string }[];
     custom_pages?: SiteCustomPage[];
 };
 
@@ -447,11 +455,19 @@ export type SiteChatMessage = {
     body: string;
     status: 'pending' | 'done' | 'failed';
     at: string;
+    attachmentUrl?: string | null;
+    attachmentUrls?: string[];
+    showRetryButton?: boolean;
+    canRetry?: boolean;
+    retryAttemptsUsed?: number;
+    retryLimit?: number;
+    retryBlockedMessage?: string | null;
 };
 
 export type SiteChat = {
     available: boolean;
     busy: boolean;
+    progressLines: string[];
     messages: SiteChatMessage[];
 };
 

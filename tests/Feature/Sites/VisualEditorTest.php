@@ -1,6 +1,5 @@
 <?php
 
-use App\Jobs\ApplySiteEdit;
 use App\Models\Lead;
 use App\Models\Site;
 use App\Models\User;
@@ -44,6 +43,23 @@ test('a set operation updates the site and moves the revision on', function () {
 
     expect($site->fresh())->revision->toBe(1)
         ->and($site->fresh()->content['headline'])->toBe('Brand new headline');
+});
+
+test('a set operation can change one section layout without swapping the template', function () {
+    [$site, $user] = editorSite();
+
+    sendEdits($user, $site, [
+        ['op' => 'set', 'path' => 'variants.hero', 'value' => 'overlay'],
+        ['op' => 'set', 'path' => 'variants.about_page', 'value' => 'portrait'],
+    ])
+        ->assertOk()
+        ->assertJsonPath('document.variants.hero', 'overlay')
+        ->assertJsonPath('document.variants.about_page', 'portrait');
+
+    expect($site->fresh())
+        ->template->toBe($site->template)
+        ->and($site->fresh()->content['variants']['hero'])->toBe('overlay')
+        ->and($site->fresh()->content['variants']['about_page'])->toBe('portrait');
 });
 
 test('edits made close together share one editing session version', function () {
@@ -309,7 +325,19 @@ test('services pages carry the right content path for editing', function () {
     $html = app(SiteRenderer::class)->render($site, true, 'services', null, true);
 
     expect($html)->toContain('data-edit="services.0.title"')
-        ->and($html)->toContain($slug);
+        ->and($html)->toContain($slug)
+        ->and($html)->toContain('data-section="services_page"');
+});
+
+test('the about page exposes story, why, and mission handles in the editor', function () {
+    [$site, $user] = editorSite();
+
+    $html = app(SiteRenderer::class)->render($site, true, 'about', null, true);
+
+    expect($html)
+        ->toContain('data-section="about_page"')
+        ->toContain('data-section="why"')
+        ->toContain('data-section="mission"');
 });
 
 test('the editor page exposes what the visual editor needs', function () {
@@ -437,15 +465,12 @@ test('another team cannot change a site\'s photos', function () {
 });
 
 test('ai can be asked to improve one piece of text', function () {
-    Queue::fake();
     [$site, $user] = editorSite();
     $params = ['current_team' => $user->currentTeam->slug, 'site' => $site->id];
 
     $this->actingAs($user)
         ->post(route('sites.chat.store', $params), ['field' => 'headline', 'body' => 'Make it friendlier'])
         ->assertRedirect();
-
-    Queue::assertPushed(ApplySiteEdit::class);
 
     $message = $site->chatMessages()->where('role', 'user')->sole();
 

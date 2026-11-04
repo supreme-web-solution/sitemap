@@ -32,11 +32,16 @@ class SiteEditApplier
     protected const SETTABLE = [
         '#^(template|accent|headline|tagline|cta_label|about|reviews_style|default_locale)$#',
         '#^pages$#',
-        '#^services\.\d+\.(title|description|slug|body)$#',
+        '#^services\.\d+\.(title|description|slug|body|image_path)$#',
         '#^faqs\.\d+\.(question|answer)$#',
         '#^copy\.[a-z_]+$#',
         '#^design\.(font|radius|spacing)$#',
         '#^section_styles\.[a-z]+$#',
+        '#^variants\.[a-z_]+$#',
+        '#^section_css\.[a-z_]+$#',
+        '#^custom_sections\.[a-z0-9-]+$#',
+        '#^process\.\d+\.(title|description)$#',
+        '#^why\.\d+\.(title|description)$#',
         '#^page_labels\.[a-z_]+$#',
         '#^custom_pages\.\d+\.(title|headline|intro|body|cta_label|city|slug)$#',
         '#^translations\.[a-z]{2}\.(headline|tagline|cta_label|about)$#',
@@ -50,12 +55,12 @@ class SiteEditApplier
      *
      * @var list<string>
      */
-    protected const LISTS = ['sections', 'services', 'faqs', 'pages', 'locales', 'custom_pages'];
+    protected const LISTS = ['sections', 'services', 'faqs', 'pages', 'locales', 'custom_pages', 'process', 'why'];
 
     /**
      * Paths where an empty value means "back to the default" rather than an empty string.
      */
-    protected const RESETTABLE = '#^(copy|design|section_styles)\.#';
+    protected const RESETTABLE = '#^(copy|design|section_styles|variants)\.#';
 
     /**
      * Build the editable document for a site: template plus content, with defaults filled in.

@@ -24,6 +24,7 @@ use App\Services\Preview\PreviewLink;
 use App\Services\Prospecting\OpportunityScorer;
 use App\Services\Prospecting\ProfileVerifier;
 use App\Services\Prospecting\SalesAssistant;
+use App\Services\SiteBuilder\SectionVariants;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -46,6 +47,10 @@ class LeadProfileController extends Controller
             ->with('team'),
         ]);
 
+        if ($lead->website_audit !== null && blank($lead->website_audit['error'] ?? null)) {
+            $lead->ensureWebsiteAuditPublicToken();
+        }
+
         return Inertia::render('leads/Edit', [
             'lead' => [
                 'id' => $lead->id,
@@ -53,7 +58,9 @@ class LeadProfileController extends Controller
                 'category' => $lead->category,
                 'description' => $lead->description,
                 'phone' => $lead->phone,
+                'additionalPhones' => $lead->additional_phones ?? [],
                 'email' => $lead->email,
+                'socialLinks' => $lead->social_links ?? [],
                 'address' => $lead->address,
                 'city' => $lead->city,
                 'rating' => $lead->rating,
@@ -92,6 +99,7 @@ class LeadProfileController extends Controller
                 'websiteAudit' => $lead->website_audit,
                 'websiteAuditedAt' => $lead->website_audited_at?->toISOString(),
                 'websiteAuditStatus' => $lead->website_audit_status->value,
+                'auditPublicUrl' => $lead->websiteAuditPublicUrl(),
             ],
             'verification' => $verifier->verify($lead),
             'activities' => $lead->activities()
@@ -148,14 +156,15 @@ class LeadProfileController extends Controller
         return [
             'available' => $usage->allows($team, PlanFeature::AiEditing),
             'status' => ($lead->concepts_status ?? SiteGenerationStatus::Idle)->value,
-            'items' => $lead->concepts()->latest('id')->limit(3)->get()->map(fn (SiteConcept $concept) => [
+            'items' => $lead->concepts()->with('designTemplate')->latest('id')->limit(3)->get()->map(fn (SiteConcept $concept) => [
                 'id' => $concept->id,
                 'template' => $concept->template->value,
-                'label' => $concept->template->label(),
+                'label' => $concept->designTemplate?->name ?? $concept->template->label(),
+                'layoutSummary' => SectionVariants::summary($concept->designTemplate?->variants),
                 'vibe' => $concept->template->vibe()->value,
                 'headline' => $concept->content['headline'] ?? '',
                 'accent' => $concept->content['accent'] ?? '',
-                'previewUrl' => route('sites.concepts.preview', $concept),
+                'previewUrl' => route('sites.concepts.preview', $concept).'?internal=1',
             ]),
         ];
     }

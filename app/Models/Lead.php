@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EnrollmentStatus;
 use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
 use App\Enums\LostReason;
@@ -22,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * @property int $id
@@ -31,7 +33,9 @@ use Illuminate\Support\Facades\Storage;
  * @property string $name
  * @property string|null $category
  * @property string|null $phone
+ * @property list<string>|null $additional_phones
  * @property string|null $email
+ * @property array<string, string>|null $social_links
  * @property string|null $website
  * @property string|null $address
  * @property string|null $city
@@ -55,6 +59,7 @@ use Illuminate\Support\Facades\Storage;
  * @property array<string, mixed>|null $website_audit
  * @property Carbon|null $website_audited_at
  * @property SiteGenerationStatus $website_audit_status
+ * @property string|null $website_audit_public_token
  * @property SiteVibe|null $vibe
  * @property string|null $logo_path
  * @property list<string>|null $photo_paths
@@ -85,10 +90,14 @@ use Illuminate\Support\Facades\Storage;
     'name',
     'category',
     'phone',
+    'additional_phones',
     'email',
+    'social_links',
     'website',
     'address',
     'city',
+    'neighborhood',
+    'located_in',
     'state',
     'country',
     'latitude',
@@ -97,7 +106,9 @@ use Illuminate\Support\Facades\Storage;
     'reviews_count',
     'opening_hours',
     'description',
+    'listing_services',
     'photo_url',
+    'listing_photo_urls',
     'maps_url',
     'status',
     'lost_reason',
@@ -205,6 +216,17 @@ class Lead extends Model
     public function enrollments(): HasMany
     {
         return $this->hasMany(SequenceEnrollment::class);
+    }
+
+    /**
+     * Active follow-up sequence enrollments for this lead.
+     *
+     * @return HasMany<SequenceEnrollment, $this>
+     */
+    public function activeEnrollments(): HasMany
+    {
+        return $this->hasMany(SequenceEnrollment::class)
+            ->where('status', EnrollmentStatus::Active);
     }
 
     /**
@@ -369,6 +391,12 @@ class Lead extends Model
             return $uploaded;
         }
 
+        $listingPhotos = $this->listing_photo_urls ?? [];
+
+        if ($listingPhotos !== []) {
+            return $listingPhotos;
+        }
+
         return $this->photo_url ? [$this->photo_url] : [];
     }
 
@@ -378,6 +406,37 @@ class Lead extends Model
     public function portalUrl(): ?string
     {
         return $this->portal_token ? route('portal.show', $this->portal_token) : null;
+    }
+
+    /**
+     * Create a stable public token for sharing audit results.
+     */
+    public function ensureWebsiteAuditPublicToken(): string
+    {
+        if (filled($this->website_audit_public_token)) {
+            return $this->website_audit_public_token;
+        }
+
+        $token = Str::random(40);
+        $this->forceFill(['website_audit_public_token' => $token])->save();
+
+        return $token;
+    }
+
+    /**
+     * Shareable link to the latest website audit report.
+     */
+    public function websiteAuditPublicUrl(): ?string
+    {
+        if (blank($this->website_audit) || blank($this->website_audit_public_token)) {
+            return null;
+        }
+
+        if (filled($this->website_audit['error'] ?? null)) {
+            return null;
+        }
+
+        return route('website-audit.public', $this->website_audit_public_token);
     }
 
     /**
@@ -412,6 +471,10 @@ class Lead extends Model
             'longitude' => 'float',
             'rating' => 'float',
             'opening_hours' => 'array',
+            'listing_services' => 'array',
+            'listing_photo_urls' => 'array',
+            'additional_phones' => 'array',
+            'social_links' => 'array',
             'status' => LeadStatus::class,
             'lost_reason' => LostReason::class,
             'vibe' => SiteVibe::class,

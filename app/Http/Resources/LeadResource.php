@@ -56,6 +56,13 @@ class LeadResource extends JsonResource
                 'id' => $this->site->id,
                 'previewUrl' => PreviewLink::page($this->site),
             ] : null),
+            'activeSequences' => $this->whenLoaded(
+                'activeEnrollments',
+                fn () => $this->activeEnrollments->map(fn ($enrollment) => [
+                    'enrollmentId' => $enrollment->id,
+                    'name' => $enrollment->sequence->name,
+                ])->values()->all(),
+            ),
         ];
     }
 }

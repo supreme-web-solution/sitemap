@@ -2,73 +2,59 @@
 
 namespace App\Services\SiteBuilder;
 
+use App\Data\SiteImageGenerationPlan;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class OpenAiImageGenerator
 {
+    use StoresLeadGeneratedPhoto;
+
+    private const DRIVER = 'openai';
+
     /**
-     * Generate a photo for a lead and store it on the public disk.
-     *
      * @return array{path: string, url: string}
      *
      * @throws ConnectionException
-     * @throws RequestException
+     * @throws \RuntimeException
      */
-    public function generate(string $prompt, int $teamId, int $leadId): array
+    public function generate(SiteImageGenerationPlan $plan, int $teamId, int $leadId): array
     {
         $apiKey = config('services.openai.key');
 
         if (! filled($apiKey)) {
-            throw new \RuntimeException(__('AI image generation is not configured.'));
+            throw new \RuntimeException(ImageGenerationMessages::notConfiguredMessage());
         }
 
-        $response = Http::baseUrl('https://api.openai.com/v1')
-            ->withToken($apiKey)
-            ->acceptJson()
-            ->timeout(120)
-            ->post('images/generations', [
-                'model' => config('sites.image_model'),
-                'prompt' => Str::limit($prompt, 900, ''),
-                'size' => '1024x1024',
-            ])
-            ->throw();
+        try {
+            $response = Http::baseUrl('https://api.openai.com/v1')
+                ->withToken($apiKey)
+                ->acceptJson()
+                ->timeout(120)
+                ->post('images/generations', [
+                    'model' => config('sites.image_model'),
+                    'prompt' => $plan->prompt,
+                    'size' => $plan->openAiSize(),
+                ]);
+        } catch (ConnectionException $exception) {
+            Log::warning('OpenAI image request connection failed.', ['message' => $exception->getMessage()]);
 
-        $binary = $this->binaryFromResponse($response->json());
-        $path = "teams/{$teamId}/leads/{$leadId}/ai-".Str::lower(Str::random(10)).'.png';
-
-        Storage::disk('public')->put($path, $binary);
-
-        return [
-            'path' => $path,
-            'url' => Storage::disk('public')->url($path),
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $payload
-     */
-    protected function binaryFromResponse(?array $payload): string
-    {
-        $b64 = $payload['data'][0]['b64_json'] ?? null;
-
-        if (is_string($b64) && $b64 !== '') {
-            $decoded = base64_decode($b64, true);
-
-            if ($decoded !== false) {
-                return $decoded;
-            }
+            throw new \RuntimeException(ImageGenerationMessages::unavailableMessage());
         }
 
-        $url = $payload['data'][0]['url'] ?? null;
+        if ($response->failed()) {
+            Log::warning('OpenAI image request failed.', [
+                'status' => $response->status(),
+                'body' => Str::limit($response->body(), 500),
+            ]);
 
-        if (is_string($url) && $url !== '') {
-            return Http::timeout(60)->get($url)->throw()->body();
+            throw new \RuntimeException(ImageGenerationMessages::messageForFailedResponse($response));
         }
 
-        throw new \RuntimeException(__('The image provider returned an empty response.'));
+        $binary = $this->binaryFromImageApiPayload($response->json(), self::DRIVER);
+
+        return $this->storeLeadPhotoBinary($binary, $teamId, $leadId);
     }
 }

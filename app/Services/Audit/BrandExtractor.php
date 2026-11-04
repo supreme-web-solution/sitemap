@@ -16,11 +16,20 @@ class BrandExtractor
      *
      * @throws UnsafeUrlException
      * @throws ConnectionException
+     * @throws NonSuccessHttpResponseException
      */
     public function extract(string $website): array
     {
         $url = $this->auditor->normalize($website);
         $page = $this->fetcher->fetch($url);
+
+        if ($page['status'] < 200 || $page['status'] >= 300) {
+            throw new NonSuccessHttpResponseException(
+                $page['status'],
+                $this->failureMessage($page['status'], $page['body']),
+            );
+        }
+
         $html = $page['body'];
 
         return [
@@ -28,6 +37,11 @@ class BrandExtractor
             'accent' => $this->accent($html),
             'logo' => $this->logo($html, $page['url']),
         ];
+    }
+
+    protected function failureMessage(int $status, string $body): string
+    {
+        return AuditHttpFailure::message($status, $body);
     }
 
     protected function accent(string $html): ?string

@@ -20,16 +20,20 @@ class PackageController extends Controller
     public function index(Team $currentTeam): Response
     {
         return Inertia::render('packages/Index', [
-            'packages' => $currentTeam->packages()->orderBy('name')->get()->map(fn (Package $package) => [
-                'id' => $package->id,
-                'name' => $package->name,
-                'description' => $package->description,
-                'price' => $package->unit_cents / 100,
-                'priceLabel' => Invoice::formatCents($package->unit_cents),
-                'interval' => $package->interval?->value,
-                'intervalLabel' => $package->interval?->label(),
-                'isActive' => $package->is_active,
-            ]),
+            'packages' => $currentTeam->packages()
+                ->orderBy('name')
+                ->paginate(25)
+                ->withQueryString()
+                ->through(fn (Package $package) => [
+                    'id' => $package->id,
+                    'name' => $package->name,
+                    'description' => $package->description,
+                    'price' => $package->unit_cents / 100,
+                    'priceLabel' => Invoice::formatCents($package->unit_cents),
+                    'interval' => $package->interval?->value,
+                    'intervalLabel' => $package->interval?->label(),
+                    'isActive' => $package->is_active,
+                ]),
             'intervals' => collect(BillingInterval::cases())->map(fn (BillingInterval $interval) => ['value' => $interval->value, 'label' => $interval->label()])->values(),
         ]);
     }

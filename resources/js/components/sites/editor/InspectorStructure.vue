@@ -13,6 +13,7 @@ const props = defineProps<{
     draft: SiteDocument;
     pageOptions: Option[];
     sectionOptions: Option[];
+    sectionVariantChoices: Record<string, Option[]>;
     aiAvailable: boolean;
     aiBusy: boolean;
     businessName: string;
@@ -24,6 +25,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     commit: [operations: EditOp[], options?: CommitOptions];
     improve: [section: string];
+    redesign: [section: string];
     locate: [section: string];
 }>();
 
@@ -114,6 +116,17 @@ const showSection = (value: string) =>
                         @click="$emit('improve', section)"
                     >
                         <Sparkles class="size-3.5" /> Improve
+                    </Button>
+                    <Button
+                        v-if="aiAvailable && sectionVariantChoices[section]"
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        class="h-7 px-2 text-xs"
+                        :disabled="aiBusy"
+                        @click="$emit('redesign', section)"
+                    >
+                        Redesign
                     </Button>
                     <Button
                         type="button"

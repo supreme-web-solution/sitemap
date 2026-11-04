@@ -8,6 +8,13 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { connect, disconnect } from '@/routes/payments';
 import type { PaymentProviderSummary } from '@/types';
 
@@ -96,8 +103,6 @@ const credentialsError = computed(
     () => (form.errors as Record<string, string | undefined>).credentials,
 );
 
-const selectClass =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
 </script>
 
 <template>
@@ -297,14 +302,19 @@ const selectClass =
                 </div>
                 <div class="grid gap-2">
                     <Label :for="`${provider.value}-mode`">Mode</Label>
-                    <select
-                        :id="`${provider.value}-mode`"
-                        v-model="form.mode"
-                        :class="selectClass"
-                    >
-                        <option value="live">Live (real payments)</option>
-                        <option value="sandbox">Sandbox (testing)</option>
-                    </select>
+                    <Select v-model="form.mode">
+                        <SelectTrigger
+                            :id="`${provider.value}-mode`"
+                            class="w-full"
+                            aria-label="Mode"
+                        >
+                            <SelectValue placeholder="Mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="live">Live (real payments)</SelectItem>
+                            <SelectItem value="sandbox">Sandbox (testing)</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <InputError :message="form.errors.mode" />
                 </div>
                 <div class="grid gap-2">

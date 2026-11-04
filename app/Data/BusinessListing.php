@@ -6,6 +6,10 @@ readonly class BusinessListing
 {
     /**
      * @param  array<string, string>|null  $openingHours
+     * @param  list<string>  $additionalPhones
+     * @param  array<string, string>  $socialLinks
+     * @param  list<string>  $services
+     * @param  list<string>  $photoUrls
      */
     public function __construct(
         public string $placeId,
@@ -26,6 +30,12 @@ readonly class BusinessListing
         public ?string $description = null,
         public ?string $photoUrl = null,
         public ?string $mapsUrl = null,
+        public array $additionalPhones = [],
+        public array $socialLinks = [],
+        public ?string $neighborhood = null,
+        public ?string $locatedIn = null,
+        public array $services = [],
+        public array $photoUrls = [],
     ) {
         //
     }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
+import { useLocalStorage } from '@vueuse/core';
 import {
     Check,
     Circle,
@@ -7,6 +8,7 @@ import {
     ExternalLink,
     LoaderCircle,
     ScanSearch,
+    SkipForward,
     Sparkles,
 } from '@lucide/vue';
 import { computed } from 'vue';
@@ -27,13 +29,32 @@ const emit = defineEmits<{
     'scroll-to': [target: 'audit' | 'outreach'];
 }>();
 
+const skipAudit = useLocalStorage(
+    () => `lead-${props.lead.id}-skip-audit`,
+    false,
+);
+
 const hasWebsite = computed(() => Boolean(props.lead.website));
 
-const auditDone = computed(
+const auditUsable = computed(
     () =>
         Boolean(props.lead.websiteAudit) &&
         !props.lead.websiteAudit?.error &&
         props.lead.websiteAuditStatus !== 'failed',
+);
+
+const auditBlocked = computed(
+    () =>
+        props.lead.websiteAuditStatus === 'failed' ||
+        Boolean(props.lead.websiteAudit?.error),
+);
+
+const auditStepComplete = computed(
+    () => auditUsable.value || auditBlocked.value || skipAudit.value,
+);
+
+const canBuild = computed(
+    () => !hasWebsite.value || auditStepComplete.value,
 );
 
 const siteReady = computed(() => Boolean(props.lead.site) && !props.isBuilding);
@@ -44,6 +65,22 @@ const previewSent = computed(
         ['contacted', 'interested', 'won'].includes(props.lead.status),
 );
 
+const auditHint = computed(() => {
+    if (auditUsable.value) {
+        return 'Issues identified — use them in outreach and your pitch.';
+    }
+
+    if (auditBlocked.value) {
+        return 'Could not read their site (often bot protection). You can still build from this profile.';
+    }
+
+    if (skipAudit.value) {
+        return 'Skipped — building from confirmed business details.';
+    }
+
+    return 'See mobile, SEO and UX gaps you can mention when selling.';
+});
+
 const steps = computed(() => {
     const list = [];
 
@@ -51,11 +88,9 @@ const steps = computed(() => {
         list.push({
             key: 'audit',
             label: 'Audit their website',
-            hint: auditDone.value
-                ? 'Issues identified — use them in your pitch.'
-                : 'See mobile, SEO and UX gaps.',
-            done: auditDone.value,
-            active: !auditDone.value,
+            hint: auditHint.value,
+            done: auditStepComplete.value,
+            active: !auditStepComplete.value,
         });
     }
 
@@ -66,7 +101,7 @@ const steps = computed(() => {
             ? 'Preview is ready to share.'
             : 'Queue AI generation from this profile.',
         done: siteReady.value,
-        active: hasWebsite.value ? auditDone.value && !siteReady.value : !siteReady.value,
+        active: canBuild.value && !siteReady.value,
     });
 
     if (hasWebsite.value && siteReady.value) {
@@ -92,6 +127,10 @@ const steps = computed(() => {
     return list;
 });
 
+const skipAuditStep = () => {
+    skipAudit.value = true;
+};
+
 const copyPreview = async () => {
     const url = props.lead.site?.previewUrl;
 
@@ -114,7 +153,7 @@ const copyPreview = async () => {
         <p class="mt-1 text-sm text-muted-foreground">
             {{
                 hasWebsite
-                    ? 'Win redesign deals: audit their site, generate yours, share the preview.'
+                    ? 'Win redesign deals: audit their site (optional), generate yours, share the preview.'
                     : 'No website on file — generate a concept site and share the preview.'
             }}
         </p>
@@ -163,10 +202,21 @@ const copyPreview = async () => {
                             Go to audit
                         </Button>
                         <Button
+                            v-if="step.key === 'audit'"
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            data-test="skip-audit"
+                            @click="skipAuditStep"
+                        >
+                            <SkipForward class="size-3.5" />
+                            Skip audit
+                        </Button>
+                        <Button
                             v-if="step.key === 'build'"
                             type="button"
                             size="sm"
-                            :disabled="generating || isBuilding"
+                            :disabled="generating || isBuilding || !canBuild"
                             data-test="workflow-generate"
                             @click="emit('generate')"
                         >

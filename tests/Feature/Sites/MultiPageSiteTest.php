@@ -62,10 +62,10 @@ test('secondary pages open with the breadcrumb above the heading', function (str
         ->assertSee($heading)
         ->assertSeeInOrder(['class="hero page-hero"', 'aria-label="Breadcrumb"', ...$trail, '<h1>'], escape: false);
 })->with([
-    'about' => ['about', 'About Austin Pro Plumbing', ['Home', 'About']],
-    'services' => ['services', 'Plumber Services in Austin', ['Home', 'Services']],
-    'a service' => ['services/drain-cleaning', 'Drain Cleaning in Austin', ['Home', 'Services', 'Drain Cleaning']],
-    'contact' => ['contact', 'Contact Austin Pro Plumbing', ['Home', 'Contact']],
+    'about' => ['about', 'About us', ['Home', 'About']],
+    'services' => ['services', 'Our Services', ['Home', 'Services']],
+    'a service' => ['services/drain-cleaning', 'Drain Cleaning', ['Home', 'Services', 'Drain Cleaning']],
+    'contact' => ['contact', 'Contact', ['Home', 'Contact']],
 ]);
 
 test('the home page has no breadcrumb', function () {

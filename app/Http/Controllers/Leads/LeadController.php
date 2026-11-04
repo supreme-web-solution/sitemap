@@ -26,7 +26,11 @@ class LeadController extends Controller
         $filters = $request->filters();
 
         $leads = $currentTeam->leads()
-            ->with(['site:id,lead_id,team_id,slug', 'site.team:id,preview_hostname,preview_hostname_verified_at'])
+            ->with([
+                'site:id,lead_id,team_id,slug',
+                'site.team:id,preview_hostname,preview_hostname_verified_at',
+                'activeEnrollments.sequence:id,name',
+            ])
             ->filteredBy($filters)
             ->when(isset($filters['ideal']), fn ($query) => $currentTeam->applyIdealCustomerFilter($query))
             ->sortedBy($filters['sort'] ?? null)
@@ -63,6 +67,10 @@ class LeadController extends Controller
             'websiteFilters' => WebsiteFilter::options(),
             'members' => $currentTeam->memberOptions(),
             'hasIdealCustomer' => filled($currentTeam->ideal_customer),
+            'sequences' => $currentTeam->followUpSequences()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']),
         ]);
     }
 

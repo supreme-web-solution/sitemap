@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SiteDesignTemplate;
 use App\Models\Team;
 use App\Services\SiteBuilder\EnsureDesignTemplateCatalog;
+use App\Services\SiteBuilder\SectionVariants;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -39,6 +40,7 @@ class SiteDesignTemplateController extends Controller
                 'industries' => $template->industries,
                 'accentColor' => $template->accent_color,
                 'description' => $template->description,
+                'layoutSummary' => SectionVariants::summary($template->variants),
             ]);
 
         return response()->json([

@@ -24,7 +24,14 @@ class EmailTemplateController extends Controller
         return Inertia::render('outreach/Templates', [
             'templates' => $currentTeam->emailTemplates()
                 ->orderBy('id')
-                ->get(['id', 'name', 'subject', 'body']),
+                ->paginate(20)
+                ->withQueryString()
+                ->through(fn (EmailTemplate $template) => [
+                    'id' => $template->id,
+                    'name' => $template->name,
+                    'subject' => $template->subject,
+                    'body' => $template->body,
+                ]),
             'mergeFields' => collect(MergeFieldRenderer::FIELDS)
                 ->map(fn (string $description, string $key) => ['key' => $key, 'description' => $description])
                 ->values(),

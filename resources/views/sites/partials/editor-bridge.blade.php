@@ -99,6 +99,29 @@
 
         const sections = () => Array.from(document.querySelectorAll('[data-section]'));
 
+        const cssPath = (el) => {
+            const parts = [];
+            let node = el;
+
+            while (node && node !== document.body && parts.length < 5) {
+                let part = (node.tagName || 'div').toLowerCase();
+
+                if (node.id) {
+                    parts.unshift('#' + node.id);
+                    break;
+                }
+
+                if (node.classList?.length) {
+                    part += '.' + Array.from(node.classList).slice(0, 2).join('.');
+                }
+
+                parts.unshift(part);
+                node = node.parentElement;
+            }
+
+            return parts.join(' ');
+        };
+
         const placeChrome = (section) => {
             if (! section || ! isEditing() || active || overlay) {
                 chrome.classList.remove('is-visible');
@@ -152,6 +175,59 @@
         document.addEventListener('mouseleave', () => setHover(null));
         window.addEventListener('scroll', () => placeChrome(hoveredSection), { passive: true });
         window.addEventListener('resize', () => placeChrome(hoveredSection));
+
+        let inViewKey = '';
+        let inViewTimer = 0;
+        const reportInView = () => {
+            const list = sections();
+
+            if (list.length === 0) {
+                return;
+            }
+
+            const probe = Math.min(220, window.innerHeight * 0.28);
+            let best = null;
+            let bestScore = -Infinity;
+
+            list.forEach((el) => {
+                const rect = el.getBoundingClientRect();
+
+                if (rect.bottom < 60 || rect.top > window.innerHeight - 40) {
+                    return;
+                }
+
+                const visible = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+                const near = 1 - Math.min(1, Math.abs(rect.top - probe) / window.innerHeight);
+                const score = visible + near * 80;
+
+                if (score > bestScore) {
+                    best = el;
+                    bestScore = score;
+                }
+            });
+
+            if (! best) {
+                return;
+            }
+
+            const key = best.dataset.section;
+
+            if (key === inViewKey) {
+                return;
+            }
+
+            inViewKey = key;
+            send('inview', { key, label: best.dataset.sectionLabel || key });
+        };
+
+        window.addEventListener('scroll', () => {
+            window.clearTimeout(inViewTimer);
+            inViewTimer = window.setTimeout(reportInView, 120);
+        }, { passive: true });
+        window.addEventListener('resize', () => {
+            window.clearTimeout(inViewTimer);
+            inViewTimer = window.setTimeout(reportInView, 120);
+        });
 
         chrome.addEventListener('click', (event) => {
             const button = event.target.closest('button[data-act]');
@@ -494,11 +570,22 @@
 
             if (section) {
                 selectSection(section);
-                send('select', { kind: 'section', key: section.dataset.section, label: section.dataset.sectionLabel || section.dataset.section });
-            } else {
-                clearSectionSelection();
-                send('select', { kind: 'none' });
+                const key = section.dataset.section;
+                send('select', {
+                    kind: 'design',
+                    region: key,
+                    label: section.dataset.sectionLabel || key,
+                    selector: cssPath(target),
+                    tag: (target.tagName || 'div').toLowerCase(),
+                    text: (target.textContent || '').trim().slice(0, 200),
+                    href: target.closest?.('a[href]')?.getAttribute('href') || '',
+                });
+
+                return;
             }
+
+            clearSectionSelection();
+            send('select', { kind: 'none' });
         }, true);
 
         function isInternal(anchor) {
@@ -566,7 +653,7 @@
 
         // ---- Startup --------------------------------------------------------------------
 
-        document.querySelectorAll('details:not(.mobile-menu):not(.claim-discuss)').forEach((details) => {
+        document.querySelectorAll('details:not(.mobile-menu)').forEach((details) => {
             details.open = true;
         });
 
@@ -582,5 +669,6 @@
             title: document.title,
             sections: sections().map((item) => ({ key: item.dataset.section, label: item.dataset.sectionLabel || item.dataset.section })),
         });
+        reportInView();
     })();
 </script>

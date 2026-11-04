@@ -24,6 +24,8 @@ const props = defineProps<{
     lead: LeadProfile;
     templates: EmailTemplate[];
     mergeValues: Record<string, string>;
+    inboxConnected?: boolean;
+    imapSyncEnabled?: boolean;
 }>();
 
 const page = usePage();
@@ -180,17 +182,35 @@ const textareaClass =
             </div>
             <p class="text-xs text-muted-foreground">
                 Sending sets the stage to Contacted and schedules a follow-up in
-                3 days. Connect your
-                <Link
-                    :href="mailInboxIndex({ current_team: teamSlug })"
-                    class="font-medium text-primary hover:underline"
-                    >email inbox</Link
-                >
-                to import replies automatically, or log one below.
+                3 days.
             </p>
 
             <div class="mt-2 grid gap-3 border-t border-border pt-4">
-                <h3 class="text-sm font-medium">Log email reply</h3>
+                <div class="flex items-center justify-between gap-3">
+                    <h3 class="text-sm font-medium">Log email reply</h3>
+                    <Link
+                        :href="mailInboxIndex({ current_team: teamSlug })"
+                        class="text-xs font-medium text-primary hover:underline"
+                    >
+                        Inbox settings
+                    </Link>
+                </div>
+                <p class="text-xs text-muted-foreground">
+                    <template
+                        v-if="imapSyncEnabled && inboxConnected"
+                    >
+                        Replies sync from your connected mailbox. Log one here
+                        if you need to record it manually.
+                    </template>
+                    <template v-else-if="inboxConnected">
+                        Inbox polling is off on this server — log replies here
+                        until sync is enabled.
+                    </template>
+                    <template v-else>
+                        Connect your reply mailbox under Inbox settings, or log
+                        a reply when a prospect answers.
+                    </template>
+                </p>
                 <div class="grid gap-2">
                     <Label for="reply-subject">Subject</Label>
                     <Input id="reply-subject" v-model="replyForm.subject" />

@@ -6,6 +6,14 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { SELECT_DEFAULT } from '@/lib/selectSentinels';
 import { dashboard as adminDashboard } from '@/routes/admin';
 import { update as updateTeam } from '@/routes/admin/teams';
 import {
@@ -74,8 +82,8 @@ const remove = () => {
     }
 };
 
-const selectClass =
-    'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
+const teamPlanValue = (team: UserTeam) =>
+    team.plan_id ? String(team.plan_id) : SELECT_DEFAULT;
 </script>
 
 <template>
@@ -139,26 +147,37 @@ const selectClass =
                             <template v-if="team.is_personal"> · personal</template>
                         </p>
                     </div>
-                    <select
-                        :value="team.plan_id ?? ''"
-                        :class="selectClass"
-                        :aria-label="`Plan for ${team.name}`"
-                        @change="
-                            setPlan(
-                                team,
-                                ($event.target as HTMLSelectElement).value,
-                            )
+                    <Select
+                        :model-value="teamPlanValue(team)"
+                        @update:model-value="
+                            (value) => {
+                                const chosen = String(value ?? '');
+                                setPlan(
+                                    team,
+                                    chosen === SELECT_DEFAULT ? '' : chosen,
+                                );
+                            }
                         "
                     >
-                        <option value="">Default plan</option>
-                        <option
-                            v-for="plan in plans"
-                            :key="plan.id"
-                            :value="plan.id"
+                        <SelectTrigger
+                            class="h-9 w-44"
+                            :aria-label="`Plan for ${team.name}`"
                         >
-                            {{ plan.name }}
-                        </option>
-                    </select>
+                            <SelectValue placeholder="Default plan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem :value="SELECT_DEFAULT">
+                                Default plan
+                            </SelectItem>
+                            <SelectItem
+                                v-for="plan in plans"
+                                :key="plan.id"
+                                :value="String(plan.id)"
+                            >
+                                {{ plan.name }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </li>
             </ul>
         </section>

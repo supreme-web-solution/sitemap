@@ -2,50 +2,45 @@
 
 namespace App\Services\SiteBuilder;
 
-use Illuminate\Support\Facades\Http;
+use App\Ai\Agents\SitePlanDesigner;
+use App\Ai\Support\SitePlanSubmission;
+use Illuminate\Http\Client\ConnectionException;
+use Throwable;
 
 class ClaudeSitePlanner extends AiSitePlanner
 {
-    protected const BASE_URL = 'https://api.anthropic.com/v1';
-
-    protected const TOOL_NAME = 'submit_site_plan';
-
     /**
-     * Ask Claude for a site plan through a forced tool call.
+     * Ask the Laravel AI site-plan agent for a plan through its submit tool.
      *
      * @param  array<string, mixed>  $schema
      * @return array<string, mixed>
      */
     protected function requestPlan(string $systemPrompt, string $userPrompt, array $schema): array
     {
-        $response = Http::baseUrl(self::BASE_URL)
-            ->withHeaders([
-                'x-api-key' => $this->apiKey,
-                'anthropic-version' => '2023-06-01',
-            ])
-            ->acceptJson()
-            ->timeout(60)
-            ->post('messages', [
-                'model' => $this->model,
-                'max_tokens' => 2048,
-                'system' => $systemPrompt,
-                'tools' => [[
-                    'name' => self::TOOL_NAME,
-                    'description' => 'Submit the website plan for this business.',
-                    'input_schema' => $schema,
-                ]],
-                'tool_choice' => ['type' => 'tool', 'name' => self::TOOL_NAME],
-                'messages' => [['role' => 'user', 'content' => $userPrompt]],
-            ])
-            ->throw();
+        unset($schema);
 
-        foreach ($response->json('content', []) as $block) {
-            if (($block['type'] ?? null) === 'tool_use' && ($block['name'] ?? null) === self::TOOL_NAME) {
-                return is_array($block['input'] ?? null) ? $block['input'] : [];
+        $submission = new SitePlanSubmission;
+
+        try {
+            $designer = new SitePlanDesigner($submission, $systemPrompt);
+
+            if ($this->conversationSite !== null) {
+                $designer->continueOrStart($this->conversationSite->ai_conversation_id, $this->conversationSite);
             }
+
+            $designer->prompt($userPrompt);
+
+            if ($this->conversationSite !== null) {
+                app(SiteEditConversation::class)->persistConversationId(
+                    $this->conversationSite,
+                    $designer->currentConversation(),
+                );
+            }
+        } catch (Throwable $exception) {
+            throw new ConnectionException($exception->getMessage(), 0, $exception);
         }
 
-        return [];
+        return $submission->plan ?? [];
     }
 
     /**
@@ -53,6 +48,6 @@ class ClaudeSitePlanner extends AiSitePlanner
      */
     protected function providerName(): string
     {
-        return 'Claude';
+        return 'Laravel AI (Anthropic)';
     }
 }

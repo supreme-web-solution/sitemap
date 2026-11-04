@@ -2,7 +2,6 @@
 
 namespace App\Services\LeadFinder;
 
-use App\Data\BusinessListing;
 use App\Data\LeadFinderResult;
 use App\Enums\LeadSearchStatus;
 use App\Models\LeadSearch;
@@ -134,47 +133,10 @@ class MindcaseLeadFinder implements LeadFinder
     protected function toListings(array $rows): array
     {
         return collect($rows)
-            ->filter(fn (array $row) => filled($row['placeId'] ?? null)
-                && filled($row['businessName'] ?? null)
-                && ! ($row['permanentlyClosed'] ?? false))
-            ->map(fn (array $row) => new BusinessListing(
-                placeId: (string) $row['placeId'],
-                name: (string) $row['businessName'],
-                category: $row['category'] ?? null,
-                phone: $row['phone'] ?? null,
-                email: $row['emails'][0] ?? null,
-                website: $row['website'] ?? null,
-                address: $row['address'] ?? null,
-                city: $row['city'] ?? null,
-                state: $row['state'] ?? null,
-                country: $row['country'] ?? null,
-                latitude: isset($row['latitude']) ? (float) $row['latitude'] : null,
-                longitude: isset($row['longitude']) ? (float) $row['longitude'] : null,
-                rating: isset($row['rating']) ? (float) $row['rating'] : null,
-                reviewsCount: (int) ($row['reviews'] ?? 0),
-                openingHours: $this->openingHours($row['openingHours'] ?? null),
-                description: $row['description'] ?? null,
-                photoUrl: $row['coverPhoto'] ?? $row['photo'] ?? null,
-                mapsUrl: $row['placeUrl'] ?? null,
-            ))
+            ->map(fn (array $row) => MapsPlaceRow::from($row)?->toListing())
+            ->filter()
             ->values()
             ->all();
-    }
-
-    /**
-     * Keep only day-to-hours string pairs from the opening hours payload.
-     *
-     * @return array<string, string>|null
-     */
-    protected function openingHours(mixed $hours): ?array
-    {
-        if (! is_array($hours)) {
-            return null;
-        }
-
-        $normalized = array_filter($hours, fn ($value, $day) => is_string($day) && is_string($value), ARRAY_FILTER_USE_BOTH);
-
-        return $normalized === [] ? null : $normalized;
     }
 
     /**

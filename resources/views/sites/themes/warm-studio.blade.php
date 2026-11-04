@@ -2,7 +2,7 @@
     :root { --radius: 22px; --ink: #292524; --muted: #57534e; --cream: #fdf8f3; --sand: #f5ebe0; --line: #e7d9c9; }
     body { font-family: 'Nunito Sans', system-ui, sans-serif; color: var(--ink); background: var(--cream); }
     h1, h2, h3, .brand { font-family: 'Fraunces', Georgia, serif; font-weight: 600; letter-spacing: -.01em; }
-    .site-header { background: color-mix(in srgb, var(--cream) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+    .site-header { border-bottom: 1px solid transparent; }
     .brand-mark { border-radius: 999px; }
     .btn { border-radius: 999px; }
     .hero { background: radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--accent) 16%, var(--cream)) 0%, var(--cream) 55%); }

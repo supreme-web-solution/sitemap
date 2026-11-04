@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import { Search } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import PaginationBar from '@/components/admin/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { SELECT_ALL, SELECT_DEFAULT } from '@/lib/selectSentinels';
 import { dashboard as adminDashboard } from '@/routes/admin';
 import { index, update } from '@/routes/admin/teams';
 import type { AdminTeam, Paginated, PlanOption } from '@/types';
@@ -43,8 +51,16 @@ const setPlan = (team: AdminTeam, value: string) =>
         { preserveScroll: true },
     );
 
-const selectClass =
-    'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
+const planFilterSelect = computed({
+    get: () => (plan.value === '' ? SELECT_ALL : plan.value),
+    set: (value: string) => {
+        plan.value = value === SELECT_ALL ? '' : value;
+        applyFilters();
+    },
+});
+
+const teamPlanValue = (team: AdminTeam) =>
+    team.plan_id ? String(team.plan_id) : SELECT_DEFAULT;
 </script>
 
 <template>
@@ -75,18 +91,22 @@ const selectClass =
                     aria-label="Search teams"
                 />
             </div>
-            <select
-                v-model="plan"
-                :class="selectClass"
-                aria-label="Plan filter"
-                @change="applyFilters"
-            >
-                <option value="">Any plan</option>
-                <option value="none">No plan assigned</option>
-                <option v-for="p in plans" :key="p.id" :value="String(p.id)">
-                    {{ p.name }}
-                </option>
-            </select>
+            <Select v-model="planFilterSelect">
+                <SelectTrigger class="h-9 w-44" aria-label="Plan filter">
+                    <SelectValue placeholder="Any plan" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem :value="SELECT_ALL">Any plan</SelectItem>
+                    <SelectItem value="none">No plan assigned</SelectItem>
+                    <SelectItem
+                        v-for="p in plans"
+                        :key="p.id"
+                        :value="String(p.id)"
+                    >
+                        {{ p.name }}
+                    </SelectItem>
+                </SelectContent>
+            </Select>
             <Button type="submit" variant="outline">Search</Button>
         </form>
 
@@ -113,27 +133,39 @@ const selectClass =
                         <td class="p-3">{{ team.leads_count }}</td>
                         <td class="p-3">{{ team.sites_count }}</td>
                         <td class="p-3">
-                            <select
-                                :value="team.plan_id ?? ''"
-                                :class="selectClass"
-                                :aria-label="`Plan for ${team.name}`"
-                                @change="
-                                    setPlan(
-                                        team,
-                                        ($event.target as HTMLSelectElement)
-                                            .value,
-                                    )
+                            <Select
+                                :model-value="teamPlanValue(team)"
+                                @update:model-value="
+                                    (value) => {
+                                        const chosen = String(value ?? '');
+                                        setPlan(
+                                            team,
+                                            chosen === SELECT_DEFAULT
+                                                ? ''
+                                                : chosen,
+                                        );
+                                    }
                                 "
                             >
-                                <option value="">Default plan</option>
-                                <option
-                                    v-for="p in plans"
-                                    :key="p.id"
-                                    :value="p.id"
+                                <SelectTrigger
+                                    class="h-9 w-44"
+                                    :aria-label="`Plan for ${team.name}`"
                                 >
-                                    {{ p.name }}
-                                </option>
-                            </select>
+                                    <SelectValue placeholder="Default plan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem :value="SELECT_DEFAULT">
+                                        Default plan
+                                    </SelectItem>
+                                    <SelectItem
+                                        v-for="p in plans"
+                                        :key="p.id"
+                                        :value="String(p.id)"
+                                    >
+                                        {{ p.name }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                         </td>
                     </tr>
                     <tr v-if="!teams.data.length">

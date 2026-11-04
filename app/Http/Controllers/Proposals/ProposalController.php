@@ -29,9 +29,9 @@ class ProposalController extends Controller
             'proposals' => $currentTeam->proposals()
                 ->with(['lead:id,name', 'items'])
                 ->latest('id')
-                ->limit(200)
-                ->get()
-                ->map(fn (Proposal $proposal) => [
+                ->paginate(25)
+                ->withQueryString()
+                ->through(fn (Proposal $proposal) => [
                     'id' => $proposal->id,
                     'number' => $proposal->number,
                     'title' => $proposal->title,

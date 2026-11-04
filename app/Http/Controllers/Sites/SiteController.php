@@ -20,9 +20,12 @@ use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use App\Services\Domains\DomainVerifier;
 use App\Services\Preview\PreviewLink;
+use App\Services\SiteBuilder\SectionVariants;
+use App\Services\SiteBuilder\SiteChatMessagePresenter;
 use App\Services\SiteBuilder\SiteContentSchema;
 use App\Services\SiteBuilder\SiteCopy;
 use App\Services\SiteBuilder\SiteDesign;
+use App\Services\SiteBuilder\SiteEditProgress;
 use App\Services\SiteBuilder\SitePages;
 use App\Services\SiteBuilder\SiteQualityChecker;
 use App\Services\SiteBuilder\SiteStaging;
@@ -172,6 +175,7 @@ class SiteController extends Controller
             'templates' => SiteTemplate::options(),
             'palettes' => collect(SiteTemplate::cases())->mapWithKeys(fn (SiteTemplate $template) => [$template->value => $template->palette()]),
             'sectionOptions' => SiteSection::options(),
+            'sectionVariantChoices' => SectionVariants::choices(),
             'designChoices' => SiteDesign::choices(),
             'copyFields' => collect(SiteCopy::FIELDS)->map(fn (array $field, string $key) => ['key' => $key, ...$field])->values(),
             'chat' => $this->chatProps($currentTeam, $site, $usage),
@@ -232,16 +236,24 @@ class SiteController extends Controller
                 'body' => __('The edit timed out. Try again.'),
             ]);
 
+        $pendingAssistant = $site->chatMessages()
+            ->where('role', SiteChatMessage::ROLE_ASSISTANT)
+            ->where('status', SiteChatMessage::STATUS_PENDING)
+            ->latest('id')
+            ->first();
+
         return [
             'available' => $usage->allows($team, PlanFeature::AiEditing),
-            'busy' => $site->chatMessages()->where('status', SiteChatMessage::STATUS_PENDING)->exists(),
-            'messages' => $site->chatMessages()->latest('id')->limit(20)->get()->reverse()->values()->map(fn (SiteChatMessage $message) => [
-                'id' => $message->id,
-                'role' => $message->role,
-                'body' => $message->body,
-                'status' => $message->status,
-                'at' => $message->created_at->toISOString(),
-            ]),
+            'busy' => $pendingAssistant !== null,
+            'progressLines' => $pendingAssistant !== null
+                ? SiteEditProgress::lines($pendingAssistant->id)
+                : [],
+            'messages' => $site->chatMessages()->latest('id')->limit(20)->get()->reverse()->values()->map(
+                fn (SiteChatMessage $message) => SiteChatMessagePresenter::forEditor(
+                    $message,
+                    $pendingAssistant !== null,
+                ),
+            ),
         ];
     }
 }

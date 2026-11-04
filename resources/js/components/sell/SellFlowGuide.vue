@@ -2,8 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { ArrowRight, X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
-import { index as emailTemplatesIndex } from '@/routes/email-templates';
-import { index as leadsIndex } from '@/routes/leads';
+import { index as leadsIndex, board as leadsBoard } from '@/routes/leads';
 import { index as proposalsIndex } from '@/routes/proposals';
 import { index as sequencesIndex } from '@/routes/sequences';
 
@@ -26,17 +25,17 @@ const steps = (slug: string) =>
         },
         {
             label: '2. Send outreach',
-            hint: 'Email with merge fields',
-            href: emailTemplatesIndex({ current_team: slug }).url,
+            hint: 'Lead profile → Outreach',
+            href: leadsBoard({ current_team: slug }).url,
         },
         {
             label: '3. Follow up',
-            hint: 'Day 1, 3, 6, 10 emails',
+            hint: 'Enroll on the lead profile',
             href: sequencesIndex({ current_team: slug }).url,
         },
         {
             label: '4. Close & bill',
-            hint: 'Proposal then invoice',
+            hint: 'Packages → proposal → pay',
             href: proposalsIndex({ current_team: slug }).url,
         },
     ] as const;

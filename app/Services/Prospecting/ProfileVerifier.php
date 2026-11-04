@@ -48,10 +48,12 @@ class ProfileVerifier
             $this->item(
                 'services',
                 'Services offered',
-                filled($lead->category) ? 'inferred' : 'missing',
-                filled($lead->category)
-                    ? "Typical {$lead->category} services will be suggested. Review them before sharing."
-                    : 'Generic wording will be used.',
+                ! empty($lead->listing_services) ? 'verified' : (filled($lead->category) ? 'inferred' : 'missing'),
+                ! empty($lead->listing_services)
+                    ? 'From Google: '.implode(', ', array_slice($lead->listing_services, 0, 5)).'.'
+                    : (filled($lead->category)
+                        ? "Typical {$lead->category} services will be suggested. Review them before sharing."
+                        : 'Generic wording will be used.'),
             ),
             $this->item(
                 'description',
@@ -70,9 +72,10 @@ class ProfileVerifier
             $this->item(
                 'photos',
                 'Photos',
-                $hasUploadedPhotos ? 'verified' : ($lead->photo_url ? 'inferred' : 'missing'),
+                $hasUploadedPhotos ? 'verified' : (! empty($lead->listing_photo_urls) ? 'verified' : ($lead->photo_url ? 'inferred' : 'missing')),
                 match (true) {
                     $hasUploadedPhotos => 'Uploaded photos will be used.',
+                    ! empty($lead->listing_photo_urls) => count($lead->listing_photo_urls).' Google listing photo(s) available for the gallery.',
                     (bool) $lead->photo_url => 'Only the listing photo is available. Confirm you may use it.',
                     default => 'The gallery will be left out.',
                 },

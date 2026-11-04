@@ -7,3 +7,10 @@ export type FlashToast = {
     type: 'success' | 'info' | 'warning' | 'error';
     message: string;
 };
+
+export type BrandPullResult = {
+    accent: string | null;
+    logoUrl: string | null;
+    logoSaved: boolean;
+    siteAccentUpdated: boolean;
+};

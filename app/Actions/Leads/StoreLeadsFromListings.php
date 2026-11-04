@@ -12,9 +12,7 @@ use Illuminate\Support\Collection;
 
 class StoreLeadsFromListings
 {
-    public function __construct(private UsageMeter $usage)
-    {
-    }
+    public function __construct(private UsageMeter $usage) {}
 
     /**
      * Columns refreshed when a lead the team already has is found again.
@@ -25,9 +23,9 @@ class StoreLeadsFromListings
      * @var list<string>
      */
     protected const REFRESHED_COLUMNS = [
-        'name', 'category', 'phone', 'email', 'website', 'address', 'city', 'state', 'country',
-        'latitude', 'longitude', 'rating', 'reviews_count', 'opening_hours', 'description',
-        'photo_url', 'maps_url', 'updated_at',
+        'name', 'category', 'phone', 'additional_phones', 'email', 'social_links', 'website', 'address', 'city', 'neighborhood',
+        'located_in', 'state', 'country', 'latitude', 'longitude', 'rating', 'reviews_count', 'opening_hours', 'description',
+        'listing_services', 'photo_url', 'listing_photo_urls', 'maps_url', 'updated_at',
     ];
 
     /**
@@ -55,10 +53,14 @@ class StoreLeadsFromListings
                 'name' => $listing->name,
                 'category' => $listing->category,
                 'phone' => $listing->phone,
+                'additional_phones' => $listing->additionalPhones === [] ? null : json_encode($listing->additionalPhones),
                 'email' => $listing->email,
+                'social_links' => $listing->socialLinks === [] ? null : json_encode($listing->socialLinks),
                 'website' => $listing->website,
                 'address' => $listing->address,
                 'city' => $listing->city,
+                'neighborhood' => $listing->neighborhood,
+                'located_in' => $listing->locatedIn,
                 'state' => $listing->state,
                 'country' => $listing->country,
                 'latitude' => $listing->latitude,
@@ -67,7 +69,9 @@ class StoreLeadsFromListings
                 'reviews_count' => $listing->reviewsCount,
                 'opening_hours' => $listing->openingHours === null ? null : json_encode($listing->openingHours),
                 'description' => $listing->description,
+                'listing_services' => $listing->services === [] ? null : json_encode($listing->services),
                 'photo_url' => $listing->photoUrl,
+                'listing_photo_urls' => $listing->photoUrls === [] ? null : json_encode($listing->photoUrls),
                 'maps_url' => $listing->mapsUrl,
                 'status' => LeadStatus::New->value,
             ])

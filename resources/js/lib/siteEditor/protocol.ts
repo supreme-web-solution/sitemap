@@ -28,10 +28,30 @@ export type SectionSelection = {
     label: string;
 };
 
+/** Click-to-edit target for AI scoped CSS (Krikkit-style preview_edits). */
+export type DesignTargetSelection = {
+    kind: 'design';
+    region: string;
+    label: string;
+    selector: string;
+    tag: string;
+    text: string;
+    href?: string;
+};
+
+export type PreviewEdit = {
+    region: string;
+    selector: string;
+    tag: string;
+    text?: string;
+    href?: string;
+};
+
 export type EditorSelection =
     | TextSelection
     | ImageSelection
     | SectionSelection
+    | DesignTargetSelection
     | { kind: 'none' };
 
 export type FrameSection = { key: string; label: string };
@@ -51,6 +71,7 @@ export type FrameMessage =
       }
     | { type: 'image'; slot: 'logo' | 'photo'; index: number | null; label: string }
     | { type: 'section'; action: 'up' | 'down' | 'hide' | 'improve'; key: string }
+    | { type: 'inview'; key: string; label: string }
     | { type: 'shortcut'; name: 'undo' | 'redo' | 'save' };
 
 export type HostMessage =

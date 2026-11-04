@@ -1,6 +1,5 @@
 <?php
 
-use App\Jobs\GenerateNicheBrief;
 use App\Jobs\RunLeadSearch;
 use App\Jobs\SummarizeLeadReviews;
 use App\Models\Lead;
@@ -61,9 +60,7 @@ test('review summaries extract overlapping themes', function () {
         ->and($lead->fresh()->reviews_summary['complaints'])->toContain('Waiting times');
 });
 
-test('niche research is queued and filled in', function () {
-    Queue::fake([GenerateNicheBrief::class]);
-
+test('niche research generates a brief immediately', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -73,8 +70,29 @@ test('niche research is queued and filled in', function () {
         ])
         ->assertRedirect();
 
-    Queue::assertPushed(GenerateNicheBrief::class);
-    expect($user->currentTeam->nicheBriefs()->sole()->industry)->toBe('plumbers');
+    $brief = $user->currentTeam->nicheBriefs()->sole();
+
+    expect($brief->industry)->toBe('plumbers')
+        ->and($brief->status)->toBe('done')
+        ->and($brief->brief['searchQueries'])->toContain('plumbers in Austin');
+});
+
+test('stuck queued niche briefs are finished when the page loads', function () {
+    $user = User::factory()->create();
+    $stuck = $user->currentTeam->nicheBriefs()->create([
+        'user_id' => $user->id,
+        'industry' => 'electricians',
+        'location' => 'Dallas',
+        'status' => 'queued',
+        'brief' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('research.index', ['current_team' => $user->currentTeam->slug]))
+        ->assertOk();
+
+    expect($stuck->fresh()->status)->toBe('done')
+        ->and($stuck->fresh()->brief['summary'])->toContain('electricians');
 });
 
 test('a competitor url is audited', function () {
@@ -99,7 +117,7 @@ test('the research and ideal customer pages render', function () {
     $this->actingAs($user)
         ->get(route('research.index', ['current_team' => $slug]))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('research/Index')->has('briefs'));
+        ->assertInertia(fn (Assert $page) => $page->component('research/Index')->has('briefs.data'));
 
     $this->actingAs($user)
         ->get(route('ideal-customer.edit', ['current_team' => $slug]))

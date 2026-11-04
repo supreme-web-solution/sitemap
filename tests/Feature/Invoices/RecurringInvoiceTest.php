@@ -138,9 +138,9 @@ test('a schedule can be deleted and the list is scoped to the team', function ()
         ->get(route('recurring-invoices.index', ['current_team' => $team]))
         ->assertInertia(fn (Assert $page) => $page
             ->component('invoices/Recurring')
-            ->has('schedules', 1)
-            ->where('schedules.0.status', 'active')
-            ->where('schedules.0.total', '$50.00'));
+            ->has('schedules.data', 1)
+            ->where('schedules.data.0.status', 'active')
+            ->where('schedules.data.0.total', '$50.00'));
 
     $this->delete(route('recurring-invoices.destroy', ['current_team' => $team, 'recurringInvoice' => $schedule->id]))->assertSessionHasNoErrors();
 

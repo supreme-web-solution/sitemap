@@ -9,13 +9,16 @@ use App\Models\SiteDomain;
 use App\Models\SitePost;
 use App\Services\LeadFinder\LeadFinder;
 use App\Services\LeadFinder\MindcaseLeadFinder;
+use App\Services\Outreach\FollowUpSequenceGenerator;
 use App\Services\ReviewFinder\MindcaseReviewFinder;
 use App\Services\ReviewFinder\ReviewFinder;
 use App\Services\SiteBuilder\ClaudeSitePlanner;
-use App\Services\SiteBuilder\OpenAiSitePlanner;
 use App\Services\SiteBuilder\RuleBasedCopywriter;
 use App\Services\SiteBuilder\SiteCache;
 use App\Services\SiteBuilder\SiteCopywriter;
+use App\Services\SiteBuilder\SiteLocaleTranslator;
+use App\Services\SiteBuilder\SiteSectionDesignAssistant;
+use App\Services\SiteBuilder\SiteSectionDesignReviewer;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -43,39 +46,30 @@ class AppServiceProvider extends ServiceProvider
             maxReviews: config('prospecting.reviews.fetch_limit'),
         ));
 
+        $this->app->singleton(
+            FollowUpSequenceGenerator::class,
+            fn () => FollowUpSequenceGenerator::fromConfig(),
+        );
+
+        $this->app->singleton(SiteLocaleTranslator::class, fn () => new SiteLocaleTranslator);
+
+        $this->app->singleton(SiteSectionDesignAssistant::class, fn ($app) => new SiteSectionDesignAssistant(
+            $app->make(SiteSectionDesignReviewer::class),
+        ));
+
         $this->app->bind(SiteCopywriter::class, function ($app) {
             $fallback = $app->make(RuleBasedCopywriter::class);
 
-            return match ($this->sitePlannerProvider()) {
-                'anthropic' => new ClaudeSitePlanner(
-                    apiKey: config('services.anthropic.key'),
-                    model: config('services.anthropic.model'),
-                    fallback: $fallback,
-                ),
-                'openai' => new OpenAiSitePlanner(
-                    apiKey: config('services.openai.key'),
-                    model: config('services.openai.model'),
-                    fallback: $fallback,
-                ),
-                default => $fallback,
-            };
+            if (! filled(config('services.anthropic.key'))) {
+                return $fallback;
+            }
+
+            return new ClaudeSitePlanner(
+                apiKey: config('services.anthropic.key'),
+                model: config('services.anthropic.model'),
+                fallback: $fallback,
+            );
         });
-    }
-
-    /**
-     * Pick the AI provider for site planning: the preferred one when its key
-     * is set, otherwise whichever provider has a key.
-     */
-    protected function sitePlannerProvider(): ?string
-    {
-        $configured = array_keys(array_filter([
-            'anthropic' => filled(config('services.anthropic.key')),
-            'openai' => filled(config('services.openai.key')),
-        ]));
-
-        $preferred = config('services.site_planner.provider');
-
-        return in_array($preferred, $configured, true) ? $preferred : ($configured[0] ?? null);
     }
 
     /**

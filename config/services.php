@@ -30,6 +30,7 @@ return [
 
     'zernio' => [
         'base_url' => env('ZERNIO_BASE_URL', 'https://zernio.com/api/v1'),
+        'api_key' => env('ZERNIO_API_KEY'),
     ],
 
     'mindcase' => [
@@ -37,18 +38,27 @@ return [
         'base_url' => env('MINDCASE_BASE_URL', 'https://api.mindcase.co/v1'),
     ],
 
-    'site_planner' => [
-        'provider' => env('SITE_PLANNER'),
-    ],
+    /*
+    | Anthropic — site planning, AI edits, follow-up sequence drafts, locale translation.
+    | OpenAI / OpenRouter — editor & chat hero photo generation (see config/sites.php).
+    */
 
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
-        'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-4-5'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
+        // Site editor chat: turn routing, edit planner, section CSS, design critic.
+        'fast_model' => env('ANTHROPIC_MODEL_FAST', 'claude-haiku-4-5'),
     ],
 
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
-        'model' => env('OPENAI_MODEL', 'gpt-5.5'),
+    ],
+
+    'openrouter' => [
+        'key' => env('OPENROUTER_API_KEY'),
+        'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
+        'referer' => env('OPENROUTER_HTTP_REFERER', env('APP_URL')),
+        'title' => env('OPENROUTER_APP_TITLE', env('APP_NAME')),
     ],
 
     'slack' => [

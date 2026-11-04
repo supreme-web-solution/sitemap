@@ -6,6 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { SELECT_ALL } from '@/lib/selectSentinels';
+import {
     destroy as destroyTask,
     store as storeTask,
     update as updateTask,
@@ -33,6 +41,14 @@ const form = useForm({
     title: '',
     due_on: '',
     user_id: '' as number | '',
+});
+
+const assigneeSelect = computed({
+    get: () =>
+        form.user_id === '' ? SELECT_ALL : String(form.user_id),
+    set: (value: string) => {
+        form.user_id = value === SELECT_ALL ? '' : Number(value);
+    },
 });
 
 const submit = () =>
@@ -64,15 +80,21 @@ const remove = (task: Task) =>
             <Input id="task-title" v-model="form.title" placeholder="Call the owner" required />
             <div class="grid grid-cols-2 gap-2">
                 <Input v-model="form.due_on" type="date" />
-                <select
-                    v-model="form.user_id"
-                    class="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                >
-                    <option value="">Anyone</option>
-                    <option v-for="member in members" :key="member.id" :value="member.id">
-                        {{ member.name }}
-                    </option>
-                </select>
+                <Select v-model="assigneeSelect">
+                    <SelectTrigger class="w-full" aria-label="Assign to">
+                        <SelectValue placeholder="Anyone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem :value="SELECT_ALL">Anyone</SelectItem>
+                        <SelectItem
+                            v-for="member in members"
+                            :key="member.id"
+                            :value="String(member.id)"
+                        >
+                            {{ member.name }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
             <InputError :message="form.errors.title" />
             <Button type="submit" size="sm" class="w-fit" :disabled="form.processing">

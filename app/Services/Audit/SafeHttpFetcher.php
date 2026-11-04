@@ -2,7 +2,11 @@
 
 namespace App\Services\Audit;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\CurlHandler;
+use GuzzleHttp\HandlerStack;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Psr\Http\Message\StreamInterface;
 
@@ -15,6 +19,8 @@ use Psr\Http\Message\StreamInterface;
  */
 class SafeHttpFetcher
 {
+    private ?Client $pinnedClient = null;
+
     /**
      * Fetch a page and follow a limited number of safe redirects.
      *
@@ -32,15 +38,7 @@ class SafeHttpFetcher
 
             $startedAt = hrtime(true);
 
-            $response = Http::timeout((int) config('prospecting.audit.timeout_seconds'))
-                ->withUserAgent((string) config('prospecting.audit.user_agent'))
-                ->accept('text/html,application/xhtml+xml')
-                ->withOptions([
-                    'allow_redirects' => false,
-                    'stream' => true,
-                    'curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"]],
-                ])
-                ->get($url);
+            $response = $this->pinnedGet($url, $host, $port, $ip);
 
             $elapsedMs = (int) ((hrtime(true) - $startedAt) / 1_000_000);
 
@@ -52,7 +50,7 @@ class SafeHttpFetcher
 
             [$body, $truncated] = $this->readBody($response->toPsrResponse()->getBody());
 
-            return [
+            $page = [
                 'url' => $url,
                 'status' => $response->status(),
                 'body' => $body,
@@ -60,9 +58,116 @@ class SafeHttpFetcher
                 'elapsed_ms' => $elapsedMs,
                 'truncated' => $truncated,
             ];
+
+            if (AuditHttpFailure::shouldRetryViaProxy($page)) {
+                return $this->proxyFetch($url);
+            }
+
+            return $page;
         }
 
         throw new UnsafeUrlException('Too many redirects.');
+    }
+
+    /**
+     * Request a validated URL with the resolved IP pinned (requires the cURL handler).
+     */
+    protected function pinnedGet(string $url, string $host, int $port, string $ip): Response
+    {
+        if (! $this->shouldUsePinnedGuzzleClient()) {
+            return Http::timeout((int) config('prospecting.audit.timeout_seconds'))
+                ->withHeaders($this->browserHeaders())
+                ->withOptions(['allow_redirects' => false])
+                ->get($url);
+        }
+
+        $psr = $this->pinnedGuzzleClient()->request('GET', $url, [
+            'curl' => [
+                CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"],
+            ],
+        ]);
+
+        return new Response($psr);
+    }
+
+    /**
+     * Fetch through ScraperAPI after bot protection blocks a direct request.
+     *
+     * @return array{url: string, status: int, body: string, bytes: int, elapsed_ms: int, truncated: bool}
+     *
+     * @throws UnsafeUrlException
+     */
+    protected function proxyFetch(string $url): array
+    {
+        $this->validate($url);
+
+        $startedAt = hrtime(true);
+
+        $response = Http::timeout((int) config('prospecting.audit.scraper_timeout_seconds'))
+            ->get('https://api.scraperapi.com/', [
+                'api_key' => (string) config('prospecting.audit.scraper_api_key'),
+                'url' => $url,
+                'render' => config('prospecting.audit.scraper_render') ? 'true' : 'false',
+            ]);
+
+        $elapsedMs = (int) ((hrtime(true) - $startedAt) / 1_000_000);
+        $body = $response->body();
+        $limit = (int) config('prospecting.audit.max_bytes');
+        $truncated = strlen($body) > $limit;
+
+        if ($truncated) {
+            $body = substr($body, 0, $limit);
+        }
+
+        return [
+            'url' => $url,
+            'status' => $response->status(),
+            'body' => $body,
+            'bytes' => strlen($body),
+            'elapsed_ms' => $elapsedMs,
+            'truncated' => $truncated,
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function browserHeaders(): array
+    {
+        return [
+            'User-Agent' => (string) config('prospecting.audit.user_agent'),
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language' => 'en-US,en;q=0.9',
+            'Cache-Control' => 'no-cache',
+            'Upgrade-Insecure-Requests' => '1',
+            'Sec-Fetch-Dest' => 'document',
+            'Sec-Fetch-Mode' => 'navigate',
+            'Sec-Fetch-Site' => 'none',
+            'Sec-Fetch-User' => '?1',
+        ];
+    }
+
+    /**
+     * Tests use Laravel's HTTP fake; production needs cURL DNS pinning via Guzzle.
+     */
+    protected function shouldUsePinnedGuzzleClient(): bool
+    {
+        return ! app()->runningUnitTests();
+    }
+
+    protected function pinnedGuzzleClient(): Client
+    {
+        if ($this->pinnedClient !== null) {
+            return $this->pinnedClient;
+        }
+
+        return $this->pinnedClient = new Client([
+            'handler' => HandlerStack::create(new CurlHandler),
+            'timeout' => (float) config('prospecting.audit.timeout_seconds'),
+            'allow_redirects' => false,
+            'http_errors' => false,
+            'headers' => $this->browserHeaders(),
+        ]);
     }
 
     /**

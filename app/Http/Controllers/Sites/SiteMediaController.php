@@ -7,7 +7,8 @@ use App\Http\Requests\Leads\UpdateLeadProfileRequest;
 use App\Models\Lead;
 use App\Models\Site;
 use App\Models\Team;
-use App\Services\SiteBuilder\OpenAiImageGenerator;
+use App\Services\SiteBuilder\LeadPhotoGenerator;
+use App\Services\SiteBuilder\SiteImageGenerationPlanner;
 use App\Services\SiteBuilder\SiteMediaUndo;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -20,10 +21,16 @@ class SiteMediaController extends Controller
     /**
      * Replace the logo, replace one photo, or add a photo, from the visual editor.
      */
-    public function store(Request $request, Team $currentTeam, Site $site, OpenAiImageGenerator $images, SiteMediaUndo $mediaUndo): JsonResponse
-    {
+    public function store(
+        Request $request,
+        Team $currentTeam,
+        Site $site,
+        LeadPhotoGenerator $images,
+        SiteImageGenerationPlanner $imagePlanner,
+        SiteMediaUndo $mediaUndo,
+    ): JsonResponse {
         if ($request->boolean('generate')) {
-            return $this->generated($request, $currentTeam, $site, $images, $mediaUndo);
+            return $this->generated($request, $currentTeam, $site, $images, $imagePlanner, $mediaUndo);
         }
 
         $data = $request->validate([
@@ -146,8 +153,14 @@ class SiteMediaController extends Controller
         ]);
     }
 
-    protected function generated(Request $request, Team $currentTeam, Site $site, OpenAiImageGenerator $images, SiteMediaUndo $mediaUndo): JsonResponse
-    {
+    protected function generated(
+        Request $request,
+        Team $currentTeam,
+        Site $site,
+        LeadPhotoGenerator $images,
+        SiteImageGenerationPlanner $imagePlanner,
+        SiteMediaUndo $mediaUndo,
+    ): JsonResponse {
         $data = $request->validate([
             'slot' => ['required', 'in:photo'],
             'index' => ['nullable', 'integer', 'min:0', 'max:'.(UpdateLeadProfileRequest::MAX_PHOTOS - 1)],
@@ -158,8 +171,11 @@ class SiteMediaController extends Controller
         $mediaUndo->remember($site, $lead);
 
         try {
+            $index = $data['index'] ?? count($lead->photo_paths ?? []);
+            $plan = $imagePlanner->plan($site, $lead, $data['prompt'], (int) $index);
+
             $generated = $images->generate(
-                $data['prompt'],
+                $plan,
                 $currentTeam->id,
                 $lead->id,
             );
@@ -167,10 +183,14 @@ class SiteMediaController extends Controller
             throw ValidationException::withMessages([
                 'prompt' => $exception->getMessage(),
             ]);
+        } catch (\Throwable $exception) {
+            throw ValidationException::withMessages([
+                'prompt' => LeadPhotoGenerator::unavailableMessage(),
+            ]);
         }
 
         $paths = $lead->photo_paths ?? [];
-        $index = $data['index'] ?? count($paths);
+        $index = $index ?? count($paths);
 
         if ($index >= count($paths) && count($paths) >= UpdateLeadProfileRequest::MAX_PHOTOS) {
             Storage::disk('public')->delete($generated['path']);

@@ -14,6 +14,13 @@ import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import type { CommitOptions } from '@/composables/useSiteEditor';
 import { getPath } from '@/lib/siteEditor/document';
 import type { EditOp } from '@/lib/siteEditor/document';
@@ -30,13 +37,14 @@ const props = defineProps<{
     aiAvailable: boolean;
     aiBusy: boolean;
     sectionStyleChoices: Option[];
+    sectionVariantChoices: Record<string, Option[]>;
     canMoveUp: boolean;
     canMoveDown: boolean;
 }>();
 
 const emit = defineEmits<{
     commit: [operations: EditOp[], options?: CommitOptions];
-    improve: [payload: { field?: string; section?: string; body?: string }];
+    improve: [payload: { field?: string; section?: string; body?: string; redesign?: boolean }];
     'section-action': [action: 'up' | 'down' | 'hide', key: string];
     'media-changed': [media: Pick<SiteMedia, 'logo' | 'photos'>];
 }>();
@@ -55,7 +63,21 @@ watch(
 
 const textSelection = computed(() => (props.selection.kind === 'text' ? props.selection : null));
 const imageSelection = computed(() => (props.selection.kind === 'image' ? props.selection : null));
-const sectionSelection = computed(() => (props.selection.kind === 'section' ? props.selection : null));
+const sectionSelection = computed(() => {
+    const current = props.selection;
+
+    if (current.kind === 'section') {
+        return current;
+    }
+
+    if (current.kind === 'design') {
+        return { kind: 'section' as const, key: current.region, label: current.label };
+    }
+
+    return null;
+});
+
+const designSelection = computed(() => (props.selection.kind === 'design' ? props.selection : null));
 
 const textValue = computed(() => {
     const selection = textSelection.value;
@@ -195,6 +217,34 @@ const setSectionStyle = (value: string) => {
     }
 };
 
+const sectionLayouts = computed(() => {
+    const key = sectionSelection.value?.key;
+
+    return key ? (props.sectionVariantChoices[key] ?? []) : [];
+});
+
+const sectionLayout = computed(() => {
+    const key = sectionSelection.value?.key;
+
+    if (!key) {
+        return '';
+    }
+
+    return props.draft.variants?.[key] ?? sectionLayouts.value[0]?.value ?? '';
+});
+
+const setSectionLayout = (value: unknown) => {
+    const selection = sectionSelection.value;
+
+    if (selection) {
+        emit(
+            'commit',
+            [{ op: 'set', path: `variants.${selection.key}`, value: String(value) }],
+            { reload: true, immediate: true },
+        );
+    }
+};
+
 const textareaClass =
     'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
 </script>
@@ -205,8 +255,17 @@ const textareaClass =
             v-if="selection.kind === 'none'"
             class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
         >
-            Click any text on the page to edit it, click a photo or the logo to
-            replace it, or click the background of a section to style it.
+            Click text to edit copy, photos to replace, or any section/footer/header
+            to target it — then use the AI tab for design CSS.
+        </p>
+
+        <p
+            v-if="designSelection"
+            class="rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+        >
+            AI target:
+            <span class="font-medium text-foreground">{{ designSelection.label }}</span>
+            <span class="mt-1 block font-mono">{{ designSelection.selector }}</span>
         </p>
 
         <template v-if="textSelection">
@@ -355,6 +414,26 @@ const textareaClass =
         <template v-if="sectionSelection">
             <div class="grid gap-3">
                 <p class="text-sm font-medium">{{ sectionSelection.label }} section</p>
+                <div v-if="sectionLayouts.length" class="grid gap-2">
+                    <Label>Layout</Label>
+                    <Select :model-value="sectionLayout" @update:model-value="setSectionLayout">
+                        <SelectTrigger class="w-full" data-test="section-layout">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="option in sectionLayouts"
+                                :key="option.value"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p class="text-xs text-muted-foreground">
+                        Changes this section only. The rest of the template stays.
+                    </p>
+                </div>
                 <div class="grid gap-2">
                     <Label>Background</Label>
                     <div class="flex flex-wrap gap-1.5" role="group" aria-label="Section background">
@@ -406,17 +485,30 @@ const textareaClass =
                         <EyeOff /> Hide
                     </Button>
                 </div>
-                <Button
-                    v-if="aiAvailable"
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    class="w-fit"
-                    :disabled="aiBusy"
-                    @click="$emit('improve', { section: sectionSelection.key })"
-                >
-                    <Sparkles /> Improve this section with AI
-                </Button>
+                <div v-if="aiAvailable" class="flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        class="w-fit"
+                        :disabled="aiBusy"
+                        @click="$emit('improve', { section: sectionSelection.key })"
+                    >
+                        <Sparkles /> Improve copy
+                    </Button>
+                    <Button
+                        v-if="sectionLayouts.length"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        class="w-fit"
+                        :disabled="aiBusy"
+                        data-test="redesign-section"
+                        @click="$emit('improve', { section: sectionSelection.key, redesign: true })"
+                    >
+                        <Sparkles /> Redesign layout
+                    </Button>
+                </div>
             </div>
         </template>
     </div>

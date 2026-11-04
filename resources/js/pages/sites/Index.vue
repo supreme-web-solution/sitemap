@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { Copy, Download, ExternalLink, Eye, Pencil } from '@lucide/vue';
+import {
+    Copy,
+    Download,
+    ExternalLink,
+    Eye,
+    Globe,
+    Pencil,
+    Sparkles,
+} from '@lucide/vue';
 import { useClipboard } from '@vueuse/core';
 import { computed } from 'vue';
 import { toast } from 'vue-sonner';
+import PaginationBar from '@/components/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { leadStatusClasses, leadStatusLabel } from '@/lib/leadStatus';
 import { index as leadsIndex } from '@/routes/leads';
 import {
@@ -63,19 +73,37 @@ const copyLink = async (site: SiteSummary) => {
                 data-test="site-card"
                 class="flex flex-col overflow-hidden panel"
             >
-                <div
-                    class="h-24 p-4 text-white"
-                    :style="{
-                        background: `linear-gradient(135deg, ${site.accent}, #0f172a)`,
-                    }"
+                <a
+                    :href="site.previewUrl"
+                    target="_blank"
+                    rel="noopener"
+                    class="site-hero-thumb relative isolate block overflow-hidden bg-slate-950"
+                    :aria-label="`Preview ${site.name}`"
                 >
-                    <div class="text-xs tracking-wide uppercase opacity-80">
+                    <div
+                        v-if="site.heroImage"
+                        class="absolute inset-0 bg-cover bg-center"
+                        :style="{ backgroundImage: `url(${site.heroImage})` }"
+                    />
+                    <div
+                        class="absolute inset-0"
+                        :style="{
+                            background: `linear-gradient(135deg, ${site.accent}cc, #0f172acc)`,
+                        }"
+                    />
+                    <iframe
+                        :src="site.thumbnailUrl"
+                        class="site-hero-thumb__frame pointer-events-none absolute top-0 left-0 z-10 border-0 bg-white"
+                        loading="lazy"
+                        tabindex="-1"
+                        aria-hidden="true"
+                    />
+                    <span
+                        class="absolute top-3 left-3 z-20 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase backdrop-blur-sm"
+                    >
                         {{ site.template }}
-                    </div>
-                    <div class="mt-1 line-clamp-2 font-semibold">
-                        {{ site.headline }}
-                    </div>
-                </div>
+                    </span>
+                </a>
                 <div class="flex flex-1 flex-col gap-3 p-4">
                     <div class="flex items-start justify-between gap-2">
                         <div>
@@ -155,36 +183,32 @@ const copyLink = async (site: SiteSummary) => {
             </article>
         </div>
 
-        <div
+        <EmptyState
             v-else
-            class="rounded-xl border border-dashed p-12 text-center text-muted-foreground"
+            title="No websites yet"
+            description="Find a local business, confirm their details, then generate a preview site to share before they buy."
+            :icon="Globe"
         >
-            No websites yet.
-            <Link
-                :href="leadsIndex({ current_team: teamSlug })"
-                class="font-medium text-foreground underline"
-                >Find a lead</Link
-            >
-            and click “Create website”.
-        </div>
+            <Button as-child>
+                <Link :href="leadsIndex({ current_team: teamSlug })">
+                    <Sparkles /> Find leads
+                </Link>
+            </Button>
+        </EmptyState>
 
-        <div v-if="sites.last_page > 1" class="flex justify-end gap-2 text-sm">
-            <Button
-                v-if="sites.prev_page_url"
-                size="sm"
-                variant="outline"
-                as-child
-            >
-                <Link :href="sites.prev_page_url">Previous</Link>
-            </Button>
-            <Button
-                v-if="sites.next_page_url"
-                size="sm"
-                variant="outline"
-                as-child
-            >
-                <Link :href="sites.next_page_url">Next</Link>
-            </Button>
-        </div>
+        <PaginationBar :paginator="sites" />
     </div>
 </template>
+
+<style scoped>
+.site-hero-thumb {
+    container-type: inline-size;
+    aspect-ratio: 16 / 10;
+}
+.site-hero-thumb__frame {
+    width: 1280px;
+    height: 800px;
+    transform: scale(calc(100cqw / 1280));
+    transform-origin: top left;
+}
+</style>

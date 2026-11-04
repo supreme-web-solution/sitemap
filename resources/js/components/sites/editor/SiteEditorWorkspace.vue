@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { CircleAlert } from '@lucide/vue';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { undoSiteImage } from '@/lib/siteEditor/http';
 import { Button } from '@/components/ui/button';
 import { useSiteEditor } from '@/composables/useSiteEditor';
 import type { CommitOptions } from '@/composables/useSiteEditor';
 import type { EditOp } from '@/lib/siteEditor/document';
-import type { EditorSelection, FrameMessage, FrameSection } from '@/lib/siteEditor/protocol';
+import type {
+    EditorSelection,
+    FrameMessage,
+    FrameSection,
+    PreviewEdit,
+} from '@/lib/siteEditor/protocol';
 import type {
     EditableSite,
     Option,
@@ -36,6 +41,7 @@ const props = defineProps<{
     templates: Option[];
     palettes: Record<string, string[]>;
     sectionOptions: Option[];
+    sectionVariantChoices: Record<string, Option[]>;
     reviewsStyles: Option[];
     designChoices: SiteDesignChoices;
     copyFields: SiteCopyField[];
@@ -46,9 +52,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     quality: [quality: QualityReport];
-    improve: [payload: { field?: string; section?: string; body?: string }];
+    improve: [payload: {
+        field?: string;
+        section?: string;
+        body?: string;
+        redesign?: boolean;
+        design_target?: string;
+        preview_edits?: PreviewEdit[];
+    }];
     'pull-brand': [];
 }>();
+
+export type SiteEditorAiContext = {
+    design_target: string | null;
+    preview_edits: PreviewEdit[];
+    label: string | null;
+};
 
 const canvas = ref<InstanceType<typeof EditorCanvas> | null>(null);
 const device = ref<Device>('desktop');
@@ -56,6 +75,7 @@ const mode = ref<'edit' | 'preview'>('edit');
 const tab = ref<Tab>('selection');
 const selection = ref<EditorSelection>({ kind: 'none' });
 const frameSections = ref<FrameSection[]>([]);
+const inViewSection = ref<string | null>(null);
 const media = ref<SiteMedia>({ ...props.site.media });
 const canUndoMedia = ref(false);
 let reloadPending = false;
@@ -103,7 +123,66 @@ const commit = (operations: EditOp[], options?: CommitOptions) => editor.commit(
 
 const sectionIndex = (key: string) => frameSections.value.findIndex((section) => section.key === key);
 
-const selectedSectionKey = computed(() => (selection.value.kind === 'section' ? selection.value.key : null));
+const selectedSectionKey = computed(() => {
+    const current = selection.value;
+
+    if (current.kind === 'section') {
+        return current.key;
+    }
+
+    if (current.kind === 'design') {
+        return current.region;
+    }
+
+    return null;
+});
+
+const designFocusKey = computed(() => {
+    if (tab.value === 'design') {
+        return inViewSection.value ?? selectedSectionKey.value;
+    }
+
+    return selectedSectionKey.value ?? inViewSection.value;
+});
+
+const aiDesignContext = computed((): SiteEditorAiContext => {
+    const current = selection.value;
+
+    if (current.kind === 'design') {
+        return {
+            design_target: current.region,
+            label: current.label,
+            preview_edits: [
+                {
+                    region: current.region,
+                    selector: current.selector,
+                    tag: current.tag,
+                    text: current.text,
+                    href: current.href,
+                },
+            ],
+        };
+    }
+
+    if (current.kind === 'section') {
+        return {
+            design_target: current.key,
+            label: current.label,
+            preview_edits: [
+                {
+                    region: current.key,
+                    selector: `#${current.key}, .${current.key}-block`,
+                    tag: 'section',
+                },
+            ],
+        };
+    }
+
+    return { design_target: null, preview_edits: [], label: null };
+});
+
+provide('siteEditorAiContext', aiDesignContext);
+provide('siteEditorTab', tab);
 const canMoveUp = computed(() => selectedSectionKey.value !== null && sectionIndex(selectedSectionKey.value) > 0);
 const canMoveDown = computed(() => {
     const key = selectedSectionKey.value;
@@ -142,12 +221,18 @@ const onFrameMessage = (message: FrameMessage) => {
     switch (message.type) {
         case 'ready':
             frameSections.value = message.sections;
+            inViewSection.value = message.sections[0]?.key ?? null;
+            break;
+        case 'inview':
+            inViewSection.value = message.key;
             break;
         case 'select': {
             const { type: _type, ...rest } = message;
             selection.value = rest as EditorSelection;
 
-            if (rest.kind !== 'none') {
+            if (rest.kind === 'text' || rest.kind === 'image') {
+                tab.value = 'selection';
+            } else if (rest.kind !== 'none' && tab.value !== 'design') {
                 tab.value = 'selection';
             }
 
@@ -162,7 +247,18 @@ const onFrameMessage = (message: FrameMessage) => {
             break;
         case 'section':
             if (message.action === 'improve') {
-                emit('improve', { section: message.key });
+                tab.value = 'ai';
+                emit('improve', {
+                    design_target: message.key,
+                    body: 'Improve the design and layout of this section.',
+                    preview_edits: [
+                        {
+                            region: message.key,
+                            selector: `#${message.key}, .${message.key}-block`,
+                            tag: 'section',
+                        },
+                    ],
+                });
             } else {
                 sectionAction(message.action, message.key);
             }
@@ -367,7 +463,14 @@ defineExpose({
                         />
                     </button>
                 </div>
-                <div class="min-h-0 flex-1 overflow-y-auto p-4">
+                <div
+                    class="min-h-0 flex-1 p-4"
+                    :class="
+                        tab === 'ai'
+                            ? 'flex flex-col overflow-hidden'
+                            : 'overflow-y-auto'
+                    "
+                >
                     <InspectorSelection
                         v-show="tab === 'selection'"
                         :selection="selection"
@@ -378,6 +481,7 @@ defineExpose({
                         :ai-available="aiAvailable"
                         :ai-busy="aiBusy"
                         :section-style-choices="designChoices.sectionStyle"
+                        :section-variant-choices="sectionVariantChoices"
                         :can-move-up="canMoveUp"
                         :can-move-down="canMoveDown"
                         @commit="commit"
@@ -399,16 +503,21 @@ defineExpose({
                         :palettes="palettes"
                         :reviews-styles="reviewsStyles"
                         :choices="designChoices"
+                        :section-variant-choices="sectionVariantChoices"
+                        :frame-sections="frameSections"
+                        :focused-section="designFocusKey"
                         :can-pull-brand="site.leadWebsite !== null"
                         :pulling-brand="pullingBrand"
                         @commit="commit"
                         @pull-brand="$emit('pull-brand')"
+                        @locate="locateSection"
                     />
                     <InspectorStructure
                         v-show="tab === 'structure'"
                         :draft="editor.draft.value"
                         :page-options="pageOptions"
                         :section-options="sectionOptions"
+                        :section-variant-choices="sectionVariantChoices"
                         :ai-available="aiAvailable"
                         :ai-busy="aiBusy"
                         :business-name="site.name"
@@ -417,9 +526,13 @@ defineExpose({
                         :preview-url="site.previewUrl"
                         @commit="commit"
                         @improve="$emit('improve', { section: $event })"
+                        @redesign="$emit('improve', { section: $event, redesign: true })"
                         @locate="locateSection"
                     />
-                    <div v-show="tab === 'ai'">
+                    <div
+                        v-show="tab === 'ai'"
+                        class="flex min-h-0 flex-1 flex-col"
+                    >
                         <slot name="ai" />
                     </div>
                 </div>

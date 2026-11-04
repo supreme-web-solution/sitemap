@@ -36,7 +36,9 @@ class ConceptPreviewController extends Controller
             'slug' => $lead->site?->slug ?? 'concept-'.$concept->id,
             'template' => $concept->template,
             'content' => $concept->content,
+            'design_template_id' => $concept->design_template_id,
         ]);
+        $site->setRelation('designTemplate', $concept->designTemplate);
         $site->setRelation('lead', $lead);
         $site->setRelation('team', $lead->team);
 

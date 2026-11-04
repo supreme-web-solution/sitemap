@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { Check, Copy, LoaderCircle, Plus, Send, Trash2 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import BillingIntervalSelect from '@/components/forms/BillingIntervalSelect.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { SELECT_PICK } from '@/lib/selectSentinels';
 import {
     destroy,
     index as proposalsIndex,
@@ -139,9 +148,14 @@ const addRow = () =>
     });
 const removeRow = (index: number) => form.items.splice(index, 1);
 
-const addPackage = (event: Event) => {
-    const select = event.target as HTMLSelectElement;
-    const found = props.packages.find((p) => p.id === Number(select.value));
+const addPackageSelection = ref(SELECT_PICK);
+
+const addPackageFromSelect = (value: string) => {
+    if (value === SELECT_PICK) {
+        return;
+    }
+
+    const found = props.packages.find((p) => p.id === Number(value));
 
     if (found) {
         const row: Row = {
@@ -162,8 +176,22 @@ const addPackage = (event: Event) => {
         }
     }
 
-    select.value = '';
+    addPackageSelection.value = SELECT_PICK;
 };
+
+watch(addPackageSelection, (value) => {
+    if (value !== SELECT_PICK) {
+        addPackageFromSelect(value);
+    }
+});
+
+const leadIdSelect = computed({
+    get: () =>
+        form.lead_id === '' ? undefined : String(form.lead_id),
+    set: (value: string | undefined) => {
+        form.lead_id = value ? Number(value) : '';
+    },
+});
 
 const submit = () => {
     form.transform((data) => ({
@@ -218,8 +246,6 @@ const copyLink = async () => {
     }
 };
 
-const selectClass =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60 dark:bg-input/30';
 const textareaClass =
     'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
 </script>
@@ -272,11 +298,24 @@ const textareaClass =
         <form class="grid gap-5 panel p-5" data-test="proposal-form" @submit.prevent="submit">
             <div class="grid gap-4 sm:grid-cols-2">
                 <div class="grid gap-2">
-                    <Label for="proposal-lead">Client</Label>
-                    <select id="proposal-lead" v-model="form.lead_id" :disabled="Boolean(proposal)" :class="selectClass">
-                        <option value="" disabled>Choose a lead…</option>
-                        <option v-for="lead in leads" :key="lead.id" :value="lead.id">{{ lead.name }}</option>
-                    </select>
+                    <Label>Client</Label>
+                    <Select
+                        v-model="leadIdSelect"
+                        :disabled="Boolean(proposal)"
+                    >
+                        <SelectTrigger class="w-full" aria-label="Client">
+                            <SelectValue placeholder="Choose a lead…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="lead in leads"
+                                :key="lead.id"
+                                :value="String(lead.id)"
+                            >
+                                {{ lead.name }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                     <InputError :message="form.errors.lead_id" />
                 </div>
                 <div class="grid gap-2">
@@ -299,10 +338,23 @@ const textareaClass =
             <div class="grid gap-3">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <Label>Items</Label>
-                    <select v-if="editable && packages.length" :class="[selectClass, 'w-56']" aria-label="Add a package" @change="addPackage">
-                        <option value="">Add from packages…</option>
-                        <option v-for="p in packages" :key="p.id" :value="p.id">{{ p.name }}</option>
-                    </select>
+                    <Select
+                        v-if="editable && packages.length"
+                        v-model="addPackageSelection"
+                    >
+                        <SelectTrigger class="w-56" aria-label="Add a package">
+                            <SelectValue placeholder="Add from packages…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="p in packages"
+                                :key="p.id"
+                                :value="String(p.id)"
+                            >
+                                {{ p.name }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div v-for="(row, index) in form.items" :key="index" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_4.5rem_7rem_9rem_2rem] sm:items-start">
                     <div class="grid gap-1">
@@ -317,10 +369,11 @@ const textareaClass =
                         <Input v-model.number="row.unit_price" type="number" min="0.01" step="0.01" placeholder="0.00" aria-label="Unit price in dollars" :disabled="!editable" />
                         <InputError :message="itemError(index, 'unit_price')" />
                     </div>
-                    <select v-model="row.interval" :class="selectClass" aria-label="Billing" :disabled="!editable">
-                        <option value="">One time</option>
-                        <option v-for="interval in intervals" :key="interval.value" :value="interval.value">{{ interval.label }}</option>
-                    </select>
+                    <BillingIntervalSelect
+                        v-model="row.interval"
+                        :intervals="intervals"
+                        :disabled="!editable"
+                    />
                     <Button v-if="editable && form.items.length > 1" type="button" size="icon-sm" variant="ghost" aria-label="Remove item" @click="removeRow(index)">
                         <Trash2 />
                     </Button>

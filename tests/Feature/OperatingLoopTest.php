@@ -2,7 +2,6 @@
 
 use App\Enums\LeadStatus;
 use App\Enums\SiteSection;
-use App\Jobs\ApplySiteEdit;
 use App\Jobs\CrawlSiteLinks;
 use App\Jobs\RescoreTeamLeads;
 use App\Models\Lead;
@@ -92,10 +91,11 @@ test('unchanged score weights do not queue another rescore', function () {
 test('brand pull fakes http and applies the accent to the generated site', function () {
     Http::preventStrayRequests();
     Http::fake([
-        '93.184.216.34/*' => Http::response(
+        '93.184.216.34/' => Http::response(
             '<html><head><meta name="theme-color" content="#c41e3a"><meta property="og:image" content="/logo.png"></head><body></body></html>',
             200,
         ),
+        '93.184.216.34/logo.png' => Http::response("\x89PNG\r\n\x1a\nfake", 200),
     ]);
 
     $user = User::factory()->create();
@@ -104,9 +104,22 @@ test('brand pull fakes http and applies the accent to the generated site', funct
 
     $this->actingAs($user)
         ->post(route('leads.brand.store', ['current_team' => $user->currentTeam->slug, 'lead' => $lead->id]))
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertInertiaFlash('brand_pull');
 
-    expect($site->fresh()->content['accent'])->toBe('#c41e3a');
+    expect($site->fresh()->content['accent'])->toBe('#c41e3a')
+        ->and($lead->fresh()->logo_path)->not->toBeNull();
+});
+
+test('brand pull reports when the website responds with an error status', function () {
+    Http::fake(['93.184.216.34/*' => Http::response('Forbidden', 403)]);
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create(['website' => 'http://93.184.216.34/']);
+
+    $this->actingAs($user)
+        ->post(route('leads.brand.store', ['current_team' => $user->currentTeam->slug, 'lead' => $lead->id]))
+        ->assertSessionHasErrors('website');
 });
 
 test('brand pull is not found for another team lead', function () {
@@ -118,9 +131,7 @@ test('brand pull is not found for another team lead', function () {
         ->assertNotFound();
 });
 
-test('improving a section enqueues the same site edit job', function () {
-    Queue::fake([ApplySiteEdit::class]);
-
+test('improving a section applies a synchronous site edit', function () {
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create();
     $site = Site::factory()->create(['lead_id' => $lead->id]);
@@ -132,14 +143,12 @@ test('improving a section enqueues the same site edit job', function () {
         ->assertRedirect();
 
     expect(SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_USER)->value('body'))
-        ->toContain('FAQ');
-
-    Queue::assertPushedOn('ai', ApplySiteEdit::class);
+        ->toContain('FAQ')
+        ->and(SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_ASSISTANT)->value('status'))
+        ->toBe(SiteChatMessage::STATUS_DONE);
 });
 
-test('fix with ai enqueues the same site edit job', function () {
-    Queue::fake([ApplySiteEdit::class]);
-
+test('fix with ai applies a synchronous site edit', function () {
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create();
     $site = Site::factory()->create(['lead_id' => $lead->id]);
@@ -151,9 +160,9 @@ test('fix with ai enqueues the same site edit job', function () {
         ->assertRedirect();
 
     expect(SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_USER)->value('body'))
-        ->toContain('headline');
-
-    Queue::assertPushedOn('ai', ApplySiteEdit::class);
+        ->toContain('headline')
+        ->and(SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_ASSISTANT)->value('status'))
+        ->toBe(SiteChatMessage::STATUS_DONE);
 });
 
 test('the site editor still renders after the operating loop fields are added', function () {

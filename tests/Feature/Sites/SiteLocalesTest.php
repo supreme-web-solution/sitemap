@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\SiteLocaleCopyTranslator;
 use App\Jobs\TranslateSiteLocale;
 use App\Models\Lead;
 use App\Models\Site;
@@ -8,8 +9,8 @@ use App\Models\User;
 use App\Services\SiteBuilder\SiteLocaleTranslator;
 use App\Services\SiteBuilder\SiteRenderer;
 use App\Services\SiteBuilder\SiteUrls;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Ai\Responses\Data\ToolCall;
 
 test('published sites serve translated pages under a locale prefix', function () {
     $lead = Lead::factory()->create(['city' => 'Austin']);
@@ -55,17 +56,16 @@ test('locale translation can be queued from the dashboard', function () {
 });
 
 test('a translation job stores the provider bundle', function () {
-    Http::fake([
-        'api.openai.com/*' => Http::response([
-            'choices' => [[
-                'message' => [
-                    'content' => json_encode(['headline' => 'Bonjour headline'], JSON_THROW_ON_ERROR),
-                ],
-            ]],
-        ]),
+    config([
+        'services.anthropic.key' => 'test-key',
+        'services.anthropic.model' => 'claude-test',
     ]);
 
-    config(['services.openai.key' => 'test-key']);
+    SiteLocaleCopyTranslator::fake(fn () => new ToolCall(
+        'tool_1',
+        'SubmitLocaleCopy',
+        ['copy_json' => json_encode(['headline' => 'Bonjour headline'], JSON_THROW_ON_ERROR)],
+    ));
 
     $site = Site::factory()->create([
         'content' => [

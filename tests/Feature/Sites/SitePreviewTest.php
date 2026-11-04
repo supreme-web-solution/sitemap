@@ -3,8 +3,10 @@
 use App\Enums\TeamRole;
 use App\Models\Lead;
 use App\Models\Site;
+use App\Models\SiteDesignTemplate;
 use App\Models\Team;
 use App\Models\User;
+use Database\Seeders\SiteDesignTemplateSeeder;
 use Illuminate\Support\Facades\Storage;
 
 test('anyone with the link can view the live preview and the visit is counted', function () {
@@ -70,7 +72,68 @@ test('sections render in the planned order', function () {
     ]);
 
     $this->get(route('sites.preview', $site->slug))
-        ->assertSeeInOrder(['id="about"', 'id="services"', 'id="contact"'], escape: false);
+        ->assertSeeInOrder(['id="about"', 'id="services"', 'class="cta-band"', 'class="site-footer"'], escape: false)
+        ->assertDontSee('id="contact"', escape: false);
+});
+
+test('the about page has a split story, why choose us, and a mission by default', function () {
+    $lead = Lead::factory()->create(['name' => 'Austin Pro Plumbing', 'category' => 'Plumber', 'city' => 'Austin']);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'about', 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('about-story', escape: false)
+        ->assertSee('about-portrait', escape: false)
+        ->assertSee('id="why"', escape: false)
+        ->assertSee('id="mission"', escape: false)
+        ->assertSee('What we stand for')
+        ->assertSee('See what we offer')
+        ->assertSee('class="hero-actions"', escape: false)
+        ->assertSee('About us');
+});
+
+test('secondary pages use a photo hero with homepage-style actions', function () {
+    Storage::fake('public');
+
+    $lead = Lead::factory()->create([
+        'photo_paths' => ['teams/1/leads/1/one.jpg'],
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'about', 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('class="hero page-hero"', escape: false)
+        ->assertSee('class="hero-image"', escape: false)
+        ->assertSee('class="hero-actions"', escape: false)
+        ->assertSee('Get a Free Estimate')
+        ->assertSee('Call Now')
+        ->assertSee('has-overlay-nav', escape: false)
+        ->assertSee('.site-header { position: fixed;', escape: false)
+        ->assertSee('is-scrolled', escape: false)
+        ->assertSee('.nav a::after', escape: false);
+});
+
+test('the services page lists each offer as a left-right row with two actions', function () {
+    $site = Site::factory()->create();
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'services', 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('class="service-feature', escape: false)
+        ->assertSee('btn btn-primary', escape: false)
+        ->assertSee('btn btn-secondary', escape: false)
+        ->assertSee('Learn more')
+        ->assertSee('Get a Free Estimate');
+});
+
+test('homepage services section has a primary cta and a view-all button', function () {
+    $site = Site::factory()->create();
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertSee('class="section-actions"', escape: false)
+        ->assertSee('btn btn-primary', escape: false)
+        ->assertSee('btn btn-secondary', escape: false)
+        ->assertSee('View all services');
 });
 
 test('the gallery is left out until the business has enough photos', function () {
@@ -82,7 +145,7 @@ test('the gallery is left out until the business has enough photos', function ()
 
     $this->get(route('sites.preview', $site->slug))
         ->assertDontSee('id="gallery"', escape: false)
-        ->assertSee('id="contact"', escape: false);
+        ->assertSee('class="cta-band"', escape: false);
 });
 
 test('the owner logo and photos are used on the site', function () {
@@ -105,4 +168,63 @@ test('the owner logo and photos are used on the site', function () {
 
 test('an unknown preview link returns not found', function () {
     $this->get(route('sites.preview', 'does-not-exist'))->assertNotFound();
+});
+
+test('the pre-footer cta sits above the footer on every page except contact', function () {
+    $site = Site::factory()->create();
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertSeeInOrder(['class="cta-band"', 'class="site-footer"'], escape: false)
+        ->assertDontSee('Get in Touch');
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'about', 'internal' => 1]))
+        ->assertOk()
+        ->assertSeeInOrder(['class="cta-band"', 'class="site-footer"'], escape: false);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'contact', 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('Get in Touch')
+        ->assertDontSee('class="cta-band"', escape: false);
+});
+
+test('the homepage includes how it works, why choose us, service area and a column footer', function () {
+    $lead = Lead::factory()->create([
+        'name' => 'Austin Pro Plumbing',
+        'city' => 'Austin',
+        'state' => 'TX',
+        'phone' => '555-0100',
+        'opening_hours' => ['Monday' => '9:00 AM - 5:00 PM'],
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertSee('id="process"', escape: false)
+        ->assertSee('Get in touch')
+        ->assertSee('id="why"', escape: false)
+        ->assertSee('Local in Austin')
+        ->assertSee('id="areas"', escape: false)
+        ->assertSee('Austin')
+        ->assertSee('>Explore<', escape: false)
+        ->assertSee('Emergency Repairs')
+        ->assertSee('Monday');
+});
+
+test('a site can override its catalog layout for one section', function () {
+    (new SiteDesignTemplateSeeder)->run();
+
+    $design = SiteDesignTemplate::query()->where('slug', 'professional-advisor')->firstOrFail();
+    $site = Site::factory()->create([
+        'design_template_id' => $design->id,
+        'content' => [
+            ...Site::factory()->make()->content,
+            'variants' => ['hero' => 'overlay', 'footer' => 'cta'],
+        ],
+    ]);
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertSee('hero-v-overlay services-v-numbered', escape: false)
+        ->assertSee('footer-v-cta', escape: false);
 });

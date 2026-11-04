@@ -88,6 +88,27 @@ test('a non success response is reported as an error', function () {
     expect(app(WebsiteAuditor::class)->audit('https://93.184.216.34/')['error'])->toContain('404');
 });
 
+test('a cloudflare block is described clearly on the audit', function () {
+    Http::fake(['93.184.216.34/*' => Http::response('<html><title>Just a moment...</title></html>', 403)]);
+
+    expect(app(WebsiteAuditor::class)->audit('https://93.184.216.34/')['error'])
+        ->toContain('bot protection');
+});
+
+test('a cloudflare block retries through scraperapi when configured', function () {
+    config(['prospecting.audit.scraper_api_key' => 'scraper-test-key']);
+
+    Http::fake([
+        '93.184.216.34/*' => Http::response('<html>Just a moment...</html>', 403),
+        'api.scraperapi.com/*' => Http::response('<html><head><title>Real site</title></head><body>Hello</body></html>', 200),
+    ]);
+
+    $audit = app(WebsiteAuditor::class)->audit('https://93.184.216.34/');
+
+    expect($audit['error'])->toBeNull()
+        ->and($audit['score'])->toBeGreaterThan(0);
+});
+
 test('the audit job stores the result, records activity and raises the opportunity score', function () {
     Http::fake(['93.184.216.34/*' => Http::response('<html><body>hi</body></html>', 200)]);
 

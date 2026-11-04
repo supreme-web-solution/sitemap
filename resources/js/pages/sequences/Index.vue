@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { useClipboard } from '@vueuse/core';
-import { Plus } from '@lucide/vue';
-import { ref } from 'vue';
+import { Head, usePage } from '@inertiajs/vue3';
+import { Mail, Plus, Sparkles } from '@lucide/vue';
+import { computed, ref } from 'vue';
+import PaginationBar from '@/components/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
+import MergeFieldsPanel from '@/components/outreach/MergeFieldsPanel.vue';
+import SequenceAiDialog from '@/components/outreach/SequenceAiDialog.vue';
 import SequenceForm from '@/components/outreach/SequenceForm.vue';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { provideSequenceMergeTarget } from '@/composables/useSequenceMergeFields';
 import { index as sequencesIndex } from '@/routes/sequences';
-import type { MergeField, Team } from '@/types';
+import type { MergeField, Paginated, Team } from '@/types';
+import type { SequenceAiDraft } from '@/types/outreach';
 
 type Sequence = {
     id: number;
@@ -24,8 +29,9 @@ type Sequence = {
 };
 
 defineProps<{
-    sequences: Sequence[];
+    sequences: Paginated<Sequence>;
     mergeFields: MergeField[];
+    sequenceAiAvailable: boolean;
 }>();
 
 defineOptions({
@@ -41,13 +47,20 @@ defineOptions({
     }),
 });
 
-const creating = ref(false);
-const { copy } = useClipboard();
-const copiedKey = ref<string | null>(null);
+provideSequenceMergeTarget();
 
-const copyField = (key: string) => {
-    copy(`{{${key}}}`);
-    copiedKey.value = key;
+const page = usePage();
+const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
+
+const creating = ref(false);
+const aiDialogOpen = ref(false);
+const aiSeed = ref<SequenceAiDraft | null>(null);
+const createFormKey = ref(0);
+
+const onAiGenerated = (draft: SequenceAiDraft) => {
+    aiSeed.value = draft;
+    createFormKey.value += 1;
+    creating.value = true;
 };
 </script>
 
@@ -58,45 +71,65 @@ const copyField = (key: string) => {
         <div class="flex flex-wrap items-center justify-between gap-3">
             <Heading
                 title="Follow-up sequences"
-                description="Automatic emails on day 1, 3, 6 and 10 after you enroll a lead. Sending stops if the deal is won or lost."
+                description="Timed emails after you enroll a lead on their profile — e.g. day 1, 3, 6, and 10. Stops when they reply or the deal closes."
             />
-            <Button size="sm" @click="creating = !creating">
-                <Plus /> New sequence
-            </Button>
+            <div class="flex flex-wrap gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    data-test="sequence-ai-open"
+                    @click="aiDialogOpen = true"
+                >
+                    <Sparkles /> Draft with AI
+                </Button>
+                <Button size="sm" @click="creating = !creating">
+                    <Plus /> New sequence
+                </Button>
+            </div>
         </div>
 
-        <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
             <div class="flex min-w-0 flex-col gap-5">
-                <SequenceForm v-if="creating" @saved="creating = false" />
                 <SequenceForm
-                    v-for="sequence in sequences"
-                    :key="sequence.id"
-                    :sequence="sequence"
+                    v-if="creating"
+                    :key="createFormKey"
+                    :seed="aiSeed"
+                    @saved="
+                        creating = false;
+                        aiSeed = null;
+                    "
                 />
+                <EmptyState
+                    v-else-if="!sequences.data.length"
+                    title="No follow-up sequences yet"
+                    description="Enroll leads after first contact and send timed emails on day 1, 3, 6, and 10 — until they reply, win, or opt out."
+                    :icon="Mail"
+                >
+                    <Button size="sm" @click="aiDialogOpen = true">
+                        <Sparkles /> Draft with AI
+                    </Button>
+                    <Button size="sm" variant="outline" @click="creating = true">
+                        <Plus /> Blank sequence
+                    </Button>
+                </EmptyState>
+                <template v-else>
+                    <SequenceForm
+                        v-for="sequence in sequences.data"
+                        :key="sequence.id"
+                        :sequence="sequence"
+                    />
+                    <PaginationBar :paginator="sequences" />
+                </template>
             </div>
 
-            <aside class="panel p-5 xl:sticky xl:top-24">
-                <h2 class="text-base font-semibold">Merge fields</h2>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Click a field to copy it into a step.
-                </p>
-                <ul class="mt-4 flex flex-col gap-2">
-                    <li v-for="field in mergeFields" :key="field.key">
-                        <button
-                            type="button"
-                            class="w-full rounded-xl border px-3 py-2 text-left transition hover:border-primary/40 hover:bg-accent/50"
-                            @click="copyField(field.key)"
-                        >
-                            <code class="text-sm font-medium text-primary"
-                                >&#123;&#123;{{ field.key }}&#125;&#125;</code
-                            >
-                            <span class="mt-0.5 block text-xs text-muted-foreground">{{
-                                field.description
-                            }}</span>
-                        </button>
-                    </li>
-                </ul>
-            </aside>
+            <MergeFieldsPanel context="sequence" :merge-fields="mergeFields" />
         </div>
+
+        <SequenceAiDialog
+            v-model:open="aiDialogOpen"
+            :team-slug="teamSlug"
+            :available="sequenceAiAvailable"
+            @generated="onAiGenerated"
+        />
     </div>
 </template>

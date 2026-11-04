@@ -1,13 +1,26 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { LoaderCircle, Plus, Search } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import PaginationBar from '@/components/admin/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    emptyToSelect,
+    SELECT_ALL,
+    SELECT_DEFAULT,
+    selectToEmpty,
+} from '@/lib/selectSentinels';
 import { dashboard as adminDashboard } from '@/routes/admin';
 import {
     destroy,
@@ -81,8 +94,21 @@ const protectedReason = (user: AdminUser) =>
         ? 'Administrators cannot be impersonated, suspended or deleted.'
         : 'You cannot impersonate, suspend or delete your own account.';
 
-const selectClass =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
+const planIdSelect = computed({
+    get: () =>
+        form.plan_id === '' ? SELECT_DEFAULT : String(form.plan_id),
+    set: (value: string) => {
+        form.plan_id = value === SELECT_DEFAULT ? '' : Number(value);
+    },
+});
+
+const statusFilterSelect = computed({
+    get: () => emptyToSelect(status.value),
+    set: (value: string) => {
+        status.value = selectToEmpty(value);
+        applyFilters();
+    },
+});
 </script>
 
 <template>
@@ -131,13 +157,22 @@ const selectClass =
                 <InputError :message="form.errors.password" />
             </div>
             <div class="grid gap-2">
-                <Label for="new-plan">Plan</Label>
-                <select id="new-plan" v-model="form.plan_id" :class="selectClass">
-                    <option value="">Default plan</option>
-                    <option v-for="plan in plans" :key="plan.id" :value="plan.id">
-                        {{ plan.name }}
-                    </option>
-                </select>
+                <Label>Plan</Label>
+                <Select v-model="planIdSelect">
+                    <SelectTrigger class="w-full" aria-label="Plan">
+                        <SelectValue placeholder="Default plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem :value="SELECT_DEFAULT">Default plan</SelectItem>
+                        <SelectItem
+                            v-for="plan in plans"
+                            :key="plan.id"
+                            :value="String(plan.id)"
+                        >
+                            {{ plan.name }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
                 <InputError :message="form.errors.plan_id" />
             </div>
             <label class="flex items-center gap-2 text-sm sm:col-span-2">
@@ -170,17 +205,17 @@ const selectClass =
                     aria-label="Search users"
                 />
             </div>
-            <select
-                v-model="status"
-                :class="[selectClass, 'w-44']"
-                aria-label="Status"
-                @change="applyFilters"
-            >
-                <option value="">All users</option>
-                <option value="active">Active</option>
-                <option value="suspended">Suspended</option>
-                <option value="unverified">Unverified</option>
-            </select>
+            <Select v-model="statusFilterSelect">
+                <SelectTrigger class="h-9 w-44" aria-label="Status">
+                    <SelectValue placeholder="All users" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem :value="SELECT_ALL">All users</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="unverified">Unverified</SelectItem>
+                </SelectContent>
+            </Select>
             <Button type="submit" variant="outline">Search</Button>
         </form>
 

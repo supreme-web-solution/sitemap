@@ -18,16 +18,22 @@ class NicheResearchController extends Controller
      */
     public function index(Team $currentTeam): Response
     {
+        $this->finishQueuedBriefs($currentTeam);
+
         return Inertia::render('research/Index', [
-            'briefs' => $currentTeam->nicheBriefs()->latest('id')->limit(20)->get()->map(fn (NicheBrief $brief) => [
-                'id' => $brief->id,
-                'industry' => $brief->industry,
-                'location' => $brief->location,
-                'status' => $brief->status,
-                'brief' => $brief->brief,
-                'error' => $brief->error,
-                'createdAt' => $brief->created_at->toISOString(),
-            ]),
+            'briefs' => $currentTeam->nicheBriefs()
+                ->latest('id')
+                ->paginate(10)
+                ->withQueryString()
+                ->through(fn (NicheBrief $brief) => [
+                    'id' => $brief->id,
+                    'industry' => $brief->industry,
+                    'location' => $brief->location,
+                    'status' => $brief->status,
+                    'brief' => $brief->brief,
+                    'error' => $brief->error,
+                    'createdAt' => $brief->created_at->toISOString(),
+                ]),
         ]);
     }
 
@@ -46,10 +52,21 @@ class NicheResearchController extends Controller
             'status' => 'queued',
         ]);
 
-        GenerateNicheBrief::dispatch($brief);
+        GenerateNicheBrief::dispatchSync($brief);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Research queued.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Brief ready — scroll down to use it.')]);
 
         return back();
+    }
+
+    /**
+     * Rule-based briefs are instant; heal rows left "queued" when no worker was running.
+     */
+    protected function finishQueuedBriefs(Team $currentTeam): void
+    {
+        $currentTeam->nicheBriefs()
+            ->where('status', 'queued')
+            ->orderBy('id')
+            ->each(fn (NicheBrief $brief) => GenerateNicheBrief::dispatchSync($brief));
     }
 }

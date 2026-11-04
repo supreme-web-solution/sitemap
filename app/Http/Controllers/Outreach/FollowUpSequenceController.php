@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Outreach;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Outreach\GenerateFollowUpSequenceRequest;
 use App\Models\FollowUpSequence;
 use App\Models\Team;
 use App\Services\Outreach\DefaultFollowUpSequences;
+use App\Services\Outreach\FollowUpSequenceGenerator;
 use App\Services\Outreach\MergeFieldRenderer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,24 +25,48 @@ class FollowUpSequenceController extends Controller
         $defaults->ensureFor($currentTeam);
 
         return Inertia::render('sequences/Index', [
-            'sequences' => $currentTeam->followUpSequences()->with('steps')->withCount('enrollments')->orderBy('id')->get()->map(fn (FollowUpSequence $sequence) => [
-                'id' => $sequence->id,
-                'name' => $sequence->name,
-                'isActive' => $sequence->is_active,
-                'enrollmentCount' => $sequence->enrollments_count,
-                'steps' => $sequence->steps->map(fn ($step) => [
-                    'id' => $step->id,
-                    'position' => $step->position,
-                    'delayDays' => $step->delay_days,
-                    'subject' => $step->subject,
-                    'body' => $step->body,
+            'sequences' => $currentTeam->followUpSequences()
+                ->with('steps')
+                ->withCount('enrollments')
+                ->orderBy('id')
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (FollowUpSequence $sequence) => [
+                    'id' => $sequence->id,
+                    'name' => $sequence->name,
+                    'isActive' => $sequence->is_active,
+                    'enrollmentCount' => $sequence->enrollments_count,
+                    'steps' => $sequence->steps->map(fn ($step) => [
+                        'id' => $step->id,
+                        'position' => $step->position,
+                        'delayDays' => $step->delay_days,
+                        'subject' => $step->subject,
+                        'body' => $step->body,
+                    ]),
                 ]),
-            ]),
             'mergeFields' => collect(MergeFieldRenderer::FIELDS)->map(fn (string $description, string $key) => [
                 'key' => $key,
                 'description' => $description,
             ])->values(),
+            'sequenceAiAvailable' => FollowUpSequenceGenerator::fromConfig()->available(),
         ]);
+    }
+
+    /**
+     * Draft a four-step sequence with AI from a short goal description.
+     */
+    public function generate(
+        GenerateFollowUpSequenceRequest $request,
+        Team $currentTeam,
+        FollowUpSequenceGenerator $generator,
+    ): JsonResponse {
+        $draft = $generator->generate(
+            team: $currentTeam,
+            sender: $request->user(),
+            prompt: $request->validated('prompt'),
+        );
+
+        return response()->json($draft);
     }
 
     /**

@@ -8,7 +8,6 @@
 @section('main')
     @include('sites.partials.page-hero', [
         'heading' => $page['service']['title'],
-        'headingSuffix' => $lead->city ? ' in '.$lead->city : '',
         'headingPath' => $serviceIndex !== null ? 'services.'.$serviceIndex.'.title' : null,
         'headingLabel' => 'Service name',
         'intro' => $page['service']['description'],
@@ -48,5 +47,4 @@
         @include('sites.sections.reviews')
     @endif
 
-    @include('sites.partials.cta-band')
 @endsection

@@ -10,6 +10,7 @@ use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Str;
 use Throwable;
 
 class AuditLeadWebsite implements ShouldBeUnique, ShouldQueue
@@ -55,11 +56,17 @@ class AuditLeadWebsite implements ShouldBeUnique, ShouldQueue
 
         $audit = $auditor->audit($this->lead->website);
 
-        $this->lead->update([
+        $payload = [
             'website_audit' => $audit,
             'website_audited_at' => now(),
             'website_audit_status' => SiteGenerationStatus::Idle,
-        ]);
+        ];
+
+        if ($audit['error'] === null && blank($this->lead->website_audit_public_token)) {
+            $payload['website_audit_public_token'] = Str::random(40);
+        }
+
+        $this->lead->update($payload);
 
         $this->lead->recordActivity(
             LeadActivityType::WebsiteAudited,

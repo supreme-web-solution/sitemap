@@ -61,7 +61,7 @@ class WebsiteAuditor
         $result['status_code'] = $page['status'];
 
         if ($page['status'] < 200 || $page['status'] >= 300) {
-            return [...$result, 'error' => "The website responded with HTTP {$page['status']}."];
+            return [...$result, 'error' => AuditHttpFailure::message($page['status'], $page['body'])];
         }
 
         $checks = $this->runChecks($page);

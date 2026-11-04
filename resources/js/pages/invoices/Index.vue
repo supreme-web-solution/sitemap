@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { Plus, Repeat } from '@lucide/vue';
+import { Plus, Receipt, Repeat } from '@lucide/vue';
 import { computed } from 'vue';
+import PaginationBar from '@/components/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { formatRelativeTime } from '@/lib/format';
 import { invoiceStatusClasses, invoiceStatusLabel } from '@/lib/invoiceStatus';
 import { create, edit, index as invoicesIndex } from '@/routes/invoices';
@@ -177,32 +179,17 @@ const cards = computed(() => [
                 </tbody>
             </table>
         </div>
-        <p v-else class="panel p-8 text-center text-sm text-muted-foreground">
-            No invoices yet. Create one from here or from a lead's page.
-        </p>
-
-        <div
-            v-if="invoices.last_page > 1"
-            class="flex items-center justify-between text-sm"
+        <EmptyState
+            v-else
+            title="No invoices yet"
+            description="Create an invoice from here or from any lead after you send a proposal or close a deal."
+            :icon="Receipt"
         >
-            <Link
-                v-if="invoices.prev_page_url"
-                :href="invoices.prev_page_url"
-                class="underline"
-                >Previous</Link
-            >
-            <span v-else />
-            <span class="text-muted-foreground"
-                >Page {{ invoices.current_page }} of
-                {{ invoices.last_page }}</span
-            >
-            <Link
-                v-if="invoices.next_page_url"
-                :href="invoices.next_page_url"
-                class="underline"
-                >Next</Link
-            >
-            <span v-else />
-        </div>
+            <Button as-child>
+                <Link :href="create(teamSlug)"><Plus /> New invoice</Link>
+            </Button>
+        </EmptyState>
+
+        <PaginationBar :paginator="invoices" />
     </div>
 </template>

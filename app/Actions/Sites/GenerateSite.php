@@ -9,6 +9,7 @@ use App\Enums\SiteTemplate;
 use App\Models\Lead;
 use App\Models\Site;
 use App\Models\SiteDesignTemplate;
+use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteContentSchema;
 use App\Services\SiteBuilder\SiteCopywriter;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,8 @@ class GenerateSite
             if (in_array($designTemplate->accent_color, $palette, true)) {
                 $content['accent'] = $designTemplate->accent_color;
             }
+
+            $content['variants'] = SectionVariants::withDefaults($designTemplate->variants);
 
             $draft = new SiteDraft($designTemplate->siteTemplate(), $content);
         }

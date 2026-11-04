@@ -61,7 +61,9 @@ class SiteRenderer
         $reviews = $lead->testimonials();
         $reviewsStyle = $this->reviewsStyle($content, $reviews->count());
         $seo = $this->seo->for($renderSite, $page, $urls, $asPreview, $asStaging, $content);
+        $variants = SectionVariants::merge($content['variants'] ?? null, $site->designTemplate?->variants);
         $layoutVariant = $site->designTemplate?->layout_variant ?? SiteLayoutVariant::Standard;
+        $layoutClass = trim($layoutVariant->bodyClass().' '.SectionVariants::bodyClasses($variants));
 
         return view('sites.pages.'.$page['type'], [
             'site' => $renderSite,
@@ -75,13 +77,14 @@ class SiteRenderer
             'nav' => $this->navigation($renderSite, $urls, $content),
             'services' => $this->pages->services($content),
             'posts' => $page['type'] === 'blog' ? $this->pages->posts($site) : collect(),
-            'sections' => $this->visibleSections($content, $photos, $hours, $mapEmbedUrl, $reviews->count()),
+            'sections' => $this->visibleSections($content, $photos, $hours, $mapEmbedUrl, $reviews->count(), count(SiteProofPoints::areas($lead))),
             'reviews' => $reviews,
             'reviewsStyle' => $reviewsStyle->value,
             'reviewsUrl' => $lead->reviewsUrl(),
             'onAccent' => $this->readableTextOn($content['accent']),
             'template' => $site->template->value,
-            'layoutClass' => $layoutVariant->bodyClass(),
+            'layoutClass' => $layoutClass,
+            'layoutVariants' => $variants,
             'locale' => $locale,
             'localeSwitcher' => count(SiteLocales::available($site->content)) > 1
                 ? SiteLocales::switcher($site, $urls, $page['path'])
@@ -90,6 +93,7 @@ class SiteRenderer
             'editing' => $editor,
             'e' => new SiteEditing($content, $editor),
             'designCss' => SiteDesign::css($content),
+            'sectionCss' => SiteSectionCss::stylesheet($content),
             'designFontsUrl' => SiteDesign::fontsUrl($content),
             'claimEmail' => $asPreview ? $site->team->owner()?->email : null,
             'packages' => $asPreview
@@ -108,8 +112,13 @@ class SiteRenderer
             'galleryPhotos' => $photos,
             'hours' => $hours,
             'phoneHref' => $lead->phone ? 'tel:'.preg_replace('/[^\d+]/', '', $lead->phone) : null,
+            'additionalPhones' => $lead->additional_phones ?? [],
+            'socialLinks' => $lead->social_links ?? [],
             'mapEmbedUrl' => $mapEmbedUrl,
             'year' => now()->year,
+            'processSteps' => SiteProofPoints::process($lead, $content),
+            'whyPoints' => SiteProofPoints::why($lead, $content),
+            'areaNames' => SiteProofPoints::areas($lead),
         ])->render();
     }
 
@@ -142,30 +151,94 @@ class SiteRenderer
      * @param  array<string, string>  $hours
      * @return list<string>
      */
-    public function visibleSections(array $content, array $photos, array $hours, ?string $mapEmbedUrl, int $reviewCount = 0): array
+    public function visibleSections(array $content, array $photos, array $hours, ?string $mapEmbedUrl, int $reviewCount = 0, int $areaCount = 0): array
     {
         $planned = $content['sections'] ?? SiteSection::defaultOrder();
+        $visible = [];
 
-        $isAvailable = fn (SiteSection $section) => match ($section) {
-            SiteSection::Services => ! empty($content['services']),
-            SiteSection::About => filled($content['about'] ?? null),
-            SiteSection::Reviews => $reviewCount >= Lead::MIN_TESTIMONIALS,
-            SiteSection::Gallery => count($photos) >= self::MIN_GALLERY_PHOTOS,
-            SiteSection::Hours => $hours !== [] || $mapEmbedUrl !== null,
-            SiteSection::Faq => ! empty($content['faqs']),
-            SiteSection::Contact => true,
-        };
+        foreach ($planned as $value) {
+            if (CustomHomeSection::isKey($value) && CustomHomeSection::payload($content, $value) !== null) {
+                $visible[] = $value;
 
-        $sections = array_values(array_filter(
-            array_map(fn (string $value) => SiteSection::tryFrom($value), $planned),
-            fn (?SiteSection $section) => $section !== null && $isAvailable($section),
-        ));
+                continue;
+            }
 
-        if (! in_array(SiteSection::Contact, $sections, true)) {
-            $sections[] = SiteSection::Contact;
+            $section = SiteSection::tryFrom($value);
+
+            if ($section === null) {
+                continue;
+            }
+
+            if ($this->sectionIsAvailable($section, $content, $photos, $hours, $mapEmbedUrl, $reviewCount, $areaCount, $planned)) {
+                $visible[] = $section->value;
+            }
         }
 
-        return array_values(array_unique(array_map(fn (SiteSection $section) => $section->value, $sections)));
+        return array_values(array_unique($visible));
+    }
+
+    /**
+     * @param  list<string>  $planned
+     */
+    protected function sectionIsAvailable(
+        SiteSection $section,
+        array $content,
+        array $photos,
+        array $hours,
+        ?string $mapEmbedUrl,
+        int $reviewCount,
+        int $areaCount,
+        array $planned,
+    ): bool {
+        return match ($section) {
+            SiteSection::Services => ! empty($content['services']),
+            SiteSection::About => filled($content['about'] ?? null),
+            SiteSection::Process => true,
+            SiteSection::Why => true,
+            SiteSection::Reviews => $reviewCount >= Lead::MIN_TESTIMONIALS,
+            SiteSection::Gallery => count($photos) >= self::MIN_GALLERY_PHOTOS,
+            SiteSection::Areas => $areaCount > 0,
+            SiteSection::Hours => $hours !== [] || $mapEmbedUrl !== null,
+            SiteSection::Faq => ! empty($content['faqs']),
+            SiteSection::Contact => false,
+        };
+    }
+
+    /**
+     * Section keys the AI design editor may target on the homepage (chrome + visible blocks).
+     *
+     * @return list<string>
+     */
+    public function designTargetKeys(Site $site): array
+    {
+        $site->loadMissing('lead');
+
+        $content = SiteLocales::merge($site->content, SiteLocales::default($site->content));
+        $lead = $site->lead;
+        $photos = $lead->photoUrls();
+        $hours = $this->orderedHours($lead->opening_hours);
+        $mapEmbedUrl = $this->mapEmbedUrl($lead->name, $lead->address);
+        $reviews = $lead->testimonials();
+
+        $keys = ['header', 'hero'];
+
+        foreach ($this->visibleSections(
+            $content,
+            $photos,
+            $hours,
+            $mapEmbedUrl,
+            $reviews->count(),
+            count(SiteProofPoints::areas($lead)),
+        ) as $section) {
+            $keys[] = $section;
+        }
+
+        $keys[] = 'footer';
+
+        return array_values(array_unique(array_filter(
+            $keys,
+            fn (string $key) => isset(SiteSectionCss::TARGETS[$key]),
+        )));
     }
 
     /**

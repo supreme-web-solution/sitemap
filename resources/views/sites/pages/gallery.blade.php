@@ -2,9 +2,9 @@
 
 @section('main')
     @include('sites.partials.page-hero', [
-        'heading' => 'Photo Gallery',
+        'heading' => 'Gallery',
         'headingKey' => 'gallery_page_heading',
-        'intro' => 'A look at '.$lead->name.($lead->city ? ' in '.$lead->city : '').'.',
+        'intro' => $content['tagline'],
         'introKey' => 'gallery_page_intro',
     ])
 
@@ -18,5 +18,4 @@
         </div>
     </section>
 
-    @include('sites.partials.cta-band')
 @endsection

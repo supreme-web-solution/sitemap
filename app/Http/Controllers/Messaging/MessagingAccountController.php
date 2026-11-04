@@ -8,6 +8,7 @@ use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\ZernioClient;
+use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -30,53 +31,71 @@ class MessagingAccountController extends Controller
             'canManage' => $canManage,
             'available' => $usage->allows($currentTeam, PlanFeature::Messaging),
             'connected' => $account !== null,
+            'defaultTimezone' => config('app.timezone'),
             'account' => $account === null ? null : [
-                'smsFrom' => $account->sms_from,
-                'whatsappAccountId' => $account->whatsapp_account_id,
+                'phone' => $account->sms_from,
+                'whatsappReady' => filled($account->whatsapp_account_id),
                 'timezone' => $account->timezone,
                 'quietStartHour' => $account->quiet_start_hour,
                 'quietEndHour' => $account->quiet_end_hour,
-                'webhookUrl' => route('webhooks.zernio', $account->webhook_key),
-                'webhookSecret' => $canManage ? $account->webhook_secret : null,
             ],
         ]);
     }
 
     /**
-     * Connect with the team's own Zernio key, or update the saved settings.
+     * Connect the team's business number for SMS and WhatsApp (when linked on the provider).
      */
     public function store(Request $request, Team $currentTeam, UsageMeter $usage): RedirectResponse
     {
         Gate::authorize('update', $currentTeam);
         $usage->ensureFeature($currentTeam, PlanFeature::Messaging);
 
+        if (! ZernioClient::usesPlatformKey()) {
+            throw ValidationException::withMessages([
+                'phone' => __('Messaging is not available right now. Try again later.'),
+            ]);
+        }
+
         $existing = $currentTeam->messagingAccount;
 
         $data = $request->validate([
-            'api_key' => [$existing === null ? 'required' : 'nullable', 'string', 'max:200'],
-            'sms_from' => ['nullable', 'string', 'max:20'],
-            'whatsapp_account_id' => ['nullable', 'string', 'max:60'],
+            'phone' => ['required', 'string', 'max:30'],
             'timezone' => ['required', 'timezone:all'],
             'quiet_start_hour' => ['required', 'integer', 'between:0,23'],
             'quiet_end_hour' => ['required', 'integer', 'between:0,23'],
         ]);
 
-        if (filled($data['api_key'] ?? null)) {
-            try {
-                (new ZernioClient($data['api_key']))->verify();
-            } catch (MessagingException $exception) {
-                throw ValidationException::withMessages(['api_key' => $exception->getMessage()]);
-            }
-        } else {
-            unset($data['api_key']);
+        $e164 = PhoneNumber::e164($data['phone']);
+
+        if ($e164 === null) {
+            throw ValidationException::withMessages([
+                'phone' => __('Use a full number with country code, e.g. +15551234567.'),
+            ]);
         }
 
-        $currentTeam->messagingAccount()->updateOrCreate([], $data + [
+        try {
+            $client = ZernioClient::platform();
+            $client->verify();
+            $link = $client->linkSendingNumber($e164);
+        } catch (MessagingException $exception) {
+            throw ValidationException::withMessages(['phone' => $exception->getMessage()]);
+        }
+
+        $currentTeam->messagingAccount()->updateOrCreate([], [
+            'sms_from' => $link['sms_from'],
+            'whatsapp_account_id' => $link['whatsapp_account_id'],
+            'timezone' => $data['timezone'],
+            'quiet_start_hour' => $data['quiet_start_hour'],
+            'quiet_end_hour' => $data['quiet_end_hour'],
             'webhook_key' => $existing->webhook_key ?? Str::random(32),
             'webhook_secret' => $existing->webhook_secret ?? Str::random(40),
         ]);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Messaging settings saved.')]);
+        $message = filled($link['whatsapp_account_id'])
+            ? __('Messaging connected for SMS and WhatsApp.')
+            : __('Messaging connected for SMS.');
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 
         return back();
     }

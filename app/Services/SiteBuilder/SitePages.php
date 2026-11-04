@@ -5,6 +5,7 @@ namespace App\Services\SiteBuilder;
 use App\Models\Site;
 use App\Models\SitePost;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -102,11 +103,17 @@ class SitePages
             $slug = self::uniqueSlug($service['slug'] ?? '', $service['title'], $taken);
             $taken[] = $slug;
 
+            $imagePath = is_string($service['image_path'] ?? null) ? $service['image_path'] : null;
+            $imageUrl = $imagePath !== null && $imagePath !== ''
+                ? Storage::disk('public')->url($imagePath)
+                : ServiceCardPlaceholder::url((string) $service['title'], count($services));
+
             $services[] = [
                 'title' => $service['title'],
                 'description' => $service['description'],
                 'body' => (string) ($service['body'] ?? ''),
                 'slug' => $slug,
+                'image_url' => $imageUrl,
             ];
         }
 

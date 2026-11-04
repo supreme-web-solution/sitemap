@@ -6,8 +6,11 @@ enum SiteSection: string
 {
     case Services = 'services';
     case About = 'about';
+    case Process = 'process';
+    case Why = 'why';
     case Reviews = 'reviews';
     case Gallery = 'gallery';
+    case Areas = 'areas';
     case Hours = 'hours';
     case Faq = 'faq';
     case Contact = 'contact';
@@ -20,8 +23,11 @@ enum SiteSection: string
         return match ($this) {
             self::Services => 'Services',
             self::About => 'About',
+            self::Process => 'How it works',
+            self::Why => 'Why choose us',
             self::Reviews => 'Customer reviews',
             self::Gallery => 'Photo gallery',
+            self::Areas => 'Areas we serve',
             self::Hours => 'Hours & map',
             self::Faq => 'FAQ',
             self::Contact => 'Contact',

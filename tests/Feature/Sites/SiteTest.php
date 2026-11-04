@@ -138,7 +138,11 @@ test('the sites page lists only the current team websites', function () {
             ->component('sites/Index')
             ->has('sites.data', 1)
             ->where('sites.data.0.name', 'Mine')
-            ->where('sites.data.0.previewUrl', route('sites.preview', $site->slug)));
+            ->where('sites.data.0.previewUrl', route('sites.preview', $site->slug))
+            ->where(
+                'sites.data.0.thumbnailUrl',
+                route('sites.preview', ['site' => $site->slug, 'internal' => 1, 'thumbnail' => 1], absolute: false),
+            ));
 });
 
 test('the editor shows the website content', function () {

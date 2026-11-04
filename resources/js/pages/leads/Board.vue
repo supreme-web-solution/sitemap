@@ -6,6 +6,7 @@ import {
     ChevronDown,
     CircleHelp,
     ExternalLink,
+    Kanban,
     Eye,
     EyeOff,
     List,
@@ -20,6 +21,7 @@ import ScoreBadge from '@/components/ScoreBadge.vue';
 import SellFlowGuide from '@/components/sell/SellFlowGuide.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -275,7 +277,7 @@ const showGuide = useLocalStorage('board-show-guide', true);
 <template>
     <Head title="Pipeline" />
 
-    <div class="flex h-full flex-1 flex-col gap-4 p-4 md:p-6">
+    <div class="flex flex-col gap-4 p-4 pb-6 md:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <Heading
                 variant="small"
@@ -404,7 +406,7 @@ const showGuide = useLocalStorage('board-show-guide', true);
                 v-if="activeFilterCount > 0"
                 variant="ghost"
                 size="sm"
-                class="h-9"
+                class="h-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
                 data-test="board-clear-filters"
                 @click="clearFilters"
             >
@@ -426,43 +428,40 @@ const showGuide = useLocalStorage('board-show-guide', true);
             </Button>
         </div>
 
-        <div
+        <EmptyState
             v-if="totalLeads === 0"
-            class="panel flex flex-col items-center gap-2 px-6 py-14 text-center"
+            title="No leads on the board yet"
+            description="Run a Google Maps search from the list view. New prospects land in the first column until you move them forward."
+            :icon="Kanban"
         >
-            <p class="text-sm font-medium">No leads yet</p>
-            <p class="max-w-sm text-sm text-muted-foreground">
-                Search Google Maps for local businesses and they will show up
-                here as New.
-            </p>
             <Button size="sm" as-child>
                 <Link :href="leadsIndex({ current_team: teamSlug })">
                     Find businesses
                 </Link>
             </Button>
-        </div>
+        </EmptyState>
 
-        <div
+        <EmptyState
             v-else-if="matchingCount === 0"
-            class="panel flex flex-col items-center gap-2 px-6 py-14 text-center"
+            title="No leads match these filters"
+            description="Try a broader search or clear filters to see the full pipeline."
             data-test="board-no-matches"
         >
-            <p class="text-sm font-medium">No leads match these filters</p>
             <Button variant="outline" size="sm" @click="clearFilters">
                 Clear filters
             </Button>
-        </div>
+        </EmptyState>
 
         <div
             v-else
-            class="-mx-4 flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-4 pb-3 md:-mx-6 md:px-6"
+            class="scrollbar-thin -mx-4 flex gap-3 overflow-x-auto overscroll-x-contain px-4 md:-mx-6 md:px-6"
         >
             <section
                 v-for="column in visibleColumns"
                 :key="column.status"
                 :aria-label="`${column.label} stage`"
                 :data-test="`board-column-${column.status}`"
-                class="flex max-h-[calc(100dvh-15rem)] min-h-48 w-72 shrink-0 flex-col rounded-2xl border bg-muted/40 transition"
+                class="flex h-[min(34rem,calc(100dvh-13rem))] w-72 shrink-0 flex-col rounded-2xl border bg-muted/40 transition"
                 :class="
                     hoveredColumn === column.status
                         ? 'border-primary/50 bg-accent/60 ring-4 ring-primary/10'
@@ -487,7 +486,7 @@ const showGuide = useLocalStorage('board-show-guide', true);
                 </header>
 
                 <div
-                    class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3"
+                    class="scrollbar-thin flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3"
                 >
                     <article
                         v-for="lead in column.leads"
@@ -570,31 +569,40 @@ const showGuide = useLocalStorage('board-show-guide', true);
                             </span>
                         </div>
 
-                        <label class="mt-2 block">
+                        <div
+                            class="mt-2 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 focus-within:opacity-100"
+                        >
                             <span class="sr-only"
                                 >Move {{ lead.name }} to stage</span
                             >
-                            <select
-                                class="w-full rounded-md border bg-transparent px-2 py-1 text-xs text-muted-foreground opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
-                                :value="column.status"
-                                @change="
-                                    moveLead(
-                                        lead.id,
-                                        column.status,
-                                        ($event.target as HTMLSelectElement)
-                                            .value as LeadStatus,
-                                    )
+                            <Select
+                                :model-value="column.status"
+                                @update:model-value="
+                                    (value) =>
+                                        moveLead(
+                                            lead.id,
+                                            column.status,
+                                            value as LeadStatus,
+                                        )
                                 "
                             >
-                                <option
-                                    v-for="status in leadStatuses"
-                                    :key="status.value"
-                                    :value="status.value"
+                                <SelectTrigger
+                                    class="h-8 w-full text-xs text-muted-foreground"
+                                    aria-label="Move to stage"
                                 >
-                                    {{ status.label }}
-                                </option>
-                            </select>
-                        </label>
+                                    <SelectValue placeholder="Move to…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="status in leadStatuses"
+                                        :key="status.value"
+                                        :value="status.value"
+                                    >
+                                        {{ status.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </article>
 
                     <p

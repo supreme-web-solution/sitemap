@@ -5,6 +5,14 @@ import { computed, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { emptyToSelect, SELECT_ALL, selectToEmpty } from '@/lib/selectSentinels';
 import { index as designTemplatesIndex } from '@/routes/site-design-templates';
 
 export type DesignTemplateOption = {
@@ -18,6 +26,7 @@ export type DesignTemplateOption = {
     industries: string[];
     accentColor: string;
     description: string | null;
+    layoutSummary?: string;
 };
 
 const props = defineProps<{
@@ -95,8 +104,13 @@ const loadTemplates = async () => {
     }
 };
 
-const selectClass =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30';
+const styleSelect = computed({
+    get: () => emptyToSelect(style.value),
+    set: (value: string) => {
+        style.value = selectToEmpty(value);
+        void loadTemplates();
+    },
+});
 
 const generate = () => {
     generating.value = true;
@@ -131,9 +145,9 @@ const generate = () => {
             <div>
                 <h2 class="text-lg font-semibold">Choose a design</h2>
                 <p class="text-sm text-muted-foreground">
-                    Pick a catalog template for {{ leadName }}. All options use
-                    the same three layouts with industry-specific accents and
-                    copy tone.
+                    Pick a catalog design for {{ leadName }}. Each one mixes a
+                    colour theme with its own hero, services, about and gallery
+                    layouts.
                 </p>
             </div>
 
@@ -155,21 +169,21 @@ const generate = () => {
                 </div>
                 <div class="grid gap-1">
                     <Label for="design-style">Style</Label>
-                    <select
-                        id="design-style"
-                        v-model="style"
-                        :class="selectClass"
-                        @change="loadTemplates"
-                    >
-                        <option value="">Any</option>
-                        <option
-                            v-for="option in styles"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </option>
-                    </select>
+                    <Select v-model="styleSelect">
+                        <SelectTrigger id="design-style" class="w-full" aria-label="Style">
+                            <SelectValue placeholder="Any" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem :value="SELECT_ALL">Any</SelectItem>
+                            <SelectItem
+                                v-for="option in styles"
+                                :key="option.value"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div class="grid gap-1 sm:col-span-3">
                     <Label for="design-palette">Accent (hex)</Label>
@@ -234,6 +248,12 @@ const generate = () => {
                                     class="mt-1 block text-sm text-muted-foreground"
                                 >
                                     {{ template.description }}
+                                </span>
+                                <span
+                                    v-if="template.layoutSummary"
+                                    class="mt-1 block text-xs capitalize text-muted-foreground/80"
+                                >
+                                    {{ template.layoutSummary }}
                                 </span>
                             </span>
                         </button>

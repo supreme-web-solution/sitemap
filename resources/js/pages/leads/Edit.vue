@@ -27,11 +27,11 @@ import LeadSequenceCard from '@/components/leads/LeadSequenceCard.vue';
 import LeadTasksCard from '@/components/leads/LeadTasksCard.vue';
 import ReviewSummaryCard from '@/components/leads/ReviewSummaryCard.vue';
 import SalesAssistantCard from '@/components/leads/SalesAssistantCard.vue';
-import LogReplyCard from '@/components/leads/LogReplyCard.vue';
 import OutreachCard from '@/components/leads/OutreachCard.vue';
 import VerificationCard from '@/components/leads/VerificationCard.vue';
 import RedesignWorkflowCard from '@/components/leads/RedesignWorkflowCard.vue';
 import WebsiteAuditCard from '@/components/leads/WebsiteAuditCard.vue';
+import WebsiteBrandCard from '@/components/leads/WebsiteBrandCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -108,6 +108,7 @@ defineOptions({
 
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
+const previewRefreshKey = ref(0);
 
 const vibeDescriptions: Record<string, string> = {
     modern: 'Clean, bright and professional.',
@@ -136,6 +137,15 @@ const form = useForm({
 
 const logoPreview = ref<string | null>(props.lead.logoUrl);
 const photoPreviews = ref<string[]>(props.lead.photoUrls);
+
+watch(
+    () => props.lead.logoUrl,
+    (url) => {
+        if (!form.logo && !form.remove_logo) {
+            logoPreview.value = url;
+        }
+    },
+);
 
 const selectLogo = (event: Event) => {
     const file = (event.target as HTMLInputElement).files?.[0] ?? null;
@@ -167,10 +177,38 @@ const removePhotos = () => {
     photoPreviews.value = [];
 };
 
+const sidebarRef = ref<HTMLElement | null>(null);
+
+const scrollElementIntoContainer = (
+    container: HTMLElement,
+    element: HTMLElement,
+) => {
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const top =
+        elementRect.top - containerRect.top + container.scrollTop - 12;
+
+    container.scrollTo({ top, behavior: 'smooth' });
+};
+
 const scrollToWorkflowTarget = (target: 'audit' | 'outreach') => {
     const id =
         target === 'audit' ? 'website-audit-card' : 'lead-outreach-card';
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const element = document.getElementById(id);
+
+    if (!element) {
+        return;
+    }
+
+    const sidebar = sidebarRef.value;
+
+    if (sidebar && window.matchMedia('(min-width: 1280px)').matches) {
+        scrollElementIntoContainer(sidebar, element);
+
+        return;
+    }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 const submit = (generate: boolean) => {
@@ -218,51 +256,79 @@ const textareaClass =
     <Head :title="`Review ${lead.name}`" />
 
     <div class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6">
-        <div
-            class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
-        >
-            <Heading
-                :title="lead.name"
-                description="Confirm the details, add a logo and photos, and pick a style. The website is built only from what you confirm here."
-            />
-            <div class="flex flex-wrap items-center gap-2 text-sm">
-                <span
-                    v-if="lead.rating"
-                    class="inline-flex items-center gap-1 text-muted-foreground"
-                >
-                    <Star class="size-4 fill-amber-400 text-amber-400" />
-                    {{ lead.rating.toFixed(1) }} ({{ lead.reviewsCount }})
-                </span>
-                <Button
-                    v-if="lead.mapsUrl"
-                    variant="outline"
-                    size="sm"
-                    as-child
-                >
-                    <a :href="lead.mapsUrl" target="_blank" rel="noopener">
-                        <MapPin /> Google Maps
-                    </a>
-                </Button>
-                <Button variant="outline" size="sm" as-child>
-                    <Link
-                        :href="
-                            createInvoice(teamSlug, {
-                                query: { lead: lead.id },
-                            })
-                        "
+        <header class="panel flex flex-col gap-4 p-5 md:p-6">
+            <div
+                class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+            >
+                <div class="min-w-0 space-y-2">
+                    <h1
+                        class="text-xl font-semibold tracking-tight md:text-2xl"
                     >
-                        <Receipt /> Create invoice
-                    </Link>
-                </Button>
-                <Button variant="outline" size="sm" as-child>
-                    <Link
-                        :href="createProposal(teamSlug, { query: { lead: lead.id } })"
+                        {{ lead.name }}
+                    </h1>
+                    <p class="max-w-2xl text-sm text-muted-foreground">
+                        Confirm the details, add a logo and photos, and pick a
+                        style. The website is built only from what you confirm
+                        here.
+                    </p>
+                    <p
+                        v-if="lead.rating"
+                        class="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
                     >
-                        <FileText /> New proposal
-                    </Link>
-                </Button>
+                        <Star class="size-4 fill-amber-400 text-amber-400" />
+                        {{ lead.rating.toFixed(1) }}
+                        <span>({{ lead.reviewsCount }} reviews)</span>
+                    </p>
+                </div>
+                <div
+                    class="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end"
+                >
+                    <Button
+                        v-if="lead.mapsUrl"
+                        variant="outline"
+                        size="sm"
+                        class="w-full sm:w-auto"
+                        as-child
+                    >
+                        <a :href="lead.mapsUrl" target="_blank" rel="noopener">
+                            <MapPin /> Google Maps
+                        </a>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="w-full sm:w-auto"
+                        as-child
+                    >
+                        <Link
+                            :href="
+                                createProposal(teamSlug, {
+                                    query: { lead: lead.id },
+                                })
+                            "
+                        >
+                            <FileText /> New proposal
+                        </Link>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="w-full sm:w-auto"
+                        as-child
+                    >
+                        <Link
+                            :href="
+                                createInvoice(teamSlug, {
+                                    query: { lead: lead.id },
+                                })
+                            "
+                        >
+                            <Receipt /> Create invoice
+                        </Link>
+                    </Button>
+                </div>
             </div>
-        </div>
+        </header>
 
         <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
             <div class="flex min-w-0 flex-col gap-6">
@@ -353,6 +419,13 @@ const textareaClass =
                         <div class="grid gap-2">
                             <Label for="phone">Phone</Label>
                             <Input id="phone" v-model="form.phone" type="tel" />
+                            <p
+                                v-if="lead.additionalPhones?.length"
+                                class="text-xs text-muted-foreground"
+                            >
+                                Also on listing:
+                                {{ lead.additionalPhones.join(' · ') }}
+                            </p>
                             <InputError :message="form.errors.phone" />
                         </div>
 
@@ -559,9 +632,16 @@ const textareaClass =
                 </form>
             </div>
 
-            <aside class="flex min-w-0 flex-col gap-6">
+            <aside
+                ref="sidebarRef"
+                class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-16 xl:max-h-[calc(100dvh-4rem)] xl:overflow-y-auto xl:overscroll-y-contain xl:scroll-smooth xl:pb-2 xl:pr-1"
+            >
                 <LeadScoreCard :lead="lead" />
-                <SalesAssistantCard :suggestions="suggestions" />
+                <SalesAssistantCard
+                    :team-slug="teamSlug"
+                    :lead-id="lead.id"
+                    :suggestions="suggestions"
+                />
                 <LeadFollowUpCard
                     :lead="lead"
                     :members="members"
@@ -582,14 +662,19 @@ const textareaClass =
                         :lead="lead"
                         :templates="emailTemplates"
                         :merge-values="mergeValues"
+                        :inbox-connected="inboxConnected"
+                        :imap-sync-enabled="imapSyncEnabled"
                     />
                 </div>
-                <LogReplyCard
-                    :lead-id="lead.id"
-                    :inbox-connected="inboxConnected"
-                    :imap-sync-enabled="imapSyncEnabled"
+                <WebsiteAuditCard
+                    :lead="lead"
+                    :preview-refresh-key="previewRefreshKey"
                 />
-                <WebsiteAuditCard :lead="lead" />
+                <WebsiteBrandCard
+                    v-if="lead.website"
+                    :lead="lead"
+                    @preview-refresh="previewRefreshKey++"
+                />
                 <CompetitorAuditCard :lead="lead" />
                 <VerificationCard :verification="verification" />
                 <ActivityTimeline :lead-id="lead.id" :activities="activities" />

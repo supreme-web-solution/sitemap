@@ -48,7 +48,7 @@ use Illuminate\Support\Carbon;
  * @property-read Team $team
  * @property-read Lead $lead
  */
-#[Fillable(['lead_id', 'slug', 'template', 'design_template_id', 'content'])]
+#[Fillable(['lead_id', 'slug', 'template', 'design_template_id', 'content', 'ai_conversation_id'])]
 #[Hidden(['preview_password'])]
 class Site extends Model
 {

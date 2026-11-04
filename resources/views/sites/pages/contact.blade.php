@@ -2,7 +2,7 @@
 
 @section('main')
     @include('sites.partials.page-hero', [
-        'heading' => 'Contact '.$lead->name,
+        'heading' => 'Contact',
         'headingKey' => 'contact_page_heading',
         'intro' => $content['tagline'],
         'introKey' => 'contact_page_intro',
@@ -18,6 +18,9 @@
                     @if ($lead->phone)
                         <li>@include('sites.icons.phone') <a href="{{ $phoneHref }}">{{ $lead->phone }}</a></li>
                     @endif
+                    @foreach ($additionalPhones as $extraPhone)
+                        <li>@include('sites.icons.phone') <a href="tel:{{ preg_replace('/[^\d+]/', '', $extraPhone) }}">{{ $extraPhone }}</a></li>
+                    @endforeach
                     @if ($lead->email)
                         <li>@include('sites.icons.mail') <a href="mailto:{{ $lead->email }}">{{ $lead->email }}</a></li>
                     @endif
