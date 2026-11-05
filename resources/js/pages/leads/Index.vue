@@ -58,6 +58,7 @@ import { store as storeSearch } from '@/routes/lead-searches';
 import {
     board as leadsBoard,
     exportMethod as exportLeads,
+    edit as reviewLead,
     index as leadsIndex,
     update as updateLead,
 } from '@/routes/leads';
@@ -1022,10 +1023,17 @@ const onPickDesign = (lead: Lead) => {
                                 "
                             />
                             <div class="min-w-0 flex-1">
-                                <TruncatedText
-                                    :text="lead.name"
-                                    class="font-medium"
-                                />
+                                <Link
+                                    :href="
+                                        reviewLead({
+                                            current_team: teamSlug,
+                                            lead: lead.id,
+                                        })
+                                    "
+                                    class="block min-w-0 font-medium hover:underline"
+                                >
+                                    <TruncatedText :text="lead.name" />
+                                </Link>
                                 <div
                                     class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
                                 >
@@ -1197,10 +1205,17 @@ const onPickDesign = (lead: Lead) => {
                                     />
                                 </td>
                                 <td class="min-w-0 px-3 py-2.5">
-                                    <TruncatedText
-                                        :text="lead.name"
-                                        class="font-medium"
-                                    />
+                                    <Link
+                                        :href="
+                                            reviewLead({
+                                                current_team: teamSlug,
+                                                lead: lead.id,
+                                            })
+                                        "
+                                        class="block min-w-0 font-medium hover:underline"
+                                    >
+                                        <TruncatedText :text="lead.name" />
+                                    </Link>
                                     <div
                                         class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
                                     >

@@ -309,7 +309,7 @@ class AgencyWorkflowEngine
      */
     protected function createDraftProposalFromPackages(Team $team, Lead $lead, array $packageIds): ?string
     {
-        if ($lead->proposals()->whereIn('status', [ProposalStatus::Draft, ProposalStatus::Sent])->exists()) {
+        if ($lead->proposals()->exists()) {
             return null;
         }
 

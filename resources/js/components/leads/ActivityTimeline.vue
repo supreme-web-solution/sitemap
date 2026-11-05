@@ -175,19 +175,27 @@ const textareaClass =
                     <p class="text-sm break-words">{{ activity.summary }}</p>
                     <p
                         v-if="
-                            activity.type === 'preview_interest' &&
+                            (activity.type === 'preview_interest' ||
+                                activity.type === 'client_feedback') &&
                             activity.data
                         "
                         class="mt-1 rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground"
                     >
                         <span
+                            v-if="activity.data.section"
+                            class="block font-medium text-foreground"
+                            >{{ activity.data.section }}</span
+                        >
+                        <span
                             v-if="activity.data.contact"
                             class="block font-medium text-foreground"
                             >{{ activity.data.contact }}</span
                         >
-                        <span v-if="activity.data.message" class="block">{{
-                            activity.data.message
-                        }}</span>
+                        <span
+                            v-if="activity.data.message || activity.data.body"
+                            class="block"
+                            >{{ activity.data.message || activity.data.body }}</span
+                        >
                     </p>
                     <p
                         v-if="

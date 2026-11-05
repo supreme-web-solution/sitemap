@@ -18,6 +18,7 @@ import {
 import { SELECT_PICK } from '@/lib/selectSentinels';
 import {
     destroy,
+    edit as editProposal,
     index as proposalsIndex,
     send,
     store,
@@ -59,7 +60,7 @@ type ProposalData = {
 
 const props = defineProps<{
     proposal: ProposalData | null;
-    leads: { id: number; name: string; email: string | null }[];
+    leads: { id: number; name: string; email: string | null; proposalId: number | null }[];
     packages: {
         id: number;
         name: string;
@@ -88,6 +89,24 @@ defineOptions({
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 const editable = computed(() => props.proposal?.editable ?? true);
+const clientQuery = ref('');
+const clientOpen = ref(false);
+
+const filteredLeads = computed(() => {
+    const query = clientQuery.value.trim().toLowerCase();
+
+    if (query === '') {
+        return props.leads;
+    }
+
+    return props.leads.filter((lead) => lead.name.toLowerCase().includes(query));
+});
+
+watch(clientOpen, (open) => {
+    if (!open) {
+        clientQuery.value = '';
+    }
+});
 
 const form = useForm<{
     lead_id: number | '';
@@ -191,6 +210,23 @@ const leadIdSelect = computed({
     set: (value: string | undefined) => {
         form.lead_id = value ? Number(value) : '';
     },
+});
+
+watch(leadIdSelect, (value) => {
+    if (props.proposal || !value) {
+        return;
+    }
+
+    const lead = props.leads.find((item) => String(item.id) === value);
+
+    if (lead?.proposalId) {
+        router.visit(
+            editProposal.url({
+                current_team: teamSlug.value,
+                proposal: lead.proposalId,
+            }),
+        );
+    }
 });
 
 const submit = () => {
@@ -301,19 +337,39 @@ const textareaClass =
                     <Label>Client</Label>
                     <Select
                         v-model="leadIdSelect"
+                        v-model:open="clientOpen"
                         :disabled="Boolean(proposal)"
                     >
                         <SelectTrigger class="w-full" aria-label="Client">
                             <SelectValue placeholder="Choose a lead…" />
                         </SelectTrigger>
                         <SelectContent>
+                            <div
+                                class="sticky top-0 z-10 bg-popover p-1"
+                                @keydown.stop
+                                @pointerdown.stop
+                            >
+                                <Input
+                                    v-model="clientQuery"
+                                    placeholder="Search clients"
+                                    aria-label="Search clients"
+                                    class="h-8"
+                                    @keydown.stop
+                                />
+                            </div>
                             <SelectItem
-                                v-for="lead in leads"
+                                v-for="lead in filteredLeads"
                                 :key="lead.id"
                                 :value="String(lead.id)"
                             >
                                 {{ lead.name }}
                             </SelectItem>
+                            <p
+                                v-if="filteredLeads.length === 0"
+                                class="px-2 py-1.5 text-sm text-muted-foreground"
+                            >
+                                No clients match that search.
+                            </p>
                         </SelectContent>
                     </Select>
                     <InputError :message="form.errors.lead_id" />

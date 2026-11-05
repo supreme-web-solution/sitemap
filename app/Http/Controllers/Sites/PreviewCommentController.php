@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Sites;
 use App\Enums\LeadActivityType;
 use App\Http\Controllers\Controller;
 use App\Models\Site;
+use App\Notifications\PreviewCommentNotification;
 use App\Services\Preview\PreviewLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,8 +43,21 @@ class PreviewCommentController extends Controller
                 'who' => $data['author_name'],
                 'text' => Str::limit($data['body'], 80),
             ]),
-            ['section' => $data['section'] ?? null],
+            [
+                'name' => $data['author_name'],
+                'contact' => $data['author_contact'] ?? null,
+                'section' => $data['section'] ?? null,
+                'body' => $data['body'],
+            ],
         );
+
+        $site->team->owner()?->notify(new PreviewCommentNotification(
+            $site->lead,
+            $data['author_name'],
+            $data['author_contact'] ?? null,
+            $data['section'] ?? null,
+            $data['body'],
+        ));
 
         return redirect(PreviewLink::page($site, internal: true, query: ['thanks' => 1]));
     }

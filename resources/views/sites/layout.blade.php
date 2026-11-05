@@ -207,7 +207,15 @@
         }
         .preview-bar__btn--package { background: #faf5ff; border-color: #e9d5ff; color: #581c87; }
         .preview-bar__btn--block { width: 100%; margin-top: .25rem; padding: .65rem 1rem; font-size: .9375rem; }
-        .preview-modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 1rem; }
+        .preview-modal {
+            --preview-primary: hsl(265 72% 51%);
+            --preview-primary-hover: hsl(265 72% 45%);
+            position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 1rem;
+        }
+        .preview-modal .preview-bar__btn--primary {
+            background: var(--preview-primary); border-color: transparent; color: #fff;
+        }
+        .preview-modal .preview-bar__btn--primary:hover { background: var(--preview-primary-hover); color: #fff; }
         .preview-modal[hidden] { display: none !important; }
         .preview-modal__backdrop {
             position: absolute; inset: 0; background: rgba(24, 24, 27, .45);

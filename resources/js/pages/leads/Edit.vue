@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { create as createInvoice } from '@/routes/invoices';
-import { create as createProposal } from '@/routes/proposals';
+import { create as createProposal, edit as editProposal } from '@/routes/proposals';
 import { edit as reviewLead, index as leadsIndex } from '@/routes/leads';
 import { update as updateProfile } from '@/routes/leads/profile';
 import { edit as editSite } from '@/routes/sites';
@@ -302,12 +302,18 @@ const textareaClass =
                     >
                         <Link
                             :href="
-                                createProposal(teamSlug, {
-                                    query: { lead: lead.id },
-                                })
+                                lead.proposalId
+                                    ? editProposal({
+                                          current_team: teamSlug,
+                                          proposal: lead.proposalId,
+                                      })
+                                    : createProposal(teamSlug, {
+                                          query: { lead: lead.id },
+                                      })
                             "
                         >
-                            <FileText /> New proposal
+                            <FileText />
+                            {{ lead.proposalId ? 'Edit proposal' : 'New proposal' }}
                         </Link>
                     </Button>
                     <Button

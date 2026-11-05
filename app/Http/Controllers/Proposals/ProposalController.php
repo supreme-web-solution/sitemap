@@ -47,17 +47,41 @@ class ProposalController extends Controller
     /**
      * Show the form for a new proposal.
      */
-    public function create(Request $request, Team $currentTeam): Response
+    public function create(Request $request, Team $currentTeam): Response|RedirectResponse
     {
+        $leadId = $currentTeam->leads()->whereKey($request->integer('lead'))->value('id');
+
+        if ($leadId !== null) {
+            $existing = $this->proposalForLead($currentTeam, (int) $leadId);
+
+            if ($existing !== null) {
+                return to_route('proposals.edit', [
+                    'current_team' => $currentTeam->slug,
+                    'proposal' => $existing,
+                ]);
+            }
+        }
+
         return Inertia::render('proposals/Edit', [
             'proposal' => null,
             ...$this->formData($currentTeam),
-            'defaultLeadId' => $currentTeam->leads()->whereKey($request->integer('lead'))->value('id'),
+            'defaultLeadId' => $leadId,
         ]);
     }
 
     public function store(SaveProposalRequest $request, Team $currentTeam): RedirectResponse
     {
+        $existing = $this->proposalForLead($currentTeam, $request->integer('lead_id'));
+
+        if ($existing !== null) {
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('This client already has a proposal. Edit that one.')]);
+
+            return to_route('proposals.edit', [
+                'current_team' => $currentTeam->slug,
+                'proposal' => $existing,
+            ]);
+        }
+
         $proposal = DB::transaction(function () use ($request, $currentTeam) {
             $proposal = $currentTeam->proposals()->make($request->safe()->only(['lead_id', 'title', 'intro', 'terms', 'valid_until']));
             $proposal->forceFill(['number' => Proposal::nextNumber($currentTeam), 'status' => ProposalStatus::Draft])->save();
@@ -140,9 +164,19 @@ class ProposalController extends Controller
      */
     private function formData(Team $team): array
     {
+        $proposalIds = $team->proposals()
+            ->selectRaw('MAX(id) as id, lead_id')
+            ->groupBy('lead_id')
+            ->pluck('id', 'lead_id');
+
         return [
             'leads' => $team->leads()->orderBy('name')->limit(1000)->get(['id', 'name', 'email'])
-                ->map(fn (Lead $lead) => ['id' => $lead->id, 'name' => $lead->name, 'email' => $lead->email])->all(),
+                ->map(fn (Lead $lead) => [
+                    'id' => $lead->id,
+                    'name' => $lead->name,
+                    'email' => $lead->email,
+                    'proposalId' => $proposalIds[$lead->id] ?? null,
+                ])->all(),
             'packages' => $team->packages()->where('is_active', true)->orderBy('name')->get()
                 ->map(fn (Package $package) => [
                     'id' => $package->id,
@@ -154,5 +188,13 @@ class ProposalController extends Controller
             'intervals' => collect(BillingInterval::cases())->map(fn (BillingInterval $interval) => ['value' => $interval->value, 'label' => $interval->label()])->values(),
             'today' => today()->toDateString(),
         ];
+    }
+
+    /**
+     * The proposal this lead already has, if any.
+     */
+    private function proposalForLead(Team $team, int $leadId): ?Proposal
+    {
+        return $team->proposals()->where('lead_id', $leadId)->latest('id')->first();
     }
 }

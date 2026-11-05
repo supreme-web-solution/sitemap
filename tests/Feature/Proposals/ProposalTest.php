@@ -52,6 +52,23 @@ test('a draft proposal is saved with numbered items', function () {
         ->and($proposal->firstYearCents())->toBe(150000 + 60000);
 });
 
+test('a lead has one proposal and saving another opens that proposal', function () {
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create();
+    $existing = Proposal::factory()->for($lead)->create();
+
+    $this->actingAs($user)
+        ->get(route('proposals.create', ['current_team' => $user->currentTeam->slug, 'lead' => $lead->id]))
+        ->assertRedirect(route('proposals.edit', ['current_team' => $user->currentTeam->slug, 'proposal' => $existing->id]));
+
+    $this->actingAs($user)
+        ->post(route('proposals.store', ['current_team' => $user->currentTeam->slug]), proposalPayload($lead, ['title' => 'A second proposal']))
+        ->assertRedirect(route('proposals.edit', ['current_team' => $user->currentTeam->slug, 'proposal' => $existing->id]));
+
+    expect(Proposal::query()->where('lead_id', $lead->id)->count())->toBe(1)
+        ->and($existing->refresh()->title)->toBe('Website and hosting proposal');
+});
+
 test('a proposal cannot be written for another team\'s lead or without items', function () {
     $user = User::factory()->create();
     $foreign = Lead::factory()->create();

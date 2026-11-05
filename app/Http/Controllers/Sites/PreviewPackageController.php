@@ -34,23 +34,26 @@ class PreviewPackageController extends Controller
 
         $package = Package::query()->findOrFail($data['package_id']);
         $lead = $site->lead;
+        $proposal = $site->team->proposals()->where('lead_id', $lead->id)->latest('id')->first();
 
-        $proposal = $site->team->proposals()->make([
-            'lead_id' => $lead->id,
-            'title' => $package->name,
-        ]);
-        $proposal->forceFill([
-            'number' => Proposal::nextNumber($site->team),
-            'status' => ProposalStatus::Sent,
-            'sent_at' => now(),
-            'valid_until' => now()->addDays(14),
-        ])->save();
-        $proposal->items()->create([
-            'description' => $package->name,
-            'quantity' => 1,
-            'unit_cents' => $package->unit_cents,
-            'interval' => $package->interval,
-        ]);
+        if ($proposal === null) {
+            $proposal = $site->team->proposals()->make([
+                'lead_id' => $lead->id,
+                'title' => $package->name,
+            ]);
+            $proposal->forceFill([
+                'number' => Proposal::nextNumber($site->team),
+                'status' => ProposalStatus::Sent,
+                'sent_at' => now(),
+                'valid_until' => now()->addDays(14),
+            ])->save();
+            $proposal->items()->create([
+                'description' => $package->name,
+                'quantity' => 1,
+                'unit_cents' => $package->unit_cents,
+                'interval' => $package->interval,
+            ]);
+        }
 
         $lead->recordActivity(
             LeadActivityType::ProposalSent,

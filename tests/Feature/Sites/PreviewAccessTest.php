@@ -3,12 +3,16 @@
 use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
 use App\Enums\ProposalStatus;
+use App\Enums\TeamRole;
 use App\Models\Lead;
 use App\Models\Package;
 use App\Models\PreviewComment;
 use App\Models\Site;
+use App\Models\Team;
 use App\Models\User;
+use App\Notifications\PreviewCommentNotification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 
 test('an expired preview is gone', function () {
     $site = Site::factory()->create(['preview_expires_at' => now()->subDay()]);
@@ -79,6 +83,34 @@ test('a comment on the preview is stored on the lead timeline', function () {
     expect($site->lead->activities()->where('type', LeadActivityType::ClientFeedback)->exists())->toBeTrue();
 });
 
+test('a preview comment emails the agency owner and is stored on the lead', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
+    $lead = Lead::factory()->for($team)->create();
+    $site = Site::factory()->create(['lead_id' => $lead->id, 'team_id' => $team->id]);
+
+    $this->post(route('sites.preview.comments', $site->slug), [
+        'author_name' => 'Aurelia Harrison',
+        'author_contact' => 'aurelia@example.com',
+        'section' => 'Hero',
+        'body' => 'Please use a photo of our real van.',
+    ])->assertRedirect();
+
+    $activity = $lead->activities()->where('type', LeadActivityType::ClientFeedback)->sole();
+
+    expect($activity->data)->toMatchArray([
+        'name' => 'Aurelia Harrison',
+        'contact' => 'aurelia@example.com',
+        'section' => 'Hero',
+        'body' => 'Please use a photo of our real van.',
+    ]);
+
+    Notification::assertSentTo($owner, PreviewCommentNotification::class);
+});
+
 test('choosing a package from the preview creates a sent proposal', function () {
     $site = Site::factory()->create();
     $package = Package::factory()->for($site->team)->create(['name' => 'Starter site', 'is_active' => true]);
@@ -92,6 +124,14 @@ test('choosing a package from the preview creates a sent proposal', function () 
     expect($proposal->status)->toBe(ProposalStatus::Sent)
         ->and($proposal->items->sole()->description)->toBe('Starter site')
         ->and($site->lead->fresh()->status)->toBe(LeadStatus::Interested);
+
+    $other = Package::factory()->for($site->team)->create(['name' => 'Care plan', 'is_active' => true]);
+
+    $this->post(route('sites.preview.packages', $site->slug), [
+        'package_id' => $other->id,
+    ])->assertRedirect();
+
+    expect($site->team->proposals()->count())->toBe(1);
 });
 
 test('the agency can set preview expiry and a password', function () {

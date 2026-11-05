@@ -98,6 +98,7 @@ class LeadProfileController extends Controller
                 'opportunityBreakdown' => $lead->opportunity_breakdown ?? [],
                 'websiteAudit' => $lead->website_audit,
                 'websiteAuditedAt' => $lead->website_audited_at?->toISOString(),
+                'proposalId' => $lead->proposals()->latest('id')->value('id'),
                 'websiteAuditStatus' => $lead->website_audit_status->value,
                 'auditPublicUrl' => $lead->websiteAuditPublicUrl(),
             ],

@@ -228,6 +228,7 @@ export type LeadProfile = {
     competitorAudit: WebsiteAudit | null;
     competitorAuditedAt: string | null;
     website: string | null;
+    proposalId?: number | null;
     dealValue: number | null;
     nextFollowUpAt: string | null;
     lastContactedAt: string | null;
