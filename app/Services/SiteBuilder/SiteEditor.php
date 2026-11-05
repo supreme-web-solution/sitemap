@@ -286,10 +286,12 @@ class SiteEditor
 
         foreach ($plan->sectionsAdd as $key) {
             $sections = SiteStructuralIntent::insertSection($sections, $key);
+            $content = SiteContentSchema::showSection($content, $key);
         }
 
         foreach ($plan->sectionsRemove as $key) {
             $sections = array_values(array_filter($sections, fn (string $section) => $section !== $key));
+            $content = SiteContentSchema::hideSection($content, $key);
         }
 
         if ($plan->sectionsAdd !== [] || $plan->sectionsRemove !== []) {

@@ -10,7 +10,7 @@ use Illuminate\Validation\Rule;
 
 class SiteContentSchema
 {
-    public const HEADLINE_MAX = 70;
+    public const HEADLINE_MAX = 160;
 
     public const MAX_SERVICES = 8;
 
@@ -21,7 +21,7 @@ class SiteContentSchema
      *
      * @var list<string>
      */
-    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'section_css', 'variants', 'process', 'why', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels', 'custom_sections'];
+    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'section_css', 'variants', 'process', 'why', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels', 'custom_sections', 'hidden_sections'];
 
     /**
      * Validation rules for a site specification.
@@ -63,6 +63,8 @@ class SiteContentSchema
             'custom_sections.*.headline' => ['required', 'string', 'max:120'],
             'custom_sections.*.body' => ['required', 'string', 'max:4000'],
             'reviews_style' => ['sometimes', 'nullable', Rule::enum(ReviewsStyle::class)],
+            'hidden_sections' => ['sometimes', 'array'],
+            'hidden_sections.*' => ['string', 'distinct', Rule::in(SiteSection::defaultOrder())],
             'services' => ['required', 'array', 'min:1', 'max:'.self::MAX_SERVICES],
             'services.*.title' => ['required', 'string', 'max:60'],
             'services.*.description' => ['required', 'string', 'max:250'],
@@ -237,6 +239,10 @@ class SiteContentSchema
             $content['reviews_style'] = $validated['reviews_style'];
         }
 
+        if (array_key_exists('hidden_sections', $validated)) {
+            $content['hidden_sections'] = array_values($validated['hidden_sections'] ?? []);
+        }
+
         if (array_key_exists('pages', $validated)) {
             $content['pages'] = array_values($validated['pages'] ?? []);
         } elseif ($withDefaults) {
@@ -297,6 +303,48 @@ class SiteContentSchema
         }
 
         return SiteLocales::applyValidated($validated, $content);
+    }
+
+    /**
+     * Remember that a homepage section was removed on purpose, so it is not put back automatically.
+     *
+     * @param  array<string, mixed>  $content
+     * @return array<string, mixed>
+     */
+    public static function hideSection(array $content, string $key): array
+    {
+        if (SiteSection::tryFrom($key) === null) {
+            return $content;
+        }
+
+        $hidden = array_values(array_unique([
+            ...array_values(array_filter((array) ($content['hidden_sections'] ?? []), 'is_string')),
+            $key,
+        ]));
+
+        $content['hidden_sections'] = $hidden;
+
+        return $content;
+    }
+
+    /**
+     * A section that is added back is no longer hidden.
+     *
+     * @param  array<string, mixed>  $content
+     * @return array<string, mixed>
+     */
+    public static function showSection(array $content, string $key): array
+    {
+        if (! isset($content['hidden_sections']) || ! is_array($content['hidden_sections'])) {
+            return $content;
+        }
+
+        $content['hidden_sections'] = array_values(array_filter(
+            $content['hidden_sections'],
+            fn (mixed $item): bool => $item !== $key,
+        ));
+
+        return $content;
     }
 
     /**

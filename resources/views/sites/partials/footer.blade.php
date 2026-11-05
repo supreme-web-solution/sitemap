@@ -1,7 +1,7 @@
 <footer class="site-footer"{!! $e->section('footer', 'Footer') !!}>
     <div class="footer-cta">
         <div class="container">
-            <p class="footer-cta__copy">{{ $content['tagline'] }}</p>
+            <p class="footer-cta__copy keeps-lines"{!! $e->text('tagline', 'Tagline', 200, true) !!}>{{ $content['tagline'] }}</p>
             @if ($phoneHref)
                 <a class="btn btn-primary" href="{{ $phoneHref }}">@include('sites.icons.phone') {{ $lead->phone }}</a>
             @endif
@@ -17,7 +17,7 @@
                 @endif
                 <span>{{ $lead->name }}</span>
             </a>
-            <p>{{ $content['tagline'] }}</p>
+            <p class="keeps-lines"{!! $e->text('tagline', 'Tagline', 200, true) !!}>{{ $content['tagline'] }}</p>
             @if (! empty($socialLinks))
                 <nav class="footer-social" aria-label="Social">
                     @foreach ($socialLinks as $platform => $url)
@@ -27,7 +27,7 @@
             @endif
         </div>
         <nav class="footer-col" aria-label="Explore">
-            <h3>{{ $e->copy('footer_explore_label', 'Explore') }}</h3>
+            <h3{!! $e->label('footer_explore_label') !!}>{{ $e->copy('footer_explore_label', 'Explore') }}</h3>
             <ul>
                 @foreach ($nav as $item)
                     <li><a href="{{ $item['url'] }}">{{ $item['label'] }}</a></li>
@@ -36,7 +36,7 @@
         </nav>
         @if (! empty($services))
             <nav class="footer-col" aria-label="Services">
-                <h3>{{ $e->copy('footer_services_label', 'Services') }}</h3>
+                <h3{!! $e->label('footer_services_label') !!}>{{ $e->copy('footer_services_label', 'Services') }}</h3>
                 <ul>
                     @foreach ($services as $service)
                         <li>
@@ -51,7 +51,7 @@
             </nav>
         @endif
         <div class="footer-col">
-            <h3>{{ $e->copy('footer_contact_label', 'Visit') }}</h3>
+            <h3{!! $e->label('footer_contact_label') !!}>{{ $e->copy('footer_contact_label', 'Visit') }}</h3>
             <ul class="footer-contact">
                 @if ($lead->address)
                     <li>{{ $lead->address }}</li>
@@ -64,7 +64,7 @@
                 @endif
             </ul>
             @if (! empty($hours))
-                <h3 class="footer-hours-label">{{ $e->copy('footer_hours_label', 'Hours') }}</h3>
+                <h3 class="footer-hours-label"{!! $e->label('footer_hours_label') !!}>{{ $e->copy('footer_hours_label', 'Hours') }}</h3>
                 <ul class="footer-hours">
                     @foreach ($hours as $day => $time)
                         <li><span>{{ $day }}</span><span>{{ $time }}</span></li>

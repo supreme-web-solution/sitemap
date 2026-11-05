@@ -3,6 +3,7 @@
 namespace App\Services\SiteBuilder;
 
 use App\Enums\SiteSection;
+use App\Models\Lead;
 use App\Models\Site;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +41,7 @@ class SiteEditApplier
         '#^variants\.[a-z_]+$#',
         '#^section_css\.[a-z_]+$#',
         '#^custom_sections\.[a-z0-9-]+$#',
+        '#^custom_sections\.[a-z0-9-]+\.(label|headline|body)$#',
         '#^process\.\d+\.(title|description)$#',
         '#^why\.\d+\.(title|description)$#',
         '#^page_labels\.[a-z_]+$#',
@@ -69,12 +71,20 @@ class SiteEditApplier
      */
     public static function document(Site $site): array
     {
+        $content = $site->content;
+        $lead = $site->relationLoaded('lead') ? $site->lead : $site->lead()->first();
+
+        if ($lead instanceof Lead) {
+            $content['process'] = SiteProofPoints::process($lead, $content);
+            $content['why'] = SiteProofPoints::why($lead, $content);
+        }
+
         return [
             'template' => $site->template->value,
-            ...$site->content,
-            'sections' => $site->content['sections'] ?? SiteSection::defaultOrder(),
-            'pages' => $site->content['pages'] ?? SitePages::OPTIONAL,
-            'custom_pages' => array_values($site->content['custom_pages'] ?? []),
+            ...$content,
+            'sections' => $content['sections'] ?? SiteSection::defaultOrder(),
+            'pages' => $content['pages'] ?? SitePages::OPTIONAL,
+            'custom_pages' => array_values($content['custom_pages'] ?? []),
         ];
     }
 
@@ -143,8 +153,14 @@ class SiteEditApplier
         $items = array_values((array) Arr::get($document, $path, []));
         $index = $this->index($operation['index'] ?? null, count($items), $position);
 
-        array_splice($items, $index, 0, [$operation['value'] ?? null]);
+        $value = $operation['value'] ?? null;
+
+        array_splice($items, $index, 0, [$value]);
         Arr::set($document, $path, $items);
+
+        if ($path === 'sections' && is_string($value)) {
+            $document = SiteContentSchema::showSection($document, $value);
+        }
 
         return $document;
     }
@@ -159,9 +175,14 @@ class SiteEditApplier
         $path = $this->listPath($operation, $position);
         $items = array_values((array) Arr::get($document, $path, []));
         $index = $this->index($operation['index'] ?? null, count($items) - 1, $position);
+        $removed = $items[$index] ?? null;
 
         array_splice($items, $index, 1);
         Arr::set($document, $path, $items);
+
+        if ($path === 'sections' && is_string($removed)) {
+            $document = SiteContentSchema::hideSection($document, $removed);
+        }
 
         return $document;
     }

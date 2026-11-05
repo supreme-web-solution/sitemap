@@ -41,6 +41,7 @@
         .hero::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 8.5rem; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(8,12,24,.58) 0%, transparent 100%); }
         .hero .container { position: relative; z-index: 1; padding-top: 6rem; padding-bottom: 6rem; }
         .hero-eyebrow { display: inline-flex; align-items: center; gap: .5rem; font-size: .85rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+        .keeps-lines, .hero h1, .page-hero h1, .section-title, .section-intro, .process-step h3, .process-step p, .why-point h3, .why-point p { white-space: pre-line; }
         .hero h1 { font-size: clamp(2.25rem, 5vw, 3.75rem); line-height: 1.08; margin: 1rem 0; max-width: 16ch; }
         .hero p { font-size: 1.2rem; max-width: 36rem; margin: 0 0 2rem; }
         .hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; }

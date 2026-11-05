@@ -65,12 +65,70 @@ test('the reviews section is left out when there are too few reviews to show', f
         ->assertDontSee('What our customers say');
 });
 
-test('the reviews section is left out when the site does not include it', function () {
+test('collected reviews still show in a carousel when the plan left the section out', function () {
     $site = siteWithReviews(5, ['sections' => ['services', 'about', 'contact']]);
 
     $this->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
         ->assertOk()
+        ->assertSee('What our customers say')
+        ->assertSee('Reviewer 1')
+        ->assertSee('data-reviews-carousel', escape: false);
+});
+
+test('a reviews section hidden on purpose stays off the page', function () {
+    $site = siteWithReviews(5, [
+        'sections' => ['services', 'about', 'contact'],
+        'hidden_sections' => ['reviews'],
+    ]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
+        ->assertOk()
         ->assertDontSee('What our customers say');
+});
+
+test('hiding reviews in the editor keeps the carousel off the page', function () {
+    $user = User::factory()->create();
+    $site = siteWithReviews(4, ['sections' => SiteSection::defaultOrder()], $user);
+    $index = array_search(SiteSection::Reviews->value, $site->fresh()->content['sections'], true);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.edits.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'revision' => $site->fresh()->revision,
+            'ops' => [['op' => 'remove', 'path' => 'sections', 'index' => $index]],
+        ])
+        ->assertOk();
+
+    expect($site->fresh()->content['hidden_sections'])->toContain(SiteSection::Reviews->value);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
+        ->assertOk()
+        ->assertDontSee('What our customers say');
+});
+
+test('putting the reviews section back shows the carousel again', function () {
+    $user = User::factory()->create();
+    $site = siteWithReviews(4, [
+        'sections' => array_values(array_filter(
+            SiteSection::defaultOrder(),
+            fn (string $section) => $section !== SiteSection::Reviews->value,
+        )),
+        'hidden_sections' => [SiteSection::Reviews->value],
+    ], $user);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.edits.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'revision' => $site->fresh()->revision,
+            'ops' => [['op' => 'insert', 'path' => 'sections', 'index' => 4, 'value' => SiteSection::Reviews->value]],
+        ])
+        ->assertOk();
+
+    expect($site->fresh()->content['hidden_sections'])->not->toContain(SiteSection::Reviews->value)
+        ->and($site->fresh()->content['sections'])->toContain(SiteSection::Reviews->value);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('What our customers say')
+        ->assertSee('data-reviews-carousel', escape: false);
 });
 
 test('review text is escaped', function () {

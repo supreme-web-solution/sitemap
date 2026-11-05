@@ -9,8 +9,8 @@
             @foreach ($processSteps as $step)
                 <li class="process-step">
                     <span class="process-step__num" aria-hidden="true">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
-                    <h3>{{ $step['title'] }}</h3>
-                    <p>{{ $step['description'] }}</p>
+                    <h3 class="keeps-lines"{!! $e->text('process.'.$loop->index.'.title', 'Step title', 60) !!}>{{ $step['title'] }}</h3>
+                    <p class="keeps-lines"{!! $e->text('process.'.$loop->index.'.description', 'Step description', 250, true) !!}>{{ $step['description'] }}</p>
                 </li>
             @endforeach
         </ol>

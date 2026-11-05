@@ -8,9 +8,9 @@
             <button type="button" class="edit-add-image"{!! $e->image('photo', 0, 'Hero photo') !!}>Add a hero photo</button>
         @endif
         <div class="container">
-            <span class="hero-eyebrow">{{ $lead->category }}{{ $lead->city ? ' · '.$lead->city : '' }}</span>
-            <h1{!! $e->text('headline', 'Headline', 70) !!}>{{ $content['headline'] }}</h1>
-            <p{!! $e->text('tagline', 'Tagline', 200, true) !!}>{{ $content['tagline'] }}</p>
+            <span class="hero-eyebrow"{!! $e->label('hero_kicker') !!}>{{ $e->copy('hero_kicker', trim(($lead->category ?? '').($lead->city ? ' · '.$lead->city : ''))) }}</span>
+            <h1 class="keeps-lines"{!! $e->text('headline', 'Headline', \App\Services\SiteBuilder\SiteContentSchema::HEADLINE_MAX, true) !!}>{{ $content['headline'] }}</h1>
+            <p class="keeps-lines"{!! $e->text('tagline', 'Tagline', 200, true) !!}>{{ $content['tagline'] }}</p>
             <div class="hero-actions">
                 <a class="btn btn-primary" href="{{ collect($nav)->contains('key', 'contact') ? $urls->to('contact') : ($phoneHref ?? '#contact') }}"><span{!! $e->text('cta_label', 'Button text', 40) !!}>{{ $content['cta_label'] }}</span></a>
                 @if ($phoneHref)

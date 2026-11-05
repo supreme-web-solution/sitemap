@@ -36,12 +36,14 @@ class SiteStructuralIntent
         if (self::wantsAddSection($instruction)) {
             foreach ($mentioned as $key) {
                 $sections = self::insertSection($sections, $key);
+                $content = SiteContentSchema::showSection($content, $key);
             }
         }
 
         if (self::wantsRemoveSection($instruction)) {
             foreach ($mentioned as $key) {
                 $sections = array_values(array_filter($sections, fn (string $section) => $section !== $key));
+                $content = SiteContentSchema::hideSection($content, $key);
             }
         }
 

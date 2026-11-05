@@ -153,7 +153,20 @@ class SiteRenderer
      */
     public function visibleSections(array $content, array $photos, array $hours, ?string $mapEmbedUrl, int $reviewCount = 0, int $areaCount = 0): array
     {
-        $planned = $content['sections'] ?? SiteSection::defaultOrder();
+        $planned = array_values(array_filter(
+            $content['sections'] ?? SiteSection::defaultOrder(),
+            'is_string',
+        ));
+        $hidden = array_values(array_filter((array) ($content['hidden_sections'] ?? []), 'is_string'));
+
+        if (
+            $reviewCount >= Lead::MIN_TESTIMONIALS
+            && ! in_array(SiteSection::Reviews->value, $planned, true)
+            && ! in_array(SiteSection::Reviews->value, $hidden, true)
+        ) {
+            $planned = SiteStructuralIntent::insertSection($planned, SiteSection::Reviews->value);
+        }
+
         $visible = [];
 
         foreach ($planned as $value) {

@@ -32,6 +32,46 @@ function sendEdits(User $user, Site $site, array $ops, ?int $revision = null)
     );
 }
 
+test('a headline keeps a line break', function () {
+    [$site, $user] = editorSite();
+
+    sendEdits($user, $site, [['op' => 'set', 'path' => 'headline', 'value' => "Trusted\nHandyman in Austin"]])
+        ->assertOk()
+        ->assertJsonPath('document.headline', "Trusted\nHandyman in Austin");
+
+    $html = app(SiteRenderer::class)->render($site->fresh());
+    $editor = app(SiteRenderer::class)->render($site->fresh(), true, '', null, true);
+
+    expect($site->fresh()->content['headline'])->toBe("Trusted\nHandyman in Austin")
+        ->and($html)->toContain("Trusted\nHandyman in Austin")
+        ->and($editor)->toContain('data-edit="headline"')
+        ->and($editor)->toContain('data-edit-multiline="1"');
+});
+
+test('how it works steps and why points can be edited', function () {
+    [$site, $user] = editorSite();
+
+    sendEdits($user, $site, [
+        ['op' => 'set', 'path' => 'process.0.title', 'value' => 'Call us first'],
+        ['op' => 'set', 'path' => 'why.0.title', 'value' => 'Nearby team'],
+    ])->assertOk()
+        ->assertJsonPath('document.process.0.title', 'Call us first')
+        ->assertJsonPath('document.why.0.title', 'Nearby team');
+
+    $content = $site->fresh()->content;
+
+    expect($content['process'][0]['title'])->toBe('Call us first')
+        ->and($content['process'][0]['description'])->not->toBe('')
+        ->and($content['why'][0]['title'])->toBe('Nearby team');
+
+    $html = app(SiteRenderer::class)->render($site->fresh(), true, '', null, true);
+
+    expect($html)->toContain('data-edit="process.0.title"')
+        ->toContain('data-edit="process.0.description"')
+        ->toContain('data-edit="why.0.title"')
+        ->toContain('Call us first');
+});
+
 test('a set operation updates the site and moves the revision on', function () {
     [$site, $user] = editorSite();
 

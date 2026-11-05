@@ -446,7 +446,7 @@
             footer.className = 'sm-meta';
             const count = document.createElement('span');
             const hint = document.createElement('span');
-            hint.textContent = 'Ctrl+Enter to save, Esc to cancel';
+            hint.textContent = 'Enter starts a new line. Click away to save, Esc to cancel';
             footer.append(count, hint);
             wrap.append(textarea, footer);
             document.body.appendChild(wrap);

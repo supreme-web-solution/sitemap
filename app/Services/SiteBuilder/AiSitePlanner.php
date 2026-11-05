@@ -356,6 +356,7 @@ abstract class AiSitePlanner implements SiteCopywriter
         - Include "gallery" only when the profile says photos are available.
         - Include "hours" only when the profile has opening hours or an address.
         - Include "areas" when the profile has a city, neighbourhood or state.
+        - Include "reviews" when reviews_count is 3 or more, and place it after "why". The page shows the Google reviews collected for the business. Do not write the quotes yourself.
         - Always include "services", "process", "why" and "contact".
         - The sections field is the homepage block order. When asked to add or remove a section (reviews, faq, gallery, etc.), update sections accordingly while keeping other fields unless the user asked to rewrite them.
         - Layout variants (optional): hero = classic, centered, overlay, split, minimal, photo-top, card. services = cards, list, numbered, columns, featured, tiles, outline. about = split, centered, quote, card, columns, highlight. process = steps, timeline, stacked, cards, split. why = cards, numbered, list, band, split. gallery = grid, masonry, mosaic, strip, polaroid, duo. areas = chips, grid, list, split. faq = accordion, two-column, lined, cards, numbered. hours = split, stacked, cards. contact = split, stacked, cards. footer = columns, mega, stacked, compact, cta.

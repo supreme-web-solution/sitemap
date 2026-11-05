@@ -9,8 +9,8 @@
             @foreach ($whyPoints as $point)
                 <li class="why-point">
                     <span class="why-point__num" aria-hidden="true">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
-                    <h3>{{ $point['title'] }}</h3>
-                    <p>{{ $point['description'] }}</p>
+                    <h3 class="keeps-lines"{!! $e->text('why.'.$loop->index.'.title', 'Reason title', 80) !!}>{{ $point['title'] }}</h3>
+                    <p class="keeps-lines"{!! $e->text('why.'.$loop->index.'.description', 'Reason', 250, true) !!}>{{ $point['description'] }}</p>
                 </li>
             @endforeach
         </ol>
