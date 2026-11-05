@@ -217,6 +217,12 @@ const setSectionStyle = (value: string) => {
     }
 };
 
+const canReorderSection = computed(() => {
+    const key = sectionSelection.value?.key;
+
+    return key ? props.draft.sections.includes(key) : false;
+});
+
 const sectionLayouts = computed(() => {
     const key = sectionSelection.value?.key;
 
@@ -255,8 +261,8 @@ const textareaClass =
             v-if="selection.kind === 'none'"
             class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
         >
-            Click text to edit copy, photos to replace, or any section/footer/header
-            to target it — then use the AI tab for design CSS.
+            Scroll the preview. The section on screen shows here, with its layout.
+            Click text or a photo to edit that instead.
         </p>
 
         <p
@@ -413,7 +419,10 @@ const textareaClass =
 
         <template v-if="sectionSelection">
             <div class="grid gap-3">
-                <p class="text-sm font-medium">{{ sectionSelection.label }} section</p>
+                <div>
+                    <p class="text-sm font-medium">{{ sectionSelection.label }}</p>
+                    <p class="text-xs text-muted-foreground">Section on screen</p>
+                </div>
                 <div v-if="sectionLayouts.length" class="grid gap-2">
                     <Label>Layout</Label>
                     <Select :model-value="sectionLayout" @update:model-value="setSectionLayout">
@@ -457,7 +466,7 @@ const textareaClass =
                         </Button>
                     </div>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div v-if="canReorderSection" class="flex flex-wrap gap-2">
                     <Button
                         type="button"
                         size="sm"

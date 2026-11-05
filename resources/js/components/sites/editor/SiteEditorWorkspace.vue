@@ -137,12 +137,37 @@ const selectedSectionKey = computed(() => {
     return null;
 });
 
-const designFocusKey = computed(() => {
-    if (tab.value === 'design') {
-        return inViewSection.value ?? selectedSectionKey.value;
+const adoptSectionInView = (): void => {
+    const key = inViewSection.value;
+
+    if (!key) {
+        return;
     }
 
-    return selectedSectionKey.value ?? inViewSection.value;
+    const current = selection.value;
+    const currentKey = current.kind === 'section' ? current.key : current.kind === 'design' ? current.region : null;
+
+    if (current.kind !== 'none' && current.kind !== 'section' && current.kind !== 'design') {
+        return;
+    }
+
+    if (currentKey === key) {
+        return;
+    }
+
+    const section = frameSections.value.find((item) => item.key === key);
+
+    if (!section) {
+        return;
+    }
+
+    selection.value = { kind: 'section', key: section.key, label: section.label };
+};
+
+watch(tab, (value) => {
+    if (value === 'selection') {
+        adoptSectionInView();
+    }
 });
 
 const aiDesignContext = computed((): SiteEditorAiContext => {
@@ -222,9 +247,19 @@ const onFrameMessage = (message: FrameMessage) => {
         case 'ready':
             frameSections.value = message.sections;
             inViewSection.value = message.sections[0]?.key ?? null;
+
+            if (tab.value === 'selection') {
+                adoptSectionInView();
+            }
+
             break;
         case 'inview':
             inViewSection.value = message.key;
+
+            if (tab.value === 'selection') {
+                adoptSectionInView();
+            }
+
             break;
         case 'select': {
             const { type: _type, ...rest } = message;
@@ -503,14 +538,10 @@ defineExpose({
                         :palettes="palettes"
                         :reviews-styles="reviewsStyles"
                         :choices="designChoices"
-                        :section-variant-choices="sectionVariantChoices"
-                        :frame-sections="frameSections"
-                        :focused-section="designFocusKey"
                         :can-pull-brand="site.leadWebsite !== null"
                         :pulling-brand="pullingBrand"
                         @commit="commit"
                         @pull-brand="$emit('pull-brand')"
-                        @locate="locateSection"
                     />
                     <InspectorStructure
                         v-show="tab === 'structure'"
