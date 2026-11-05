@@ -15,8 +15,11 @@
     .service { background: var(--surface); border: 1px solid var(--line); }
     .service p, .about-text { color: var(--muted); }
     .about-block { background: var(--surface); }
+    .hours { color: var(--ink); }
     .hours td { border-bottom: 1px solid var(--line); }
     .hours td:first-child { color: var(--muted); }
+    .location-card, .area-chips li { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }
+    .location-card__address, .location-card__meta { color: var(--muted); }
     .map { filter: grayscale(.6) invert(.9) hue-rotate(180deg); }
     .faq details { background: var(--surface); border: 1px solid var(--line); }
     .cta-band .btn { background: #0c0a09; color: #fff; }

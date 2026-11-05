@@ -77,8 +77,9 @@ test('the review finder asks mindcase for the places reviews and keeps only revi
         ->and($result->reviews[1]->body)->toBe('An excellent and very fast service.');
 
     Http::assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer mk_test_key')
-        && $request['params']['urls'] === [['url' => 'https://maps.google.com/?cid=42']]
-        && $request['params']['maxReviews'] === config('prospecting.reviews.fetch_limit'));
+        && $request['params']['urls'] === 'https://maps.google.com/?cid=42'
+        && $request['params']['maxReviews'] === config('prospecting.reviews.fetch_limit')
+        && ! array_key_exists('language', $request['params'] ?? []));
 });
 
 test('a completed fetch keeps only strong written reviews and marks the lead as fetched', function () {

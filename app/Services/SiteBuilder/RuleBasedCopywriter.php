@@ -61,9 +61,10 @@ class RuleBasedCopywriter implements SiteCopywriter
             'cta' => 'Visit Us Today',
             'promise' => 'Good food, warm service and a place you will want to come back to.',
             'services' => [
-                ['Dine In', 'Relax and enjoy your meal with us.'],
-                ['Takeaway', 'Your favourites, ready when you are.'],
-                ['Group Bookings', 'Bring friends, family or colleagues together.'],
+                ['Dine In', 'Sit down and enjoy a meal with warm, unhurried service.'],
+                ['Takeaway', 'Your favourites packed and ready when you are.'],
+                ['Group Bookings', 'Tables for friends, family, and colleagues who want to eat together.'],
+                ['Catering', 'Food for a gathering at your place, prepared and ready to serve.'],
             ],
         ],
         'beauty' => [
@@ -164,6 +165,20 @@ class RuleBasedCopywriter implements SiteCopywriter
                 ['Cleanups', 'Seasonal tidy-ups and debris removal.'],
             ],
         ],
+        'handyman' => [
+            'keywords' => ['handyman', 'handy'],
+            'noun' => 'handyman work',
+            'template' => SiteTemplate::ModernClean,
+            'accent' => '#2563eb',
+            'cta' => 'Get in Touch',
+            'promise' => 'Practical help around the house, done carefully and explained in plain language.',
+            'services' => [
+                ['General Repairs', 'From squeaky doors and loose handles to small patches in the wall, these are the everyday fixes that keep a home comfortable.'],
+                ['Furniture Assembly', 'Flat-pack and pre-owned furniture put together so it is steady, safe, and ready to use.'],
+                ['Mounting and Installation', 'Shelves, TVs, curtains, and fittings fixed securely where you want them.'],
+                ['Painting and Touch-Ups', 'Small paint jobs and touch-ups that tidy a room without a full redecoration.'],
+            ],
+        ],
         'legal' => [
             'keywords' => ['law', 'attorney', 'lawyer', 'legal', 'solicitor'],
             'noun' => 'legal services',
@@ -172,9 +187,10 @@ class RuleBasedCopywriter implements SiteCopywriter
             'cta' => 'Request a Consultation',
             'promise' => 'Clear advice and committed representation.',
             'services' => [
-                ['Consultations', 'Talk through your situation and options.'],
-                ['Representation', 'Someone in your corner when it counts.'],
-                ['Documents', 'Agreements and paperwork prepared carefully.'],
+                ['Consultations', 'Talk through your situation and the options in front of you.'],
+                ['Representation', 'Someone in your corner when the matter needs to be handled for you.'],
+                ['Documents', 'Agreements and paperwork prepared carefully and explained in plain language.'],
+                ['Advice', 'Clear answers on what to do next, without the jargon.'],
             ],
         ],
         'fitness' => [
@@ -188,6 +204,7 @@ class RuleBasedCopywriter implements SiteCopywriter
                 ['Memberships', 'Flexible access to train on your schedule.'],
                 ['Classes', 'Group sessions that keep you motivated.'],
                 ['Personal Training', 'One-to-one coaching towards your goals.'],
+                ['Intro Sessions', 'A first visit so you can see how the place works before you commit.'],
             ],
         ],
     ];
@@ -201,12 +218,7 @@ class RuleBasedCopywriter implements SiteCopywriter
         $category = $lead->category ?: 'Local Business';
         $city = $lead->city;
 
-        $services = $preset === null
-            ? [[
-                'title' => Str::title($category),
-                'description' => "Professional {$this->lower($category)} services delivered with care.",
-            ]]
-            : array_map(fn (array $service) => ['title' => $service[0], 'description' => $service[1]], $preset['services']);
+        $shaped = (new SiteServiceCopy)->build($lead, $this->serviceFillers($lead->category));
 
         $chosenTemplate = $template ?? $lead->vibe?->template() ?? $preset['template'] ?? SiteTemplate::ModernClean;
         $accent = $preset['accent'] ?? null;
@@ -224,7 +236,8 @@ class RuleBasedCopywriter implements SiteCopywriter
                 'sections' => SiteSection::defaultOrder(),
                 'reviews_style' => ReviewsStyle::Carousel->value,
                 'pages' => SitePages::OPTIONAL,
-                'services' => $this->withSlugs($services),
+                'services' => $shaped['services'],
+                'additional_services' => $shaped['additional_services'],
                 'faqs' => $this->faqs($lead),
                 'process' => SiteProofPoints::process($lead, []),
                 'why' => SiteProofPoints::why($lead, []),
@@ -295,23 +308,18 @@ class RuleBasedCopywriter implements SiteCopywriter
     }
 
     /**
-     * Give each service a unique URL slug for its own page.
+     * Service ideas for this category, used to fill out four service pages.
      *
-     * @param  list<array{title: string, description: string}>  $services
-     * @return list<array{title: string, description: string, slug: string}>
+     * @return list<array{title: string, summary: string}>
      */
-    protected function withSlugs(array $services): array
+    public function serviceFillers(?string $category): array
     {
-        $taken = [];
-        $result = [];
+        $preset = $this->presetFor($category);
 
-        foreach ($services as $service) {
-            $slug = SitePages::uniqueSlug(null, $service['title'], $taken);
-            $taken[] = $slug;
-            $result[] = [...$service, 'slug' => $slug];
-        }
-
-        return $result;
+        return array_map(
+            fn (array $service) => ['title' => $service[0], 'summary' => $service[1]],
+            $preset['services'] ?? [],
+        );
     }
 
     /**

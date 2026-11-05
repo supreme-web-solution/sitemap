@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\Sites\RecordSiteContact;
 use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\Team;
@@ -13,6 +14,8 @@ use App\Services\SiteBuilder\SiteStaging;
 use App\Services\SiteBuilder\SiteUrls;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -96,12 +99,16 @@ class ServePublishedSite
             return redirect()->away('https://'.$host.$request->getRequestUri(), 301);
         }
 
+        $requested = (string) parse_url($request->getRequestUri(), PHP_URL_PATH);
+        $path = trim($requested, '/');
+
+        if ($request->isMethod('POST') && SiteLocales::parsePath($site, $path)['path'] === 'contact') {
+            return $this->storeContact($request, $site, $host);
+        }
+
         if (! $request->isMethod('GET') && ! $request->isMethod('HEAD')) {
             return response('Method not allowed', 405, ['Allow' => 'GET, HEAD']);
         }
-
-        $requested = (string) parse_url($request->getRequestUri(), PHP_URL_PATH);
-        $path = trim($requested, '/');
 
         if ($requested !== '/' && str_ends_with($requested, '/')) {
             $query = $request->getQueryString();
@@ -176,6 +183,29 @@ class ServePublishedSite
         $response->isNotModified($request);
 
         return $response;
+    }
+
+    /**
+     * Store a contact-form message sent on the customer's own domain.
+     */
+    protected function storeContact(Request $request, Site $site, string $host): Response
+    {
+        $back = 'https://'.$host.'/contact';
+        $limitKey = 'site-contact:'.$site->id.':'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($limitKey, 5)) {
+            return redirect()->away($back.'?error=1');
+        }
+
+        RateLimiter::hit($limitKey, 60);
+
+        try {
+            app(RecordSiteContact::class)->handle($site, $request->all());
+        } catch (ValidationException) {
+            return redirect()->away($back.'?error=1');
+        }
+
+        return redirect()->away($back.'?thanks=1');
     }
 
     protected function notFound(): Response

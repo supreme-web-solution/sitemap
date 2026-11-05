@@ -3,7 +3,7 @@
     body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--ink); background: #fff; }
     h1, h2, h3 { font-weight: 800; letter-spacing: -.02em; }
     .site-header { border-bottom: 1px solid transparent; }
-    .header-call { border-radius: 12px; padding: .7rem 1.1rem; }
+    .header-cta { border-radius: 12px; padding: .7rem 1.1rem; }
     .hero { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, #fff) 0%, #fff 58%); }
     .hero-image { position: absolute; inset: 0 0 0 auto; width: 46%; height: 100%; object-fit: cover; clip-path: polygon(14% 0, 100% 0, 100% 100%, 0 100%); }
     .hero-eyebrow { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, #fff); padding: .4rem .85rem; border-radius: 999px; }

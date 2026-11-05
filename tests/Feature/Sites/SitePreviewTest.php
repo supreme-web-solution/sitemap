@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SiteTemplate;
 use App\Enums\TeamRole;
 use App\Models\Lead;
 use App\Models\Site;
@@ -113,6 +114,29 @@ test('secondary pages use a photo hero with homepage-style actions', function ()
         ->assertSee('.nav a::after', escape: false);
 });
 
+test('the services page alternates the image side and can keep every image on the right', function () {
+    $content = Site::factory()->make()->content;
+    $content['services'] = [
+        ['title' => 'General Repairs', 'description' => 'Doors, walls, and the small jobs in between.', 'slug' => 'general-repairs'],
+        ['title' => 'Furniture Assembly', 'description' => 'Flat-pack furniture assembled and ready to use.', 'slug' => 'furniture-assembly'],
+    ];
+    $content['variants'] = ['services_page' => 'zigzag'];
+    $site = Site::factory()->create(['content' => $content]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'services']))
+        ->assertOk()
+        ->assertSeeInOrder(['General Repairs', 'class="service-feature is-alt"', 'Furniture Assembly'], false)
+        ->assertSee('.service-feature.is-alt .service-feature__copy { order: 2; }', false);
+
+    $content['variants'] = ['services_page' => 'stack'];
+    $site->update(['content' => $content]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'services']))
+        ->assertOk()
+        ->assertSee('services_page-v-stack', false)
+        ->assertSee('.services_page-v-stack .service-feature.is-alt .service-feature__copy { order: 0; }', false);
+});
+
 test('the services page lists each offer as a left-right row with two actions', function () {
     $site = Site::factory()->create();
 
@@ -171,12 +195,13 @@ test('an unknown preview link returns not found', function () {
 });
 
 test('the pre-footer cta sits above the footer on every page except contact', function () {
-    $site = Site::factory()->create();
+    $site = Site::factory()->create([
+        'content' => [...Site::factory()->make()->content, 'cta_label' => 'Get in Touch'],
+    ]);
 
     $this->get(route('sites.preview', $site->slug))
         ->assertOk()
-        ->assertSeeInOrder(['class="cta-band"', 'class="site-footer"'], escape: false)
-        ->assertDontSee('Get in Touch');
+        ->assertSeeInOrder(['class="cta-band"', 'class="site-footer"'], escape: false);
 
     $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'about', 'internal' => 1]))
         ->assertOk()
@@ -185,7 +210,7 @@ test('the pre-footer cta sits above the footer on every page except contact', fu
     $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'contact', 'internal' => 1]))
         ->assertOk()
         ->assertSee('Get in Touch')
-        ->assertDontSee('class="cta-band"', escape: false);
+        ->assertDontSee('<section class="cta-band">', escape: false);
 });
 
 test('the homepage includes how it works, why choose us, service area and a column footer', function () {
@@ -209,6 +234,49 @@ test('the homepage includes how it works, why choose us, service area and a colu
         ->assertSee('>Explore<', escape: false)
         ->assertSee('Emergency Repairs')
         ->assertSee('Monday');
+});
+
+test('every template puts one call to action on the right of the navbar', function (SiteTemplate $template) {
+    $site = Site::factory()->create([
+        'template' => $template,
+        'content' => [
+            ...Site::factory()->make()->content,
+            'cta_label' => 'Book a visit',
+        ],
+    ]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('class="btn btn-primary header-cta"', escape: false)
+        ->assertSee('class="btn btn-primary mobile-cta"', escape: false)
+        ->assertSee('Book a visit')
+        ->assertSee('overflow-x: clip', escape: false)
+        ->assertDontSee('header-call', escape: false);
+})->with(SiteTemplate::cases());
+
+test('editorial dark keeps area and address text on a dark surface', function () {
+    $lead = Lead::factory()->create([
+        'name' => 'Handyman Mike',
+        'city' => 'Austin',
+        'neighborhood' => 'North Loop',
+        'state' => 'Texas',
+        'address' => '5211 Eilers Ave, Austin, TX 78751, USA',
+        'opening_hours' => ['Monday' => '8 AM to 6 PM'],
+    ]);
+    $site = Site::factory()->create([
+        'lead_id' => $lead->id,
+        'template' => SiteTemplate::EditorialDark,
+    ]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('Handyman Mike')
+        ->assertSee('North Loop')
+        ->assertSee('5211 Eilers Ave, Austin, TX 78751, USA')
+        ->assertSee('8 AM to 6 PM')
+        ->assertSee('.location-card, .area-chips li { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }', escape: false)
+        ->assertDontSee('background: color-mix(in srgb, var(--accent) 8%, #fff)', escape: false)
+        ->assertDontSee('background: color-mix(in srgb, var(--accent) 6%, #fff)', escape: false);
 });
 
 test('a site can override its catalog layout for one section', function () {

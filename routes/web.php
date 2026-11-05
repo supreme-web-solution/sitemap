@@ -61,6 +61,7 @@ use App\Http\Controllers\Sites\PreviewSectionViewController;
 use App\Http\Controllers\Sites\PreviewUnlockController;
 use App\Http\Controllers\Sites\SiteChatController;
 use App\Http\Controllers\Sites\SiteConceptController;
+use App\Http\Controllers\Sites\SiteContactController;
 use App\Http\Controllers\Sites\SiteController;
 use App\Http\Controllers\Sites\SiteDesignTemplateController;
 use App\Http\Controllers\Sites\SiteDomainController;
@@ -92,6 +93,9 @@ Route::inertia('/', 'Welcome')->name('home');
 Route::middleware(EnsureBrandedPreviewHost::class)->group(function () {
     Route::get('p/concept/{siteConcept}', ConceptPreviewController::class)->name('sites.concepts.preview');
     Route::get('p/{site:slug}/{path?}', SitePreviewController::class)->where('path', '.*')->name('sites.preview');
+    Route::post('p/{site:slug}/contact', SiteContactController::class)
+        ->middleware('throttle:preview-interest')
+        ->name('sites.preview.contact');
     Route::post('p/{site:slug}/interest', SitePreviewInterestController::class)
         ->middleware('throttle:preview-interest')
         ->name('sites.preview.interest');

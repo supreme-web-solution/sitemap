@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\SiteDesignStyle;
 use App\Enums\SiteLayoutVariant;
 use App\Enums\SiteTemplate;
+use App\Models\Site;
 use App\Models\SiteDesignTemplate;
 use App\Services\SiteBuilder\SectionVariants;
 use Illuminate\Database\Seeder;
@@ -51,11 +52,47 @@ class SiteDesignTemplateSeeder extends Seeder
             }
 
             $merged = array_merge($desired, SectionVariants::clean($current));
+            $services = $entry['variants']['services'] ?? '';
+            $replacingAutomaticStack = in_array($services, ['list', 'numbered'], true)
+                && ($current['services_page'] ?? null) === 'stack';
+
+            if ($replacingAutomaticStack) {
+                $merged['services_page'] = 'zigzag';
+            }
 
             if ($merged !== $current) {
                 $row->update(['variants' => $merged]);
             }
+
+            if ($replacingAutomaticStack) {
+                $this->alternateServicesPages($row->id);
+            }
         }
+    }
+
+    /**
+     * Move websites that inherited the old all-right services page onto the alternating layout.
+     *
+     * A later choice of "Image on the right" is stored on the site and is left as it is
+     * once the template itself no longer carries the automatic stack value.
+     */
+    protected function alternateServicesPages(int $designTemplateId): void
+    {
+        Site::query()
+            ->where('design_template_id', $designTemplateId)
+            ->each(function (Site $site): void {
+                $content = $site->content;
+                $variants = $content['variants'] ?? null;
+
+                if (! is_array($variants) || ($variants['services_page'] ?? null) !== 'stack') {
+                    return;
+                }
+
+                $variants['services_page'] = 'zigzag';
+                $content['variants'] = $variants;
+                $site->content = $content;
+                $site->save();
+            });
     }
 
     /**

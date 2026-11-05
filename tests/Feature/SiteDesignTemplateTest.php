@@ -77,7 +77,9 @@ test('inner page layouts follow the homepage mix for each template', function ()
             'header' => 'line',
         ])
         ->and(SectionVariants::complementary(['hero' => 'overlay']))
-        ->toMatchArray(['header' => 'bar']);
+        ->toMatchArray(['header' => 'bar'])
+        ->and(SectionVariants::complementary(['services' => 'numbered']))
+        ->services_page->toBe('zigzag');
 });
 
 test('section variants ignore unknown values and skip defaults', function () {

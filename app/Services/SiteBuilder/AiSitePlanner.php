@@ -100,7 +100,7 @@ abstract class AiSitePlanner implements SiteCopywriter
             $errors = $this->validationErrors($plan, $lead, $template);
 
             if ($errors === []) {
-                return $this->toDraft($plan, null, $template);
+                return $this->toDraft($plan, null, $template, $lead);
             }
         }
 
@@ -244,10 +244,16 @@ abstract class AiSitePlanner implements SiteCopywriter
      * @param  array<string, mixed>  $plan
      * @param  array<string, mixed>|null  $previousContent
      */
-    protected function toDraft(array $plan, ?array $previousContent = null, ?SiteTemplate $expectedTemplate = null): SiteDraft
+    protected function toDraft(array $plan, ?array $previousContent = null, ?SiteTemplate $expectedTemplate = null, ?Lead $lead = null): SiteDraft
     {
         $normalized = $this->normalizePlanPayload($plan, $expectedTemplate);
         $content = SiteContentSchema::toContent($normalized, withDefaults: true);
+
+        if ($lead !== null) {
+            $shaped = (new SiteServiceCopy)->build($lead, $this->fallback->serviceFillers($lead->category), $content['services']);
+            $content['services'] = $shaped['services'];
+            $content['additional_services'] = $shaped['additional_services'];
+        }
 
         if ($previousContent !== null) {
             $content = SiteContentSchema::preserveEditorFields($previousContent, $content);
@@ -346,8 +352,9 @@ abstract class AiSitePlanner implements SiteCopywriter
         Copy rules:
         - Use only facts present in the business profile. Never invent prices, founding years, years of experience, awards, licences, certifications, guarantees, team members, testimonials or statistics.
         - Mention the rating or review count only when the profile includes them.
-        - When services_from_listing is present, use those names as the service titles (you may expand descriptions in general terms).
-        - Otherwise, services must be things this kind of business plainly offers; describe them in general terms.
+        - Write exactly 4 services. Never more, never fewer. Each description is a solid marketing paragraph of four or five short sentences (about 300 to 450 characters). Each body is two paragraphs: the first expands on the work, the second explains how a job starts and how to get in touch. Do not leave a service as a title or a single line.
+        - When services_from_listing has real offerings, use those names for up to 4 services. Put any further names in additional_services (titles only, no pages). A category label such as "Handyman/Handywoman/Handyperson" is not a service: draft 4 related services instead.
+        - Otherwise, draft 4 services this kind of business plainly offers. Prefer concrete jobs over the category name.
         - FAQs may only answer from the profile (location, hours, phone, email). Return an empty list if there is nothing factual to answer.
         - Plain, warm, confident English. No exclamation marks, no emojis, no ALL CAPS.
         - The headline is at most 70 characters and should name what the business does and where.
@@ -359,7 +366,7 @@ abstract class AiSitePlanner implements SiteCopywriter
         - Include "reviews" when reviews_count is 3 or more, and place it after "why". The page shows the Google reviews collected for the business. Do not write the quotes yourself.
         - Always include "services", "process", "why" and "contact".
         - The sections field is the homepage block order. When asked to add or remove a section (reviews, faq, gallery, etc.), update sections accordingly while keeping other fields unless the user asked to rewrite them.
-        - Layout variants (optional): hero = classic, centered, overlay, split, minimal, photo-top, card. services = cards, list, numbered, columns, featured, tiles, outline. about = split, centered, quote, card, columns, highlight. process = steps, timeline, stacked, cards, split. why = cards, numbered, list, band, split. gallery = grid, masonry, mosaic, strip, polaroid, duo. areas = chips, grid, list, split. faq = accordion, two-column, lined, cards, numbered. hours = split, stacked, cards. contact = split, stacked, cards. footer = columns, mega, stacked, compact, cta.
+        - Layout variants (optional): hero = classic, centered, overlay, split, minimal, photo-top, card. services = cards, list, numbered, columns, featured, tiles, outline. about = split, centered, quote, card, columns, highlight. process = steps, timeline, stacked, cards, split. why = cards, numbered, list, band, split. gallery = grid, masonry, mosaic, strip, polaroid, duo. areas = chips, grid, list, split. faq = accordion, two-column, lined, cards, numbered. hours = split, stacked, cards. contact = split, stacked, cards. footer = columns, mega, stacked, compact, cta. services_page = zigzag (alternate the image side), reverse, stack (image stays on the right), featured, cards. Prefer zigzag unless the user asked for every image on the same side.
         - When you include variants, it must be a JSON object mapping section keys to variant ids (for example {"footer":"columns"}), never a string.
         PROMPT;
     }
@@ -454,16 +461,22 @@ abstract class AiSitePlanner implements SiteCopywriter
                 ],
                 'services' => [
                     'type' => 'array',
-                    'minItems' => 3,
-                    'maxItems' => 6,
+                    'minItems' => 4,
+                    'maxItems' => 4,
                     'items' => [
                         'type' => 'object',
                         'properties' => [
                             'title' => ['type' => 'string', 'maxLength' => 60],
-                            'description' => ['type' => 'string', 'maxLength' => 250],
+                            'description' => ['type' => 'string', 'maxLength' => SiteContentSchema::SERVICE_DESCRIPTION_MAX],
+                            'body' => ['type' => 'string', 'maxLength' => 5000],
                         ],
-                        'required' => ['title', 'description'],
+                        'required' => ['title', 'description', 'body'],
                     ],
+                ],
+                'additional_services' => [
+                    'type' => 'array',
+                    'maxItems' => 8,
+                    'items' => ['type' => 'string', 'maxLength' => 60],
                 ],
                 'faqs' => [
                     'type' => 'array',

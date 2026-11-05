@@ -32,9 +32,26 @@ function sitePlanInput(array $overrides = []): array
         'about' => 'Bright Smile Dental looks after families across Austin.',
         'sections' => ['services', 'about', 'contact'],
         'services' => [
-            ['title' => 'Checkups', 'description' => 'Routine exams for the whole family.'],
-            ['title' => 'Cleanings', 'description' => 'Professional cleaning for a healthy smile.'],
-            ['title' => 'Whitening', 'description' => 'Brighten your smile.'],
+            [
+                'title' => 'Checkups',
+                'description' => 'Routine exams for the whole family, explained in plain language before anything starts and finished with care.',
+                'body' => "Routine exams for the whole family, explained in plain language before anything starts and finished with care.\n\nYou say what you need, we look at the visit, and we agree the next step before anything begins.",
+            ],
+            [
+                'title' => 'Cleanings',
+                'description' => 'Professional cleaning for a healthy smile, with a clear plan for what will be done during the visit.',
+                'body' => "Professional cleaning for a healthy smile, with a clear plan for what will be done during the visit.\n\nYou say what you need, we look at the visit, and we agree the next step before anything begins.",
+            ],
+            [
+                'title' => 'Whitening',
+                'description' => 'Brighten your smile with a careful treatment talked through before it starts.',
+                'body' => "Brighten your smile with a careful treatment talked through before it starts.\n\nYou say what you need, we look at the visit, and we agree the next step before anything begins.",
+            ],
+            [
+                'title' => 'Urgent Visits',
+                'description' => 'Get seen when tooth pain cannot wait, with clear next steps before the work begins.',
+                'body' => "Get seen when tooth pain cannot wait, with clear next steps before the work begins.\n\nYou say what you need, we look at the visit, and we agree the next step before anything begins.",
+            ],
         ],
         'faqs' => [],
         ...$overrides,

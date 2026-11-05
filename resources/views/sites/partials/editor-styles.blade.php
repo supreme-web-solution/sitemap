@@ -8,7 +8,7 @@
     html.sm-editing [data-edit-image].sm-selected { outline-color: #2563eb; }
     html.sm-editing .edit-add-image { position: absolute; z-index: 2; right: 1.25rem; top: 5.5rem; padding: .6rem 1rem; border-radius: 999px; border: 2px dashed #2563eb; background: rgba(255,255,255,.92); color: #1d4ed8; font: 600 .9rem system-ui, sans-serif; cursor: pointer; }
     html.sm-editing details > summary { cursor: text; }
-    html.sm-editing .mobile-call, html.sm-editing .preview-bar, html.sm-editing .preview-modal { display: none !important; }
+    html.sm-editing:not(.sm-preview-mode) .mobile-cta, html.sm-editing .preview-bar, html.sm-editing .preview-modal { display: none !important; }
     html.sm-editing [data-section].sm-section-hover { outline: 2px dashed rgba(37, 99, 235, .5); outline-offset: -2px; }
     html.sm-editing [data-section].sm-section-selected { outline: 2px solid #2563eb; outline-offset: -2px; }
     html.sm-preview-mode [data-edit], html.sm-preview-mode [data-edit-image] { outline: none !important; cursor: auto; background: none !important; }

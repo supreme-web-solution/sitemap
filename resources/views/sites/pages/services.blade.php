@@ -22,7 +22,7 @@
                         <a class="service" href="{{ $urls->to('services/'.$service['slug']) }}">
                             @include('sites.partials.service-card-media')
                             <h2 class="service-title"{!! $e->text('services.'.$loop->index.'.title', 'Service name', 60) !!}>{{ $service['title'] }}</h2>
-                            <p{!! $e->text('services.'.$loop->index.'.description', 'Service description', 250, true) !!}>{{ $service['description'] }}</p>
+                            <p class="keeps-lines"{!! $e->text('services.'.$loop->index.'.description', 'Service description', \App\Services\SiteBuilder\SiteContentSchema::SERVICE_DESCRIPTION_MAX, true) !!}>{{ $service['description'] }}</p>
                             <span class="more-link">Learn more &rarr;</span>
                         </a>
                     @endforeach
@@ -33,7 +33,7 @@
                         <article class="service-feature{{ $loop->even ? ' is-alt' : '' }}">
                             <div class="service-feature__copy">
                                 <h2 class="service-title"{!! $e->text('services.'.$loop->index.'.title', 'Service name', 60) !!}>{{ $service['title'] }}</h2>
-                                <p{!! $e->text('services.'.$loop->index.'.description', 'Service description', 250, true) !!}>{{ $service['description'] }}</p>
+                                <p class="keeps-lines"{!! $e->text('services.'.$loop->index.'.description', 'Service description', \App\Services\SiteBuilder\SiteContentSchema::SERVICE_DESCRIPTION_MAX, true) !!}>{{ $service['description'] }}</p>
                                 <div class="section-actions">
                                     <a class="btn btn-primary" href="{{ $quoteHref }}">
                                         <span{!! $e->text('cta_label', 'Button text', 40) !!}>{{ $content['cta_label'] }}</span>
@@ -46,6 +46,17 @@
                             </div>
                         </article>
                     @endforeach
+                </div>
+            @endif
+
+            @if (! empty($content['additional_services']))
+                <div class="additional-services">
+                    <h2 class="section-title">Also available</h2>
+                    <ul>
+                        @foreach ($content['additional_services'] as $extra)
+                            <li>{{ $extra }}</li>
+                        @endforeach
+                    </ul>
                 </div>
             @endif
         </div>

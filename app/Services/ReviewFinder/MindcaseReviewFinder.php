@@ -36,10 +36,9 @@ class MindcaseReviewFinder implements ReviewFinder
             ->timeout(self::WAIT_TIMEOUT + 10)
             ->post('data/google-maps/reviews/run?wait=true&wait_timeout='.self::WAIT_TIMEOUT, [
                 'params' => [
-                    'urls' => [['url' => $lead->reviewsUrl()]],
+                    'urls' => $lead->reviewsUrl(),
                     'maxReviews' => $this->maxReviews,
                     'sortBy' => 'mostRelevant',
-                    'language' => 'en',
                 ],
             ])
             ->throw();

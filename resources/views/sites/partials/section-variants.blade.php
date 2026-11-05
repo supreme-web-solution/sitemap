@@ -2,7 +2,7 @@
     /* ===== Hero variants ===== */
     .hero-v-centered .hero .container { display: flex; flex-direction: column; align-items: center; text-align: center; grid-template-columns: none; }
     .hero-v-centered .hero h1, .hero-v-centered .hero p { margin-left: auto; margin-right: auto; }
-    .hero-v-centered .hero h1 { max-width: 20ch; }
+    .hero-v-centered .hero h1 { max-width: min(20ch, 100%); }
     .hero-v-centered .hero-actions { justify-content: center; }
     .hero-v-centered .hero .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; object-fit: cover; opacity: .16; }
     .hero-v-centered .hero::after { display: none; }
@@ -19,7 +19,7 @@
 
     @media (min-width: 900px) {
         .hero-v-split .hero { min-height: 70vh; display: flex; align-items: center; }
-        .hero-v-split .hero .container { display: block; grid-template-columns: none; width: 50%; max-width: 50%; margin: 0; padding-left: max(1.25rem, calc((100vw - 1140px) / 2 + 1.25rem)); padding-right: 2.5rem; }
+        .hero-v-split .hero .container { display: block; grid-template-columns: none; width: 50%; max-width: 50%; margin: 0; padding-left: max(1.25rem, calc((100% - 1140px) / 2 + 1.25rem)); padding-right: 2.5rem; }
         .hero-v-split .hero .hero-image { position: absolute; inset: 0 0 0 auto; width: 46%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; opacity: 1; object-fit: cover; }
     }
     @media (max-width: 899px) {
@@ -32,8 +32,8 @@
     .hero-v-minimal .hero { display: block; min-height: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
     .hero-v-minimal .hero .hero-image, .hero-v-minimal .hero::after { display: none; }
     .hero-v-minimal .hero .container { padding-top: 7rem; padding-bottom: 5.5rem; grid-template-columns: none; display: block; }
-    .hero-v-minimal .hero h1 { font-size: clamp(2.75rem, 7vw, 5.25rem); line-height: 1.02; letter-spacing: -.03em; max-width: 18ch; }
-    .hero-v-minimal .hero p { max-width: 34rem; }
+    .hero-v-minimal .hero h1 { font-size: clamp(2.75rem, 7vw, 5.25rem); line-height: 1.02; letter-spacing: -.03em; max-width: min(18ch, 100%); }
+    .hero-v-minimal .hero p { max-width: min(34rem, 100%); }
     .hero-v-minimal .hero-eyebrow { padding: 0; background: transparent; border-radius: 0; }
 
     .hero-v-photo-top .hero { display: block; min-height: 0; }
@@ -44,7 +44,10 @@
     .hero-v-card .hero { min-height: 74vh; display: flex; align-items: center; padding: 3.5rem 0; }
     .hero-v-card .hero .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; opacity: 1; object-fit: cover; }
     .hero-v-card .hero::after { content: ''; position: absolute; inset: 0; background: rgba(8,12,24,.3); }
-    .hero-v-card .hero .container { display: block; grid-template-columns: none; width: min(640px, calc(100% - 2.5rem)); max-width: none; margin: 0 auto 0 max(1.25rem, calc((100vw - 1140px) / 2 + 1.25rem)); padding: 2.5rem; border-radius: var(--radius); background: color-mix(in srgb, var(--bg, var(--cream, #fff)) 94%, transparent); backdrop-filter: blur(6px); box-shadow: 0 30px 60px -24px rgba(0,0,0,.45); }
+    .hero-v-card .hero .container { display: block; grid-template-columns: none; width: min(640px, calc(100% - 2.5rem)); max-width: none; margin: 0 auto; padding: 2.5rem; border-radius: var(--radius); background: color-mix(in srgb, var(--bg, var(--cream, #fff)) 94%, transparent); backdrop-filter: blur(6px); box-shadow: 0 30px 60px -24px rgba(0,0,0,.45); }
+    @media (min-width: 900px) {
+        .hero-v-card .hero .container { margin-left: max(1.25rem, calc((100% - 1140px) / 2 + 1.25rem)); margin-right: auto; }
+    }
     .hero-v-card .hero p { margin-bottom: 1.5rem; }
 
     /* Inner pages always keep a photo overlay hero, even if the homepage uses split/minimal. */
@@ -239,13 +242,17 @@
         .gallery-v-mosaic .gallery img:first-child { grid-row: span 1; }
     }
 
-    .gallery-v-strip .gallery { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding-bottom: .75rem; scrollbar-width: thin; }
+    .gallery-v-strip .gallery { display: flex; max-width: 100%; min-width: 0; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding-bottom: .75rem; scrollbar-width: thin; }
     .gallery-v-strip .gallery img { flex: 0 0 min(80%, 26rem); scroll-snap-align: start; }
 
     .gallery-v-polaroid .gallery { gap: 1.75rem; padding: .5rem; }
     .gallery-v-polaroid .gallery img { background: #fff; padding: .6rem .6rem 2.4rem; border-radius: 3px; box-shadow: 0 14px 30px -12px rgba(0,0,0,.35); aspect-ratio: 1 / 1; transform: rotate(-1.5deg); transition: transform .25s ease; }
     .gallery-v-polaroid .gallery img:nth-child(even) { transform: rotate(1.6deg); }
     .gallery-v-polaroid .gallery img:hover { transform: rotate(0) scale(1.03); }
+    @media (max-width: 700px) {
+        .gallery-v-polaroid .gallery { overflow: clip; }
+        .gallery-v-polaroid .gallery img, .gallery-v-polaroid .gallery img:nth-child(even), .gallery-v-polaroid .gallery img:hover { transform: none; }
+    }
 
     .gallery-v-duo .gallery { grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
     .gallery-v-duo .gallery img { aspect-ratio: 3 / 2; }

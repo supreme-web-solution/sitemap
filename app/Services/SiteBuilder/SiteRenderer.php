@@ -38,6 +38,16 @@ class SiteRenderer
         $innerPath = $parsed['path'];
         $defaultLocale = SiteLocales::default($site->content);
         $content = SiteLocales::merge($site->content, $locale);
+        $lead = $site->lead;
+        $editing = $editor && $asPreview;
+
+        if (! $editing) {
+            $content = (new SiteServiceCopy)->ensureReady(
+                $lead,
+                $content,
+                app(RuleBasedCopywriter::class)->serviceFillers($lead->category),
+            );
+        }
 
         $renderSite = clone $site;
         $renderSite->content = $content;
@@ -49,12 +59,10 @@ class SiteRenderer
         }
 
         $urls ??= $asPreview
-            ? SiteUrls::preview($site, request()->boolean('internal') || $editor, $editor, $locale)
+            ? SiteUrls::preview($site, request()->boolean('internal') || $editing, $editing, $locale)
             : SiteUrls::root(defaultLocale: $defaultLocale, locale: $locale);
 
-        $editor = $editor && $asPreview;
-
-        $lead = $site->lead;
+        $editor = $editing;
         $photos = $lead->photoUrls();
         $hours = $this->orderedHours($lead->opening_hours);
         $mapEmbedUrl = $this->mapEmbedUrl($lead->name, $lead->address);
@@ -90,6 +98,8 @@ class SiteRenderer
                 ? SiteLocales::switcher($site, $urls, $page['path'])
                 : [],
             'asPreview' => $asPreview && ! $editor,
+            'contactFormAction' => $asPreview ? route('sites.preview.contact', $site) : $urls->to('contact'),
+            'contactFormUsesCsrf' => $asPreview,
             'editing' => $editor,
             'e' => new SiteEditing($content, $editor),
             'designCss' => SiteDesign::css($content),

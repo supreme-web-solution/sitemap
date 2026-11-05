@@ -12,6 +12,8 @@ class SiteContentSchema
 {
     public const HEADLINE_MAX = 160;
 
+    public const SERVICE_DESCRIPTION_MAX = 500;
+
     public const MAX_SERVICES = 8;
 
     public const MAX_FAQS = 10;
@@ -67,9 +69,11 @@ class SiteContentSchema
             'hidden_sections.*' => ['string', 'distinct', Rule::in(SiteSection::defaultOrder())],
             'services' => ['required', 'array', 'min:1', 'max:'.self::MAX_SERVICES],
             'services.*.title' => ['required', 'string', 'max:60'],
-            'services.*.description' => ['required', 'string', 'max:250'],
+            'services.*.description' => ['required', 'string', 'max:'.self::SERVICE_DESCRIPTION_MAX],
             'services.*.slug' => ['nullable', 'string', 'max:60', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
             'services.*.body' => ['nullable', 'string', 'max:5000'],
+            'additional_services' => ['sometimes', 'array', 'max:8'],
+            'additional_services.*' => ['string', 'max:60', 'distinct'],
             'services.*.image_path' => ['nullable', 'string', 'max:255'],
             'pages' => ['sometimes', 'array'],
             'pages.*' => ['required', 'distinct', Rule::in(SitePages::OPTIONAL)],
@@ -221,6 +225,16 @@ class SiteContentSchema
             $services[] = $entry;
         }
 
+        $additional = [];
+
+        foreach (array_values($validated['additional_services'] ?? []) as $title) {
+            $title = trim((string) $title);
+
+            if ($title !== '') {
+                $additional[] = $title;
+            }
+        }
+
         $content = [
             'accent' => strtolower($validated['accent']),
             'headline' => $validated['headline'],
@@ -234,6 +248,10 @@ class SiteContentSchema
                 $validated['faqs'],
             )),
         ];
+
+        if (array_key_exists('additional_services', $validated)) {
+            $content['additional_services'] = $additional;
+        }
 
         if (filled($validated['reviews_style'] ?? null)) {
             $content['reviews_style'] = $validated['reviews_style'];

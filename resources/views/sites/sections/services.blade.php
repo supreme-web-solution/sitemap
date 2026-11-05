@@ -9,14 +9,14 @@
                     <a class="service" href="{{ $urls->to('services/'.$service['slug']) }}">
                         @include('sites.partials.service-card-media')
                         <h3{!! $e->text('services.'.$loop->index.'.title', 'Service name', 60) !!}>{{ $service['title'] }}</h3>
-                        <p{!! $e->text('services.'.$loop->index.'.description', 'Service description', 250, true) !!}>{{ $service['description'] }}</p>
+                        <p class="keeps-lines"{!! $e->text('services.'.$loop->index.'.description', 'Service description', \App\Services\SiteBuilder\SiteContentSchema::SERVICE_DESCRIPTION_MAX, true) !!}>{{ $service['description'] }}</p>
                         <span class="more-link">Learn more &rarr;</span>
                     </a>
                 @else
                     <article class="service">
                         @include('sites.partials.service-card-media')
                         <h3{!! $e->text('services.'.$loop->index.'.title', 'Service name', 60) !!}>{{ $service['title'] }}</h3>
-                        <p{!! $e->text('services.'.$loop->index.'.description', 'Service description', 250, true) !!}>{{ $service['description'] }}</p>
+                        <p class="keeps-lines"{!! $e->text('services.'.$loop->index.'.description', 'Service description', \App\Services\SiteBuilder\SiteContentSchema::SERVICE_DESCRIPTION_MAX, true) !!}>{{ $service['description'] }}</p>
                     </article>
                 @endif
             @endforeach

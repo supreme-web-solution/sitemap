@@ -21,11 +21,12 @@
                 @php
                     $bodyAttributes = $serviceIndex !== null ? $e->text('services.'.$serviceIndex.'.body', 'Service page text', 5000, true, reload: true) : '';
                 @endphp
-                @if (filled($page['service']['body']))
-                    @include('sites.partials.prose', ['text' => $page['service']['body'], 'editAttributes' => $bodyAttributes])
-                @else
-                    @include('sites.partials.prose', ['text' => 'Want to know more about '.$page['service']['title'].'? Get in touch with '.$lead->name.' and we will talk you through the options.', 'editAttributes' => $bodyAttributes])
-                @endif
+                @include('sites.partials.prose', [
+                    'text' => filled($page['service']['body'])
+                        ? $page['service']['body']
+                        : $page['service']['description'],
+                    'editAttributes' => $bodyAttributes,
+                ])
             </div>
             <aside class="service">
                 <div class="service-aside">

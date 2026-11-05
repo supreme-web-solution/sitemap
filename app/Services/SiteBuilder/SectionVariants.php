@@ -183,9 +183,9 @@ class SectionVariants
             'label' => 'Services page',
             'default' => 'zigzag',
             'variants' => [
-                'zigzag' => 'Alternating image and summary',
+                'zigzag' => 'Alternate image sides',
                 'reverse' => 'Start with the image on the left',
-                'stack' => 'Summary left, image right',
+                'stack' => 'Image on the right',
                 'featured' => 'First service large, then alternate',
                 'cards' => 'Compact cards',
             ],
@@ -221,7 +221,6 @@ class SectionVariants
                 default => 'story',
             },
             'services_page' => match ($services) {
-                'list', 'numbered' => 'stack',
                 'featured' => 'featured',
                 'tiles', 'outline' => 'cards',
                 default => 'zigzag',
