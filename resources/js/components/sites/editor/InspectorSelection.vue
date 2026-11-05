@@ -59,6 +59,8 @@ const instruction = ref('');
 const imagePrompt = ref('');
 const uploading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+const addFileInput = ref<HTMLInputElement | null>(null);
+const uploadTargetIndex = ref<number | null>(null);
 
 watch(
     () => props.selection,
@@ -68,7 +70,22 @@ watch(
 );
 
 const textSelection = computed(() => (props.selection.kind === 'text' ? props.selection : null));
-const imageSelection = computed(() => (props.selection.kind === 'image' ? props.selection : null));
+const imageSelection = computed(() => {
+    if (props.selection.kind === 'image') {
+        return props.selection;
+    }
+
+    // Overlay heroes are hard to click — when the Hero section is selected, still offer photo tools.
+    if (props.selection.kind === 'section' && props.selection.key === 'hero') {
+        return { kind: 'image' as const, slot: 'photo' as const, index: 0, label: 'Hero photo' };
+    }
+
+    if (props.selection.kind === 'design' && props.selection.region === 'hero') {
+        return { kind: 'image' as const, slot: 'photo' as const, index: 0, label: 'Hero photo' };
+    }
+
+    return null;
+});
 const sectionSelection = computed(() => {
     const current = props.selection;
 
@@ -84,6 +101,12 @@ const sectionSelection = computed(() => {
 });
 
 const designSelection = computed(() => (props.selection.kind === 'design' ? props.selection : null));
+const heroPhotoFromSection = computed(
+    () =>
+        props.selection.kind !== 'image' &&
+        ((props.selection.kind === 'section' && props.selection.key === 'hero') ||
+            (props.selection.kind === 'design' && props.selection.region === 'hero')),
+);
 
 const textValue = computed(() => {
     const selection = textSelection.value;
@@ -154,29 +177,55 @@ const canUseAiImage = computed(() => {
 
 const canGenerateWithoutPrompt = computed(() => imageSelection.value?.slot === 'service');
 
+const canAddPhoto = computed(() => {
+    const selection = imageSelection.value;
+
+    return (
+        selection?.slot === 'photo' &&
+        props.media.photos.length < (props.media.maxPhotos ?? 12)
+    );
+});
+
+const nextPhotoIndex = computed(() => props.media.photos.length);
+
 const upload = async (event: Event) => {
     const selection = imageSelection.value;
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
 
     if (!selection || !file) {
+        uploadTargetIndex.value = null;
+        input.value = '';
+
         return;
     }
 
+    const index =
+        selection.slot === 'photo' ? (uploadTargetIndex.value ?? selection.index) : selection.index;
+    uploadTargetIndex.value = null;
     uploading.value = true;
 
     try {
         emit(
             'media-changed',
-            await uploadSiteImage(props.teamSlug, props.siteId, { slot: selection.slot, index: selection.index }, file),
+            await uploadSiteImage(props.teamSlug, props.siteId, { slot: selection.slot, index }, file),
         );
-        toast.success('Image updated');
+        toast.success(index !== null && index >= props.media.photos.length ? 'Photo added' : 'Image updated');
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'The image could not be saved.');
     } finally {
         uploading.value = false;
         input.value = '';
     }
+};
+
+const startAddPhoto = () => {
+    if (!canAddPhoto.value) {
+        return;
+    }
+
+    uploadTargetIndex.value = nextPhotoIndex.value;
+    addFileInput.value?.click();
 };
 
 const generateImage = async () => {
@@ -395,8 +444,12 @@ const textareaClass =
         </template>
 
         <template v-if="imageSelection">
-            <div class="grid gap-2">
+            <div class="grid gap-2" :class="heroPhotoFromSection ? 'mb-4 border-b border-border pb-4' : ''">
                 <Label>{{ imageSelection.label }}</Label>
+                <p v-if="heroPhotoFromSection" class="text-xs text-muted-foreground">
+                    Full-bleed hero layouts use this photo behind the copy. Replace or generate it
+                    here, or use Photo on the section toolbar.
+                </p>
                 <div
                     class="flex aspect-video items-center justify-center overflow-hidden rounded-lg border bg-muted/40"
                 >
@@ -416,16 +469,39 @@ const textareaClass =
                     data-test="image-input"
                     @change="upload"
                 />
-                <div class="flex gap-2">
+                <input
+                    ref="addFileInput"
+                    type="file"
+                    class="sr-only"
+                    accept="image/png,image/jpeg,image/webp"
+                    data-test="add-image-input"
+                    @change="upload"
+                />
+                <div class="flex flex-wrap gap-2">
                     <Button
                         type="button"
                         size="sm"
                         :disabled="uploading"
-                        @click="fileInput?.click()"
+                        @click="
+                            uploadTargetIndex = null;
+                            fileInput?.click();
+                        "
                     >
                         <LoaderCircle v-if="uploading" class="animate-spin" />
                         <ImagePlus v-else />
                         {{ currentImage ? 'Replace image' : 'Upload image' }}
+                    </Button>
+                    <Button
+                        v-if="canAddPhoto"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        :disabled="uploading"
+                        data-test="add-gallery-photo"
+                        @click="startAddPhoto"
+                    >
+                        <ImagePlus />
+                        Add another photo
                     </Button>
                     <Button
                         v-if="currentImage"
@@ -438,6 +514,10 @@ const textareaClass =
                         <Trash2 /> Remove
                     </Button>
                 </div>
+                <p v-if="imageSelection.slot === 'photo'" class="text-xs text-muted-foreground">
+                    {{ media.photos.length }} of {{ media.maxPhotos }} photos used. Home shows the
+                    first 6; the rest appear on the Gallery page.
+                </p>
                 <div
                     v-if="canUseAiImage"
                     class="grid gap-2 rounded-lg border border-dashed p-3"

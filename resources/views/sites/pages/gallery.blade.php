@@ -8,12 +8,26 @@
         'introKey' => 'gallery_page_intro',
     ])
 
+    @php
+        $galleryCount = count($galleryPhotos);
+        $galleryMax = \App\Http\Requests\Leads\UpdateLeadProfileRequest::MAX_PHOTOS;
+    @endphp
+
     <section class="block gallery-block">
         <div class="container">
             <div class="gallery">
                 @foreach ($galleryPhotos as $index => $photo)
                     @include('sites.partials.gallery-item', ['photo' => $photo, 'index' => $index])
                 @endforeach
+                @if (! empty($editing) && $galleryCount < $galleryMax)
+                    <button
+                        type="button"
+                        class="edit-add-image is-gallery"
+                        {!! $e->image('photo', $galleryCount, 'Photo '.($galleryCount + 1)) !!}
+                    >
+                        Add a photo
+                    </button>
+                @endif
             </div>
         </div>
     </section>

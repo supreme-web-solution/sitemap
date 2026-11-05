@@ -123,6 +123,10 @@
             return parts.join(' ');
         };
 
+        const heroPhotoEl = (root = document) =>
+            root.querySelector?.('.hero-image[data-edit-image], [data-section="hero"] [data-edit-image="photo"]')
+            || document.querySelector('.hero-image[data-edit-image]');
+
         const placeChrome = (section) => {
             if (! section || ! isEditing() || active || overlay) {
                 chrome.classList.remove('is-visible');
@@ -144,9 +148,7 @@
             chrome.querySelector('.sm-chrome-label').textContent = section.dataset.sectionLabel || section.dataset.section;
             chrome.querySelector('[data-act="up"]').disabled = index <= 0;
             chrome.querySelector('[data-act="down"]').disabled = index === list.length - 1;
-            const photoTarget = section.dataset.section === 'hero'
-                ? section.querySelector('[data-edit-image]')
-                : null;
+            const photoTarget = section.dataset.section === 'hero' ? heroPhotoEl(section) : null;
             const photoButton = chrome.querySelector('[data-act="photo"]');
             photoButton.hidden = ! photoTarget;
             chrome.dataset.section = section.dataset.section;
@@ -155,15 +157,34 @@
             chrome.style.left = Math.max(8, Math.min(window.innerWidth - chrome.offsetWidth - 8, rect.right - chrome.offsetWidth - 12)) + 'px';
         };
 
+        const chromeSection = () => {
+            if (selected?.matches?.('.hero-image, [data-edit-image="photo"]') || selected?.closest?.('[data-section="hero"]')) {
+                return document.querySelector('[data-section="hero"]') || selectedSection || hoveredSection;
+            }
+
+            return selectedSection || hoveredSection;
+        };
+
         const setHover = (section) => {
+            const pinned = chromeSection();
+
+            // Fixed header sits over the hero; do not steal the toolbar while editing the hero/photo.
+            if (
+                section?.dataset.section === 'header'
+                && pinned
+                && pinned.dataset.section !== 'header'
+            ) {
+                return placeChrome(pinned);
+            }
+
             if (hoveredSection === section) {
-                return placeChrome(section);
+                return placeChrome(section || pinned);
             }
 
             hoveredSection?.classList.remove('sm-section-hover');
             hoveredSection = section;
             section?.classList.add('sm-section-hover');
-            placeChrome(section);
+            placeChrome(section || pinned);
         };
 
         document.addEventListener('mouseover', (event) => {
@@ -243,28 +264,38 @@
             }
 
             if (button.dataset.act === 'photo') {
-                const section = document.querySelector('[data-section="' + chrome.dataset.section + '"]');
-                const image = section?.querySelector('[data-edit-image]');
+                event.preventDefault();
+                event.stopPropagation();
+
+                const hero = document.querySelector('[data-section="hero"]');
+                const image = heroPhotoEl(hero) || heroPhotoEl();
 
                 if (! image) {
                     return;
                 }
 
-                event.preventDefault();
-                event.stopPropagation();
                 markSelected(image);
-                clearSectionSelection();
-                setHover(null);
+
+                if (hero) {
+                    selectSection(hero);
+                    hoveredSection = hero;
+                    placeChrome(hero);
+                }
+
                 send('select', {
                     kind: 'image',
-                    slot: image.dataset.editImage,
-                    index: image.dataset.editIndex === '' ? null : Number(image.dataset.editIndex),
-                    label: image.dataset.editLabel || 'Image',
+                    slot: image.dataset.editImage || 'photo',
+                    index: image.dataset.editIndex === '' || image.dataset.editIndex == null
+                        ? 0
+                        : Number(image.dataset.editIndex),
+                    label: image.dataset.editLabel || 'Hero photo',
                 });
                 send('image', {
-                    slot: image.dataset.editImage,
-                    index: image.dataset.editIndex === '' ? null : Number(image.dataset.editIndex),
-                    label: image.dataset.editLabel || 'Image',
+                    slot: image.dataset.editImage || 'photo',
+                    index: image.dataset.editIndex === '' || image.dataset.editIndex == null
+                        ? 0
+                        : Number(image.dataset.editIndex),
+                    label: image.dataset.editLabel || 'Hero photo',
                 });
 
                 return;

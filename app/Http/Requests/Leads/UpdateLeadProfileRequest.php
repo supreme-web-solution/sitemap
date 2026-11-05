@@ -9,7 +9,7 @@ use Illuminate\Validation\Rule;
 
 class UpdateLeadProfileRequest extends FormRequest
 {
-    public const MAX_PHOTOS = 6;
+    public const MAX_PHOTOS = 12;
 
     public const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 

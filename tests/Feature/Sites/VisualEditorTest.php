@@ -456,6 +456,41 @@ test('a photo can be replaced, added and removed', function () {
         ->assertJsonCount(1, 'photos');
 });
 
+test('overlay heroes expose a change-photo control in the editor', function () {
+    Storage::fake('public');
+    [$site, $user] = editorSite();
+    $site->lead->update([
+        'photo_paths' => ['teams/1/leads/1/hero.jpg'],
+    ]);
+    $site->update([
+        'content' => [
+            ...$site->content,
+            'variants' => ['hero' => 'overlay'],
+        ],
+    ]);
+
+    $html = app(SiteRenderer::class)->render($site->fresh(), true, '', null, true);
+
+    expect($html)->toContain('Change photo')
+        ->and($html)->toContain('edit-change-hero')
+        ->and($html)->toContain('data-edit-image="photo"')
+        ->and($html)->toContain('data-edit-label="Hero photo"');
+});
+
+test('the gallery editor shows an add-photo control while under the photo limit', function () {
+    Storage::fake('public');
+    [$site, $user] = editorSite();
+    $site->lead->update([
+        'photo_paths' => ['teams/1/leads/1/one.jpg', 'teams/1/leads/1/two.jpg'],
+    ]);
+
+    $html = app(SiteRenderer::class)->render($site->fresh(), true, '', null, true);
+
+    expect($html)->toContain('Add a photo')
+        ->and($html)->toContain('data-edit-image="photo"')
+        ->and($html)->toContain('data-edit-index="2"');
+});
+
 test('a service card image can be uploaded and removed', function () {
     Storage::fake('public');
     [$site, $user] = editorSite();

@@ -7,11 +7,36 @@
     html.sm-editing [data-edit-image]:hover { outline-color: rgba(37, 99, 235, .8); filter: brightness(.92); }
     html.sm-editing [data-edit-image].sm-selected { outline-color: #2563eb; }
     html.sm-editing .gallery-zoom { opacity: 1; transform: none; z-index: 3; }
-    /* Overlay / full-bleed heroes draw a gradient ::after on top of the <img>; let clicks reach the photo. */
+    /* Overlay / full-bleed heroes: gradient and text container sit over the <img>; let empty photo areas receive clicks. */
     html.sm-editing .hero::after,
     html.sm-editing .hero.page-hero::after { pointer-events: none; }
-    html.sm-editing .hero .hero-image[data-edit-image] { pointer-events: auto; }
+    html.sm-editing .hero .hero-image[data-edit-image] { pointer-events: auto; z-index: 0; }
+    html.sm-editing body:is(.hero-v-overlay, .hero-v-card, .hero-v-centered, .layout-editorial-hero) .hero > .container {
+        pointer-events: none;
+    }
+    html.sm-editing body:is(.hero-v-overlay, .hero-v-card, .hero-v-centered, .layout-editorial-hero) .hero > .container [data-edit],
+    html.sm-editing body:is(.hero-v-overlay, .hero-v-card, .hero-v-centered, .layout-editorial-hero) .hero > .container a,
+    html.sm-editing body:is(.hero-v-overlay, .hero-v-card, .hero-v-centered, .layout-editorial-hero) .hero > .container button,
+    html.sm-editing body:is(.hero-v-overlay, .hero-v-card, .hero-v-centered, .layout-editorial-hero) .hero > .container .hero-actions,
+    html.sm-editing body:is(.hero-v-overlay, .hero-v-card, .hero-v-centered, .layout-editorial-hero) .hero > .container .rating {
+        pointer-events: auto;
+    }
+    html.sm-editing .edit-change-hero {
+        position: absolute; z-index: 3; right: 1.25rem; bottom: 1.25rem; top: auto;
+        padding: .55rem .95rem; border-radius: 999px;
+        border: 2px solid rgba(255,255,255,.85); background: rgba(15,23,42,.78); color: #fff;
+        font: 600 .85rem system-ui, sans-serif; cursor: pointer;
+        box-shadow: 0 10px 28px rgba(15,23,42,.35);
+    }
+    html.sm-editing .edit-change-hero:hover { background: rgba(15,23,42,.92); }
     html.sm-editing .edit-add-image { position: absolute; z-index: 2; right: 1.25rem; top: 5.5rem; padding: .6rem 1rem; border-radius: 999px; border: 2px dashed #2563eb; background: rgba(255,255,255,.92); color: #1d4ed8; font: 600 .9rem system-ui, sans-serif; cursor: pointer; }
+    html.sm-editing .edit-add-image.is-gallery {
+        position: relative; inset: auto; right: auto; top: auto; z-index: 1;
+        display: grid; place-items: center; width: 100%; min-height: 10rem; aspect-ratio: 4 / 3;
+        border-radius: var(--radius, 12px); margin: 0; padding: 1rem;
+        background: rgba(37, 99, 235, .06); color: #1d4ed8; font: 600 .95rem system-ui, sans-serif;
+    }
+    html.sm-editing .edit-add-image.is-gallery:hover { background: rgba(37, 99, 235, .12); }
     html.sm-editing details > summary { cursor: text; }
     html.sm-editing:not(.sm-preview-mode) .mobile-cta, html.sm-editing .preview-bar, html.sm-editing .preview-modal { display: none !important; }
     html.sm-editing [data-section].sm-section-hover { outline: 2px dashed rgba(37, 99, 235, .5); outline-offset: -2px; }

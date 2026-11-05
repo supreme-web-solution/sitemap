@@ -8,6 +8,7 @@ use App\Models\SiteDesignTemplate;
 use App\Models\Team;
 use App\Models\User;
 use Database\Seeders\SiteDesignTemplateSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 test('anyone with the link can view the live preview and the visit is counted', function () {
@@ -190,6 +191,25 @@ test('the owner logo and photos are used on the site', function () {
         ->assertSee(Storage::disk('public')->url('teams/1/leads/1/two.jpg'), escape: false)
         ->assertSee('data-gallery-open', escape: false)
         ->assertSee('id="gallery-lightbox"', escape: false);
+});
+
+test('uploaded website photos are stored on the public disk under the team lead folder', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create();
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->post(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'slot' => 'photo',
+            'image' => UploadedFile::fake()->image('gallery.jpg', 800, 600),
+        ])
+        ->assertOk();
+
+    $path = $lead->fresh()->photo_paths[0];
+
+    expect($path)->toStartWith("teams/{$user->currentTeam->id}/leads/{$lead->id}/");
+    Storage::disk('public')->assertExists($path);
 });
 
 test('footer social links use icons including a fallback for unknown platforms', function () {

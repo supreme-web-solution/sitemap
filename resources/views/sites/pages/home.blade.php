@@ -4,6 +4,9 @@
     <section id="hero" class="hero"{!! $e->section('hero', 'Hero') !!}>
         @if ($heroImage)
             <img class="hero-image" src="{{ $heroImage }}" alt="{{ $lead->name }}" loading="eager" fetchpriority="high" decoding="async"{!! $e->image('photo', 0, 'Hero photo') !!}>
+            @if ($editing)
+                <button type="button" class="edit-add-image edit-change-hero"{!! $e->image('photo', 0, 'Hero photo') !!}>Change photo</button>
+            @endif
         @elseif ($editing)
             <button type="button" class="edit-add-image"{!! $e->image('photo', 0, 'Hero photo') !!}>Add a hero photo</button>
         @endif
