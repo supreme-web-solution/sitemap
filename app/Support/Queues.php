@@ -21,4 +21,7 @@ final class Queues
 
     /** Background checks: link crawls, uptime, backups, reports. */
     public const MONITORING = 'monitoring';
+
+    /** Command Center AI turns and inbound WhatsApp (Zernio webhooks). */
+    public const WEBHOOKS = 'webhooks';
 }

@@ -18,7 +18,18 @@ use Illuminate\Support\Carbon;
  * @property-read Team $team
  * @property-read User $user
  */
-#[Fillable(['team_id', 'user_id', 'role'])]
+#[Fillable([
+    'team_id',
+    'user_id',
+    'role',
+    'command_center_conversation_id',
+    'command_center_mode',
+    'command_center_processing_at',
+    'command_center_whatsapp_link_code',
+    'command_center_whatsapp_phone',
+    'command_center_whatsapp_linked_at',
+    'command_center_whatsapp_conversation_id',
+])]
 class Membership extends Pivot
 {
     /**
@@ -64,6 +75,8 @@ class Membership extends Pivot
     {
         return [
             'role' => TeamRole::class,
+            'command_center_processing_at' => 'datetime',
+            'command_center_whatsapp_linked_at' => 'datetime',
         ];
     }
 }

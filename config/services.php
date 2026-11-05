@@ -40,7 +40,9 @@ return [
 
     /*
     | Anthropic — site planning, AI edits, follow-up sequence drafts, locale translation.
-    | OpenAI / OpenRouter — editor & chat hero photo generation (see config/sites.php).
+    | OpenAI — Command Center AI employee (config/command_center.php).
+    | Zernio — SMS/WhatsApp; Command Center WhatsApp uses ZERNIO_WHATSAPP_* and ZERNIO_WEBHOOK_*.
+    | OpenAI / OpenRouter — editor hero photo generation (see config/sites.php).
     */
 
     'anthropic' => [
@@ -52,6 +54,7 @@ return [
 
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
     ],
 
     'openrouter' => [

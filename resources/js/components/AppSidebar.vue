@@ -26,6 +26,7 @@ import {
     Wallet,
     Users,
     HandCoins,
+    Sparkles,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -59,6 +60,8 @@ import { index as packagesIndex } from '@/routes/packages';
 import { index as paymentsIndex } from '@/routes/payments';
 import { index as planIndex } from '@/routes/plan';
 import { index as proposalsIndex } from '@/routes/proposals';
+import { index as automationsIndex } from '@/routes/automations';
+import { index as commandCenterIndex } from '@/routes/command-center';
 import { edit as brandingEdit } from '@/routes/branding';
 import { edit as editProfile } from '@/routes/profile';
 import { index as sitesIndex } from '@/routes/sites';
@@ -73,14 +76,26 @@ const dashboardUrl = computed(() =>
     team.value ? dashboard(team.value.slug).url : '/',
 );
 
-const homeItems = computed<NavItem[]>(() => [
-    {
-        title: 'Dashboard',
-        href: dashboardUrl.value,
-        icon: LayoutGrid,
-        exact: true,
-    },
-]);
+const homeItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboardUrl.value,
+            icon: LayoutGrid,
+            exact: true,
+        },
+    ];
+
+    if (team.value) {
+        items.push({
+            title: 'Command center',
+            href: commandCenterIndex({ current_team: team.value.slug }).url,
+            icon: Sparkles,
+        });
+    }
+
+    return items;
+});
 
 const pipelineStages: { status: LeadStatus; title: string; dot: string }[] = [
     { status: 'new', title: 'New leads', dot: 'bg-sky-500' },
@@ -253,6 +268,11 @@ const workspaceItems = computed<NavItem[]>(() => [
                   title: 'Plan & usage',
                   href: planIndex({ current_team: team.value.slug }).url,
                   icon: Gauge,
+              },
+              {
+                  title: 'Automations',
+                  href: automationsIndex({ current_team: team.value.slug }).url,
+                  icon: Repeat,
               },
           ]
         : []),

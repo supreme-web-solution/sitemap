@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Leads;
 
+use App\Enums\AutomationTrigger;
 use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
 use App\Enums\UsageMetric;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Leads\SendOutreachRequest;
+use App\Jobs\RunAgencyWorkflow;
 use App\Mail\OutreachEmail;
 use App\Models\Lead;
 use App\Models\Team;
@@ -65,6 +67,12 @@ class LeadOutreachController extends Controller
             'last_contacted_at' => now(),
             'next_follow_up_at' => today()->addDays((int) config('prospecting.follow_up_days_after_contact')),
         ]);
+
+        if ($sending) {
+            RunAgencyWorkflow::dispatchForLead($lead->fresh(), AutomationTrigger::OutreachSent, [
+                'body' => $request->validated('body'),
+            ], $user->id);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $sending
             ? __('Email queued. A follow-up is set for :date.', ['date' => $lead->next_follow_up_at->toFormattedDateString()])

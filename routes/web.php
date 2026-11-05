@@ -6,6 +6,9 @@ use App\Http\Controllers\Admin\AdminPlanController;
 use App\Http\Controllers\Admin\AdminTeamController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ImpersonationController;
+use App\Http\Controllers\Automation\AutomationSettingsController;
+use App\Http\Controllers\Automation\CommandCenterController;
+use App\Http\Controllers\Automation\CommandCenterZernioWebhookController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Discover\NicheResearchController;
 use App\Http\Controllers\Invoices\InvoiceActionController;
@@ -138,6 +141,8 @@ Route::post('webhooks/paypal/{key}', PayPalWebhookController::class)->name('webh
 Route::post('webhooks/paystack/{key}', PaystackWebhookController::class)->name('webhooks.paystack');
 Route::post('webhooks/flutterwave/{key}', FlutterwaveWebhookController::class)->name('webhooks.flutterwave');
 Route::post('webhooks/zernio/{key}', ZernioWebhookController::class)->name('webhooks.zernio');
+Route::post('webhooks/zernio/command-center', CommandCenterZernioWebhookController::class)
+    ->name('webhooks.zernio.command-center');
 
 Route::prefix('admin')
     ->name('admin.')
@@ -236,6 +241,17 @@ Route::prefix('{current_team}')
         Route::post('research', [NicheResearchController::class, 'store'])->name('research.store');
         Route::get('ideal-customer', [IdealCustomerController::class, 'edit'])->name('ideal-customer.edit');
         Route::put('ideal-customer', [IdealCustomerController::class, 'update'])->name('ideal-customer.update');
+
+        Route::get('automations', [AutomationSettingsController::class, 'index'])->name('automations.index');
+        Route::put('automations', [AutomationSettingsController::class, 'update'])->name('automations.update');
+
+        Route::get('command-center', [CommandCenterController::class, 'index'])->name('command-center.index');
+        Route::put('command-center/mode', [CommandCenterController::class, 'updateMode'])->name('command-center.mode');
+        Route::get('command-center/messages', [CommandCenterController::class, 'history'])->name('command-center.messages.history');
+        Route::post('command-center/messages', [CommandCenterController::class, 'store'])->name('command-center.messages.store');
+        Route::post('command-center/pending/{pendingAction}/approve', [CommandCenterController::class, 'approvePending'])->name('command-center.pending.approve');
+        Route::delete('command-center/pending/{pendingAction}', [CommandCenterController::class, 'dismissPending'])->name('command-center.pending.dismiss');
+        Route::delete('command-center/conversation', [CommandCenterController::class, 'destroy'])->name('command-center.conversation.destroy');
 
         Route::get('site-design-templates', [SiteDesignTemplateController::class, 'index'])
             ->name('site-design-templates.index');

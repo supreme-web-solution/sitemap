@@ -2,9 +2,11 @@
 
 namespace App\Actions\Invoices;
 
+use App\Enums\AutomationTrigger;
 use App\Enums\InvoiceStatus;
 use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
+use App\Jobs\RunAgencyWorkflow;
 use App\Models\Invoice;
 
 class MarkInvoicePaid
@@ -46,6 +48,8 @@ class MarkInvoicePaid
         if (! in_array($lead->status, [LeadStatus::Won, LeadStatus::Lost], true)) {
             $lead->update(['status' => LeadStatus::Won, 'next_follow_up_at' => null]);
         }
+
+        RunAgencyWorkflow::dispatchForLead($lead->fresh(), AutomationTrigger::InvoicePaid, [], $userId);
 
         return true;
     }

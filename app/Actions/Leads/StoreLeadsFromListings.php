@@ -3,8 +3,10 @@
 namespace App\Actions\Leads;
 
 use App\Data\BusinessListing;
+use App\Enums\AutomationTrigger;
 use App\Enums\LeadStatus;
 use App\Enums\UsageMetric;
+use App\Jobs\RunAgencyWorkflow;
 use App\Models\Lead;
 use App\Models\LeadSearch;
 use App\Services\Billing\UsageMeter;
@@ -36,6 +38,12 @@ class StoreLeadsFromListings
     public function handle(LeadSearch $search, array $listings): void
     {
         $listings = collect($listings)->unique('placeId');
+
+        $existingPlaceIds = Lead::query()
+            ->where('team_id', $search->team_id)
+            ->whereIn('place_id', $listings->pluck('placeId'))
+            ->pluck('place_id')
+            ->all();
 
         $confirmedPlaceIds = Lead::query()
             ->where('team_id', $search->team_id)
@@ -85,7 +93,17 @@ class StoreLeadsFromListings
             self::REFRESHED_COLUMNS,
         ));
 
-        $this->scoreStoredLeads($search, $rows->pluck('place_id')->all());
+        $placeIds = $rows->pluck('place_id')->all();
+        $this->scoreStoredLeads($search, $placeIds);
+
+        $newPlaceIds = array_values(array_diff($placeIds, $existingPlaceIds));
+
+        if ($newPlaceIds !== []) {
+            Lead::query()
+                ->where('team_id', $search->team_id)
+                ->whereIn('place_id', $newPlaceIds)
+                ->each(fn (Lead $lead) => RunAgencyWorkflow::dispatchForLead($lead, AutomationTrigger::LeadCreated));
+        }
     }
 
     /**

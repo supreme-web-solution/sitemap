@@ -233,6 +233,22 @@ class ZernioClient
         return ['id' => $response->json('data.messageId') ?? $response->json('data.id') ?? $response->json('id'), 'conversationId' => $conversationId];
     }
 
+    /**
+     * Show "typing…" in WhatsApp while the Command Center agent is working.
+     *
+     * @throws MessagingException
+     */
+    public function sendWhatsAppTyping(string $accountId, string $conversationId): void
+    {
+        $response = $this->send(fn () => $this->http()->post("/inbox/conversations/{$conversationId}/typing", [
+            'accountId' => $accountId,
+        ]));
+
+        if (! $response->successful() && ! in_array($response->status(), [404, 405], true)) {
+            $this->check($response);
+        }
+    }
+
     private function http(): PendingRequest
     {
         return Http::baseUrl((string) config('services.zernio.base_url'))

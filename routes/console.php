@@ -2,6 +2,7 @@
 
 use App\Models\TeamInvitation;
 use Illuminate\Support\Facades\Schedule;
+use Laravel\Horizon\Horizon;
 
 Schedule::command('invoices:run-recurring')->dailyAt('06:00')->withoutOverlapping()->description('Issue due recurring invoices');
 Schedule::command('invoices:send-reminders')->dailyAt('09:00')->withoutOverlapping()->description('Email reminders for overdue invoices');
@@ -14,6 +15,8 @@ Schedule::command('mail:sync-inboxes')
 Schedule::command('sites:monitor')->hourly()->withoutOverlapping()->description('Check published site uptime and crawl for broken links');
 Schedule::command('sites:backup')->dailyAt('03:00')->withoutOverlapping()->description('Store JSON backups of published sites');
 Schedule::command('reports:send-weekly')->weeklyOn(1, '07:00')->withoutOverlapping()->description('Email weekly pipeline snapshots');
+Schedule::command('automations:run-scheduled')->dailyAt('04:30')->withoutOverlapping()->description('Queue scheduled agency workflow steps (website re-audits)');
+Schedule::command('horizon:snapshot')->everyFiveMinutes()->when(fn () => class_exists(Horizon::class))->description('Horizon metrics snapshots');
 
 Schedule::call(function () {
     TeamInvitation::query()

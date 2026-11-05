@@ -15,6 +15,7 @@
         "laravel/chisel": "^0.1.0",
         "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.17",
+        "laravel/horizon": "^5.50",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14"
     },
@@ -55,6 +56,10 @@
         "dev": [
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
+        ],
+        "queue:dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan queue:work --queue=webhooks,messaging,default,ai,monitoring --tries=3 --timeout=300 --sleep=1"
         ],
         "lint": [
             "pint --parallel"
@@ -112,6 +117,10 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "platform": {
+            "ext-pcntl": "8.3.0",
+            "ext-posix": "8.3.0"
         }
     },
     "minimum-stability": "stable",

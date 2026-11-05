@@ -26,6 +26,7 @@ enum LeadActivityType: string
     case MessageReceived = 'message_received';
     case SiteEdited = 'site_edited';
     case ProfileEnriched = 'profile_enriched';
+    case Workflow = 'workflow';
 
     /**
      * Get the display label for the activity type.
@@ -55,6 +56,7 @@ enum LeadActivityType: string
             self::MessageReceived => 'Message received',
             self::SiteEdited => 'Website edited',
             self::ProfileEnriched => 'Profile enriched',
+            self::Workflow => 'Automation',
         };
     }
 }

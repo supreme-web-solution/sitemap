@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Proposals;
 
+use App\Enums\AutomationTrigger;
 use App\Enums\LeadActivityType;
 use App\Enums\ProposalStatus;
 use App\Http\Controllers\Controller;
+use App\Jobs\RunAgencyWorkflow;
 use App\Mail\ProposalEmail;
 use App\Models\Proposal;
 use App\Models\Team;
@@ -48,6 +50,8 @@ class ProposalActionController extends Controller
             ['proposal_id' => $proposal->id],
             $request->user()->id,
         );
+
+        RunAgencyWorkflow::dispatchForLead($lead->fresh(), AutomationTrigger::ProposalSent, [], $request->user()->id);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $emailing ? __('Proposal emailed to :email.', ['email' => $lead->email]) : __('Proposal is ready. Copy the link to share it.')]);
 

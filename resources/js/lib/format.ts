@@ -33,6 +33,41 @@ export const formatMessageClockTime = (iso: string): string =>
         minute: '2-digit',
     }).format(new Date(iso));
 
+const sameCalendarDay = (left: Date, right: Date): boolean =>
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate();
+
+/**
+ * WhatsApp-style day chip: Today, Yesterday, or a calendar date.
+ */
+export const formatChatDayLabel = (iso: string, now = new Date()): string => {
+    const date = new Date(iso);
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    if (sameCalendarDay(date, now)) {
+        return 'Today';
+    }
+
+    if (sameCalendarDay(date, yesterday)) {
+        return 'Yesterday';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+    }).format(date);
+};
+
+export const chatDayKey = (iso: string): string => {
+    const date = new Date(iso);
+
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+};
+
 export const formatCurrency = (value: number): string =>
     new Intl.NumberFormat(undefined, {
         style: 'currency',

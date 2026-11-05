@@ -34,4 +34,24 @@ class AiAvailability
 
         return 'claude-haiku-4-5';
     }
+
+    public static function openaiConfigured(): bool
+    {
+        return filled(config('services.openai.key'))
+            || filled(config('ai.providers.openai.key'));
+    }
+
+    /**
+     * Model from COMMAND_CENTER_OPENAI_MODEL, then OPENAI_MODEL.
+     */
+    public static function openaiModel(): string
+    {
+        $model = config('command_center.openai_model');
+
+        if (is_string($model) && trim($model) !== '') {
+            return trim($model);
+        }
+
+        return 'gpt-4o-mini';
+    }
 }

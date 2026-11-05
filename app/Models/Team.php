@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\GeneratesUniqueTeamSlugs;
+use App\Data\TeamAutomationSettings;
 use App\Enums\PlanFeature;
 use App\Enums\TeamRole;
 use App\Enums\WebsiteFilter;
@@ -40,6 +41,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Lead> $leads
  * @property-read Collection<int, Site> $sites
  * @property array<string, int>|null $score_weights
+ * @property array<string, mixed>|null $automation
  * @property array<string, mixed>|null $ideal_customer
  * @property string|null $preview_hostname
  * @property string|null $preview_hostname_token
@@ -395,6 +397,27 @@ class Team extends Model
      *
      * @return array<string, int>
      */
+    public function automationSettings(): TeamAutomationSettings
+    {
+        return TeamAutomationSettings::from($this->automation);
+    }
+
+    /**
+     * @return HasMany<AutomationRun, $this>
+     */
+    public function automationRuns(): HasMany
+    {
+        return $this->hasMany(AutomationRun::class);
+    }
+
+    /**
+     * @return HasMany<CommandCenterPendingAction, $this>
+     */
+    public function pendingActions(): HasMany
+    {
+        return $this->hasMany(CommandCenterPendingAction::class);
+    }
+
     public function scoreWeights(): array
     {
         $defaults = config('prospecting.score_weights');
@@ -424,6 +447,7 @@ class Team extends Model
             'is_personal' => 'boolean',
             'ideal_customer' => 'array',
             'score_weights' => 'array',
+            'automation' => 'array',
         ];
     }
 

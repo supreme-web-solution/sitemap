@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\Sites\GenerateSite;
+use App\Enums\AutomationTrigger;
 use App\Enums\SiteGenerationStatus;
 use App\Models\Lead;
 use App\Support\Queues;
@@ -54,6 +55,8 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
     public function handle(GenerateSite $generateSite): void
     {
         $generateSite->handle($this->lead, designTemplateId: $this->designTemplateId);
+
+        RunAgencyWorkflow::dispatchForLead($this->lead->fresh(), AutomationTrigger::SiteGenerated);
     }
 
     /**

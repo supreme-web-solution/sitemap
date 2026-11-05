@@ -235,7 +235,7 @@ Principle: **the AI never writes free-form HTML/CSS.** It produces a validated _
 | `ANTHROPIC_API_KEY` | Enables the Claude planner; without it rule-based copy is used |
 | `ANTHROPIC_MODEL`   | Defaults to `claude-sonnet-4-5`                                |
 | `OPENAI_API_KEY`    | Enables the OpenAI planner (same rules and fallback)           |
-| `OPENAI_MODEL`      | Defaults to `gpt-5.5`                                          |
+| `OPENAI_MODEL`      | Defaults to `gpt-4o-mini` (Command Center uses Laravel AI Responses API) |
 | `SITE_PLANNER`      | `anthropic` or `openai`; only needed when both keys are set    |
 | `QUEUE_CONNECTION`  | `database` locally, `redis` in production                      |
 
