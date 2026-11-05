@@ -5,7 +5,6 @@ import {
     FileText,
     Gauge,
     Globe,
-    Inbox,
     Layers,
     Megaphone,
     Rocket,
@@ -47,7 +46,6 @@ import { index as adminPlansIndex } from '@/routes/admin/plans';
 import { index as adminTeamsIndex } from '@/routes/admin/teams';
 import { index as adminUsersIndex } from '@/routes/admin/users';
 import { index as emailTemplatesIndex } from '@/routes/email-templates';
-import { index as mailInboxIndex } from '@/routes/mail-inbox';
 import { edit as idealCustomerEdit } from '@/routes/ideal-customer';
 import { index as researchIndex } from '@/routes/research';
 import { index as reportsIndex } from '@/routes/reports';
@@ -180,11 +178,6 @@ const sellItems = computed<NavItem[]>(() => {
             title: 'Email Studio',
             href: emailTemplatesIndex({ current_team: slug }).url,
             icon: Mail,
-        },
-        {
-            title: 'Email inbox',
-            href: mailInboxIndex({ current_team: slug }).url,
-            icon: Inbox,
         },
         {
             title: 'Sequences',

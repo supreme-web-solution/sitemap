@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\InvoiceEmail;
 use App\Models\Invoice;
 use App\Models\Team;
+use App\Models\User;
 use App\Services\Payments\PaymentException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,7 +41,13 @@ class InvoiceActionController extends Controller
         $invoice->forceFill(['status' => InvoiceStatus::Open, 'sent_at' => $invoice->sent_at ?? now(), 'emailed_at' => $emailing ? now() : $invoice->emailed_at])->save();
 
         if ($emailing) {
-            Mail::to($lead->email)->queue(new InvoiceEmail($invoice, $request->user()->name, $request->user()->email));
+            $owner = $currentTeam->owner();
+
+            Mail::to($lead->email)->queue(new InvoiceEmail(
+                $invoice,
+                $owner instanceof User ? $owner->name : $request->user()->name,
+                $currentTeam->contactEmail() ?? $request->user()->email,
+            ));
         }
 
         $lead->recordActivity(

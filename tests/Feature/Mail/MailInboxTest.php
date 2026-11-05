@@ -59,10 +59,14 @@ test('an owner saves inbox credentials encrypted and without returning secrets t
         ->and(DB::table('mail_connections')->value('credentials'))->not->toContain('imap-secret');
 
     $this->actingAs($user)->get(route('mail-inbox.index', ['current_team' => $team->slug]))
+        ->assertRedirect(route('branding.edit', ['current_team' => $team->slug, 'mailbox' => 1]));
+
+    $this->actingAs($user)->get(route('branding.edit', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('connected', true)
-            ->missing('connection.imapPassword')
+            ->where('mailbox.connected', true)
+            ->where('accountEmail', $user->email)
+            ->missing('mailbox.connection.imapPassword')
         );
 });
 

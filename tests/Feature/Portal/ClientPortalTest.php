@@ -2,6 +2,7 @@
 
 use App\Enums\InvoiceStatus;
 use App\Enums\LeadActivityType;
+use App\Enums\ProposalStatus;
 use App\Enums\TeamRole;
 use App\Models\Invoice;
 use App\Models\Lead;
@@ -60,7 +61,7 @@ test('the portal lists the website, sent invoices and proposals but not drafts',
     Invoice::factory()->create(['lead_id' => $lead->id, 'number' => 'INV-0002', 'status' => InvoiceStatus::Draft, 'sent_at' => null]);
     Invoice::factory()->create(['lead_id' => $lead->id, 'number' => 'INV-0003', 'status' => InvoiceStatus::Void]);
     Proposal::factory()->create(['lead_id' => $lead->id, 'title' => 'Visible proposal']);
-    Proposal::factory()->create(['lead_id' => $lead->id, 'title' => 'Secret draft', 'status' => App\Enums\ProposalStatus::Draft]);
+    Proposal::factory()->create(['lead_id' => $lead->id, 'title' => 'Secret draft', 'status' => ProposalStatus::Draft]);
 
     $this->get(route('portal.show', 'tok-abc'))
         ->assertOk()
@@ -127,7 +128,13 @@ test('branding can be saved by team admins but not plain members', function () {
 
     $this->actingAs($owner)->put(route('branding.update', ['current_team' => $team->slug]), $payload)->assertSessionHasNoErrors();
 
-    expect($team->refresh()->brand())->toMatchArray(['name' => 'Bright Agency', 'logo' => 'https://example.com/logo.png', 'color' => '#112233', 'email' => 'hello@bright.test']);
+    expect($team->refresh()->brand_email)->toBeNull()
+        ->and($team->brand())->toMatchArray([
+            'name' => 'Bright Agency',
+            'logo' => 'https://example.com/logo.png',
+            'color' => '#112233',
+            'email' => $owner->email,
+        ]);
 });
 
 test('branding rejects a non-https logo and a malformed colour', function () {

@@ -86,7 +86,7 @@ class Team extends Model
             'name' => $this->brand_name ?: $this->name,
             'logo' => $this->brand_logo_url,
             'color' => $this->brand_color ?: '#18181b',
-            'email' => $this->brand_email,
+            'email' => $this->contactEmail(),
             'poweredBy' => ! app(UsageMeter::class)->allows($this, PlanFeature::WhiteLabel),
         ];
     }
@@ -180,6 +180,20 @@ class Team extends Model
     public function effectivePlan(): ?Plan
     {
         return $this->plan ?? Plan::default();
+    }
+
+    /**
+     * Account email clients reply to and see on proposals, invoices, and the portal.
+     */
+    public function contactEmail(): ?string
+    {
+        $owner = $this->owner();
+
+        if (! $owner instanceof User) {
+            return null;
+        }
+
+        return $owner->email;
     }
 
     /**

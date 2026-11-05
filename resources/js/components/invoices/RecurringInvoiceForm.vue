@@ -140,18 +140,10 @@ const textareaClass =
 
 <template>
     <form
-        class="grid gap-4 panel p-5"
+        class="grid gap-4"
         data-test="recurring-form"
         @submit.prevent="submit"
     >
-        <h2 class="text-base font-semibold">
-            {{
-                isEditing
-                    ? `Edit schedule for ${schedule?.leadName}`
-                    : 'New recurring invoice'
-            }}
-        </h2>
-
         <div class="grid gap-4 sm:grid-cols-3">
             <div class="grid gap-2">
                 <Label>Client</Label>

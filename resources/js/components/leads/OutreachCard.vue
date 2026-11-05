@@ -15,7 +15,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { index as emailTemplatesIndex } from '@/routes/email-templates';
-import { index as mailInboxIndex } from '@/routes/mail-inbox';
+import { edit as brandingEdit } from '@/routes/branding';
 import { store as storeInboundEmail } from '@/routes/leads/inbound-email';
 import { store as storeOutreach } from '@/routes/leads/outreach';
 import type { EmailTemplate, LeadProfile } from '@/types';
@@ -189,10 +189,10 @@ const textareaClass =
                 <div class="flex items-center justify-between gap-3">
                     <h3 class="text-sm font-medium">Log email reply</h3>
                     <Link
-                        :href="mailInboxIndex({ current_team: teamSlug })"
+                        :href="brandingEdit({ current_team: teamSlug }, { query: { mailbox: 1 } }).url"
                         class="text-xs font-medium text-primary hover:underline"
                     >
-                        Inbox settings
+                        Mailbox settings
                     </Link>
                 </div>
                 <p class="text-xs text-muted-foreground">
@@ -207,8 +207,7 @@ const textareaClass =
                         until sync is enabled.
                     </template>
                     <template v-else>
-                        Connect your reply mailbox under Inbox settings, or log
-                        a reply when a prospect answers.
+                        Connect a mailbox on Branding, or log a reply when a prospect answers.
                     </template>
                 </p>
                 <div class="grid gap-2">

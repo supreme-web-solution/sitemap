@@ -12,6 +12,7 @@ use App\Jobs\RunAgencyWorkflow;
 use App\Mail\OutreachEmail;
 use App\Models\Lead;
 use App\Models\Team;
+use App\Models\User;
 use App\Services\Billing\UsageMeter;
 use App\Services\Mail\OutboundThreadRecorder;
 use Illuminate\Http\RedirectResponse;
@@ -42,11 +43,13 @@ class LeadOutreachController extends Controller
             $messageId = $threads->generateMessageId();
             $threads->record($lead, $subject, $messageId);
 
+            $owner = $currentTeam->owner();
+
             Mail::to($lead->email)->queue(new OutreachEmail(
                 $subject,
                 $request->validated('body'),
-                $user->name,
-                $user->email,
+                $owner instanceof User ? $owner->name : $user->name,
+                $currentTeam->contactEmail() ?? $user->email,
                 $messageId,
             ));
         }

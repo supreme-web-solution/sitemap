@@ -6,7 +6,7 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { index as mailInboxIndex } from '@/routes/mail-inbox';
+import { edit as brandingEdit } from '@/routes/branding';
 import { store as storeInboundEmail } from '@/routes/leads/inbound-email';
 
 const props = defineProps<{
@@ -42,10 +42,10 @@ const textareaClass =
         <div class="flex items-center justify-between gap-3">
             <h2 class="text-base font-semibold">Log reply</h2>
             <Link
-                :href="mailInboxIndex({ current_team: teamSlug }).url"
+                :href="brandingEdit({ current_team: teamSlug }, { query: { mailbox: 1 } }).url"
                 class="text-xs font-medium text-primary hover:underline"
             >
-                Inbox settings
+                Mailbox settings
             </Link>
         </div>
 
@@ -59,8 +59,14 @@ const textareaClass =
                 is enabled.
             </template>
             <template v-else>
-                Connect your reply mailbox under Inbox settings, or log replies
-                here when a prospect answers outreach.
+                Connect a mailbox on
+                <Link
+                    :href="brandingEdit({ current_team: teamSlug }, { query: { mailbox: 1 } }).url"
+                    class="font-medium text-primary hover:underline"
+                >
+                    Branding
+                </Link>
+                , or log replies here when a prospect answers.
             </template>
         </p>
 

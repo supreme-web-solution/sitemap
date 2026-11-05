@@ -43,6 +43,31 @@ class MailConnection extends Model
     }
 
     /**
+     * Mailbox settings safe to send to the browser. The password is never included.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSettingsArray(): array
+    {
+        $credentials = $this->credentials ?? [];
+
+        return [
+            'provider' => $this->provider->value,
+            'providerLabel' => $this->provider->label(),
+            'emailAddress' => $this->email_address,
+            'status' => $this->status->value,
+            'statusLabel' => $this->status->label(),
+            'syncAvailable' => $this->syncAvailable(),
+            'lastSyncAt' => $this->last_sync_at?->toISOString(),
+            'lastSyncError' => $this->last_sync_error,
+            'imapHost' => $credentials['host'] ?? null,
+            'imapPort' => isset($credentials['port']) ? (int) $credentials['port'] : null,
+            'imapEncryption' => $credentials['encryption'] ?? null,
+            'imapUsername' => $credentials['username'] ?? null,
+        ];
+    }
+
+    /**
      * Get the team the mailbox belongs to.
      *
      * @return BelongsTo<Team, $this>

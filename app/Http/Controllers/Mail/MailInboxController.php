@@ -7,33 +7,25 @@ use App\Enums\MailConnectionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Mail\ConnectMailConnectionRequest;
 use App\Jobs\SyncTeamMailbox;
-use App\Models\MailConnection;
 use App\Models\Team;
 use App\Services\Mail\MailConnectionManager;
 use App\Services\Mail\MailConnectionUnavailableException;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Inertia\Response;
 
 class MailInboxController extends Controller
 {
     /**
-     * Show the team's connected outreach reply mailbox.
+     * Old inbox URL. Mailbox setup now lives on Branding.
      */
-    public function index(Request $request, Team $currentTeam): Response
+    public function index(Team $currentTeam): RedirectResponse
     {
-        $connection = $currentTeam->mailConnection;
-        $canManage = $request->user()->can('update', $currentTeam);
-
-        return Inertia::render('mail/Index', [
-            'canManage' => $canManage,
-            'imapSyncEnabled' => (bool) config('inbox.imap_sync_enabled'),
-            'connected' => $connection !== null,
-            'connection' => $connection === null ? null : $this->connectionPayload($connection),
+        return redirect()->route('branding.edit', [
+            'current_team' => $currentTeam->slug,
+            'mailbox' => 1,
         ]);
     }
 
@@ -115,28 +107,5 @@ class MailInboxController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Inbox disconnected.')]);
 
         return back();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function connectionPayload(MailConnection $connection): array
-    {
-        $credentials = $connection->credentials ?? [];
-
-        return [
-            'provider' => $connection->provider->value,
-            'providerLabel' => $connection->provider->label(),
-            'emailAddress' => $connection->email_address,
-            'status' => $connection->status->value,
-            'statusLabel' => $connection->status->label(),
-            'syncAvailable' => $connection->syncAvailable(),
-            'lastSyncAt' => $connection->last_sync_at?->toISOString(),
-            'lastSyncError' => $connection->last_sync_error,
-            'imapHost' => $credentials['host'] ?? null,
-            'imapPort' => isset($credentials['port']) ? (int) $credentials['port'] : null,
-            'imapEncryption' => $credentials['encryption'] ?? null,
-            'imapUsername' => $credentials['username'] ?? null,
-        ];
     }
 }

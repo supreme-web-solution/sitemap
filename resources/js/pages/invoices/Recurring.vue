@@ -6,6 +6,13 @@ import PaginationBar from '@/components/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import RecurringInvoiceForm from '@/components/invoices/RecurringInvoiceForm.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogDescription,
+    DialogHeader,
+    DialogScrollContent,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { index as invoicesIndex } from '@/routes/invoices';
 import {
@@ -15,7 +22,7 @@ import {
 } from '@/routes/recurring-invoices';
 import type { Paginated, RecurringSchedule, Team } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     schedules: Paginated<RecurringSchedule>;
     leads: { id: number; name: string; email: string | null }[];
     intervals: { value: string; label: string }[];
@@ -50,6 +57,30 @@ const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 
 const creating = ref(false);
 const editingId = ref<number | null>(null);
+
+const editingSchedule = computed(
+    () => props.schedules.data.find((schedule) => schedule.id === editingId.value),
+);
+
+const formOpen = computed({
+    get: () => creating.value || editingId.value !== null,
+    set: (open: boolean) => {
+        if (!open) {
+            creating.value = false;
+            editingId.value = null;
+        }
+    },
+});
+
+const openCreate = () => {
+    editingId.value = null;
+    creating.value = true;
+};
+
+const closeForm = () => {
+    creating.value = false;
+    editingId.value = null;
+};
 
 const routeArgs = (schedule: RecurringSchedule) => ({
     current_team: teamSlug.value,
@@ -87,44 +118,48 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
                 title="Recurring billing"
                 description="Bill clients on a schedule. Send a pay link each cycle, or charge a saved Stripe card automatically after the client pays once."
             />
-            <Button size="sm" @click="creating = !creating">
+            <Button size="sm" @click="openCreate">
                 <Plus /> New schedule
             </Button>
         </div>
 
-        <RecurringInvoiceForm
-            v-if="creating"
-            :team-slug="teamSlug"
-            :leads="leads"
-            :intervals="intervals"
-            :collection-modes="collectionModes"
-            :has-stripe="hasStripe"
-            :has-pay-pal="hasPayPal"
-            :auto-charge-providers="autoChargeProviders"
-            :today="today"
-            @saved="creating = false"
-        />
+        <Dialog v-model:open="formOpen">
+            <DialogScrollContent class="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>
+                        {{
+                            editingSchedule
+                                ? `Edit schedule for ${editingSchedule.leadName}`
+                                : 'New recurring invoice'
+                        }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Choose the client, how often to bill, and the line items on every invoice.
+                    </DialogDescription>
+                </DialogHeader>
+                <RecurringInvoiceForm
+                    v-if="formOpen"
+                    :key="editingSchedule?.id ?? 'new'"
+                    :team-slug="teamSlug"
+                    :leads="leads"
+                    :intervals="intervals"
+                    :collection-modes="collectionModes"
+                    :has-stripe="hasStripe"
+                    :has-pay-pal="hasPayPal"
+                    :auto-charge-providers="autoChargeProviders"
+                    :today="today"
+                    :schedule="editingSchedule"
+                    @saved="closeForm"
+                />
+            </DialogScrollContent>
+        </Dialog>
 
         <div
             v-for="schedule in schedules.data"
             :key="schedule.id"
             data-test="schedule"
         >
-            <RecurringInvoiceForm
-                v-if="editingId === schedule.id"
-                :team-slug="teamSlug"
-                :leads="leads"
-                :intervals="intervals"
-                :collection-modes="collectionModes"
-                :has-stripe="hasStripe"
-                :has-pay-pal="hasPayPal"
-                :auto-charge-providers="autoChargeProviders"
-                :today="today"
-                :schedule="schedule"
-                @saved="editingId = null"
-            />
             <article
-                v-else
                 class="flex flex-wrap items-center justify-between gap-4 panel p-5"
             >
                 <div class="min-w-0">
@@ -193,7 +228,7 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
                         size="icon-sm"
                         variant="ghost"
                         aria-label="Edit schedule"
-                        @click="editingId = schedule.id"
+                        @click="editingId = schedule.id; creating = false"
                     >
                         <Pencil />
                     </Button>
@@ -213,12 +248,12 @@ const statusClasses: Record<RecurringSchedule['status'], string> = {
         <PaginationBar v-if="schedules.data.length" :paginator="schedules" />
 
         <EmptyState
-            v-if="!schedules.data.length && !creating"
+            v-if="!schedules.data.length"
             title="No recurring billing yet"
             description="Add a monthly or yearly schedule for hosting, maintenance, or care plans after a client accepts a proposal."
             :icon="Repeat"
         >
-            <Button @click="creating = true"><Plus /> Add schedule</Button>
+            <Button @click="openCreate"><Plus /> Add schedule</Button>
         </EmptyState>
     </div>
 </template>

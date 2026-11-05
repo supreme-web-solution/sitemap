@@ -10,6 +10,7 @@ use App\Jobs\RunAgencyWorkflow;
 use App\Mail\ProposalEmail;
 use App\Models\Proposal;
 use App\Models\Team;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -41,7 +42,13 @@ class ProposalActionController extends Controller
         $proposal->forceFill(['status' => ProposalStatus::Sent, 'sent_at' => now(), 'declined_at' => null])->save();
 
         if ($emailing) {
-            Mail::to($lead->email)->queue(new ProposalEmail($proposal, $request->user()->name, $request->user()->email));
+            $owner = $currentTeam->owner();
+
+            Mail::to($lead->email)->queue(new ProposalEmail(
+                $proposal,
+                $owner instanceof User ? $owner->name : $request->user()->name,
+                $currentTeam->contactEmail() ?? $request->user()->email,
+            ));
         }
 
         $lead->recordActivity(
