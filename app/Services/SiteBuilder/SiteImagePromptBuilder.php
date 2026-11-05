@@ -65,6 +65,38 @@ class SiteImagePromptBuilder
         return Str::limit($prompt, 900, '');
     }
 
+    /**
+     * Sharper, cleaner replacement photo for a hero or gallery slot.
+     */
+    public static function forImprove(Lead $lead, Site $site, ?string $userHint = null): string
+    {
+        $base = self::forHero($lead, $site, $userHint);
+
+        return Str::limit(
+            $base.' Ultra sharp focus, high resolution, crisp clean details, no blur, professional DSLR quality.',
+            900,
+            '',
+        );
+    }
+
+    /**
+     * Sharper, cleaner replacement photo for a service card.
+     */
+    public static function forServiceImprove(
+        Lead $lead,
+        string $serviceTitle,
+        string $serviceDescription,
+        ?string $userHint = null,
+    ): string {
+        $base = self::forServiceCard($lead, $serviceTitle, $serviceDescription, $userHint);
+
+        return Str::limit(
+            $base.' Ultra sharp focus, high resolution, crisp clean details, no blur, professional DSLR quality.',
+            900,
+            '',
+        );
+    }
+
     protected static function subjectForCategory(string $category): string
     {
         $lower = Str::lower($category);

@@ -187,7 +187,26 @@ test('the owner logo and photos are used on the site', function () {
     $this->get(route('sites.preview', $site->slug))
         ->assertSee(Storage::disk('public')->url('teams/1/leads/1/logo.png'), escape: false)
         ->assertSee('id="gallery"', escape: false)
-        ->assertSee(Storage::disk('public')->url('teams/1/leads/1/two.jpg'), escape: false);
+        ->assertSee(Storage::disk('public')->url('teams/1/leads/1/two.jpg'), escape: false)
+        ->assertSee('data-gallery-open', escape: false)
+        ->assertSee('id="gallery-lightbox"', escape: false);
+});
+
+test('footer social links use icons including a fallback for unknown platforms', function () {
+    $lead = Lead::factory()->create([
+        'social_links' => [
+            'instagram' => 'https://instagram.com/example',
+            'facebook' => 'https://facebook.com/example',
+            'customforum' => 'https://example.com/forum',
+        ],
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertSee('footer-social__link', escape: false)
+        ->assertSee('aria-label="Social"', escape: false)
+        ->assertSee('https://instagram.com/example', escape: false)
+        ->assertSee('>Customforum</span>', escape: false);
 });
 
 test('an unknown preview link returns not found', function () {

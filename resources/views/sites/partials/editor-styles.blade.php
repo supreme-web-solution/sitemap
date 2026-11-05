@@ -6,6 +6,11 @@
     html.sm-editing [data-edit-image] { cursor: pointer; outline: 2px solid transparent; outline-offset: -2px; transition: outline-color .12s ease, filter .12s ease; }
     html.sm-editing [data-edit-image]:hover { outline-color: rgba(37, 99, 235, .8); filter: brightness(.92); }
     html.sm-editing [data-edit-image].sm-selected { outline-color: #2563eb; }
+    html.sm-editing .gallery-zoom { opacity: 1; transform: none; z-index: 3; }
+    /* Overlay / full-bleed heroes draw a gradient ::after on top of the <img>; let clicks reach the photo. */
+    html.sm-editing .hero::after,
+    html.sm-editing .hero.page-hero::after { pointer-events: none; }
+    html.sm-editing .hero .hero-image[data-edit-image] { pointer-events: auto; }
     html.sm-editing .edit-add-image { position: absolute; z-index: 2; right: 1.25rem; top: 5.5rem; padding: .6rem 1rem; border-radius: 999px; border: 2px dashed #2563eb; background: rgba(255,255,255,.92); color: #1d4ed8; font: 600 .9rem system-ui, sans-serif; cursor: pointer; }
     html.sm-editing details > summary { cursor: text; }
     html.sm-editing:not(.sm-preview-mode) .mobile-cta, html.sm-editing .preview-bar, html.sm-editing .preview-modal { display: none !important; }

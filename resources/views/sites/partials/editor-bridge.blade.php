@@ -93,6 +93,7 @@
         chrome.innerHTML = '<span class="sm-chrome-label"></span>'
             + '<button type="button" data-act="up" title="Move section up" aria-label="Move section up">&uarr;</button>'
             + '<button type="button" data-act="down" title="Move section down" aria-label="Move section down">&darr;</button>'
+            + '<button type="button" data-act="photo" title="Edit section photo" hidden>Photo</button>'
             + '<button type="button" data-act="improve" title="Improve this section with AI">Improve with AI</button>'
             + '<button type="button" data-act="hide" title="Hide this section" aria-label="Hide this section">Hide</button>';
         document.body.appendChild(chrome);
@@ -143,6 +144,11 @@
             chrome.querySelector('.sm-chrome-label').textContent = section.dataset.sectionLabel || section.dataset.section;
             chrome.querySelector('[data-act="up"]').disabled = index <= 0;
             chrome.querySelector('[data-act="down"]').disabled = index === list.length - 1;
+            const photoTarget = section.dataset.section === 'hero'
+                ? section.querySelector('[data-edit-image]')
+                : null;
+            const photoButton = chrome.querySelector('[data-act="photo"]');
+            photoButton.hidden = ! photoTarget;
             chrome.dataset.section = section.dataset.section;
             chrome.classList.add('is-visible');
             chrome.style.top = Math.max(8, rect.top + 8) + 'px';
@@ -233,6 +239,34 @@
             const button = event.target.closest('button[data-act]');
 
             if (! button || button.disabled) {
+                return;
+            }
+
+            if (button.dataset.act === 'photo') {
+                const section = document.querySelector('[data-section="' + chrome.dataset.section + '"]');
+                const image = section?.querySelector('[data-edit-image]');
+
+                if (! image) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                markSelected(image);
+                clearSectionSelection();
+                setHover(null);
+                send('select', {
+                    kind: 'image',
+                    slot: image.dataset.editImage,
+                    index: image.dataset.editIndex === '' ? null : Number(image.dataset.editIndex),
+                    label: image.dataset.editLabel || 'Image',
+                });
+                send('image', {
+                    slot: image.dataset.editImage,
+                    index: image.dataset.editIndex === '' ? null : Number(image.dataset.editIndex),
+                    label: image.dataset.editLabel || 'Image',
+                });
+
                 return;
             }
 

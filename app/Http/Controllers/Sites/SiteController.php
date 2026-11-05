@@ -90,6 +90,10 @@ class SiteController extends Controller
                 'media' => [
                     'logo' => $site->lead->logoUrl(),
                     'photos' => $site->lead->photoUrls(),
+                    'services' => collect(app(SitePages::class)->services($site->content ?? []))
+                        ->map(fn (array $service) => $service['image_url'] ?? null)
+                        ->values()
+                        ->all(),
                     'maxPhotos' => UpdateLeadProfileRequest::MAX_PHOTOS,
                 ],
                 'viewsCount' => $site->views_count,

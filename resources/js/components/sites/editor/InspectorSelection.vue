@@ -24,7 +24,13 @@ import {
 import type { CommitOptions } from '@/composables/useSiteEditor';
 import { getPath } from '@/lib/siteEditor/document';
 import type { EditOp } from '@/lib/siteEditor/document';
-import { generateSiteImage, removeSiteImage, uploadSiteImage } from '@/lib/siteEditor/http';
+import {
+    generateSiteImage,
+    improveSiteImage,
+    removeSiteImage,
+    uploadSiteImage,
+    type MediaResponse,
+} from '@/lib/siteEditor/http';
 import type { EditorSelection } from '@/lib/siteEditor/protocol';
 import type { Option, SiteDocument, SiteMedia } from '@/types';
 
@@ -46,7 +52,7 @@ const emit = defineEmits<{
     commit: [operations: EditOp[], options?: CommitOptions];
     improve: [payload: { field?: string; section?: string; body?: string; redesign?: boolean }];
     'section-action': [action: 'up' | 'down' | 'hide', key: string];
-    'media-changed': [media: Pick<SiteMedia, 'logo' | 'photos'>];
+    'media-changed': [media: MediaResponse];
 }>();
 
 const instruction = ref('');
@@ -127,8 +133,26 @@ const currentImage = computed(() => {
         return null;
     }
 
-    return selection.slot === 'logo' ? props.media.logo : (props.media.photos[selection.index ?? 0] ?? null);
+    if (selection.slot === 'logo') {
+        return props.media.logo;
+    }
+
+    if (selection.slot === 'service') {
+        const url = props.media.services?.[selection.index ?? 0] ?? null;
+
+        return url && !url.startsWith('data:') ? url : null;
+    }
+
+    return props.media.photos[selection.index ?? 0] ?? null;
 });
+
+const canUseAiImage = computed(() => {
+    const selection = imageSelection.value;
+
+    return selection !== null && (selection.slot === 'photo' || selection.slot === 'service') && props.aiAvailable;
+});
+
+const canGenerateWithoutPrompt = computed(() => imageSelection.value?.slot === 'service');
 
 const upload = async (event: Event) => {
     const selection = imageSelection.value;
@@ -158,7 +182,13 @@ const upload = async (event: Event) => {
 const generateImage = async () => {
     const selection = imageSelection.value;
 
-    if (!selection || selection.slot !== 'photo' || imagePrompt.value.trim() === '') {
+    if (!selection || (selection.slot !== 'photo' && selection.slot !== 'service')) {
+        return;
+    }
+
+    const prompt = imagePrompt.value.trim();
+
+    if (prompt === '' && !canGenerateWithoutPrompt.value) {
         return;
     }
 
@@ -167,11 +197,38 @@ const generateImage = async () => {
     try {
         emit(
             'media-changed',
-            await generateSiteImage(props.teamSlug, props.siteId, { slot: selection.slot, index: selection.index }, imagePrompt.value.trim()),
+            await generateSiteImage(props.teamSlug, props.siteId, { slot: selection.slot, index: selection.index }, prompt),
         );
         toast.success('Image generated');
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'The image could not be generated.');
+    } finally {
+        uploading.value = false;
+    }
+};
+
+const improveImage = async () => {
+    const selection = imageSelection.value;
+
+    if (!selection || (selection.slot !== 'photo' && selection.slot !== 'service') || !currentImage.value) {
+        return;
+    }
+
+    uploading.value = true;
+
+    try {
+        emit(
+            'media-changed',
+            await improveSiteImage(
+                props.teamSlug,
+                props.siteId,
+                { slot: selection.slot, index: selection.index },
+                imagePrompt.value.trim(),
+            ),
+        );
+        toast.success('Image improved');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'The image could not be improved.');
     } finally {
         uploading.value = false;
     }
@@ -382,27 +439,51 @@ const textareaClass =
                     </Button>
                 </div>
                 <div
-                    v-if="imageSelection.slot === 'photo' && aiAvailable"
+                    v-if="canUseAiImage"
                     class="grid gap-2 rounded-lg border border-dashed p-3"
                 >
-                    <Label for="image-prompt">Generate with AI</Label>
+                    <Label for="image-prompt">AI image tools</Label>
                     <Input
                         id="image-prompt"
                         v-model="imagePrompt"
-                        placeholder="Describe the photo you want"
+                        :placeholder="
+                            imageSelection.slot === 'service'
+                                ? 'Optional: describe the photo (or leave blank)'
+                                : 'Describe the photo you want'
+                        "
                         maxlength="500"
                     />
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        :disabled="uploading || imagePrompt.trim() === ''"
-                        @click="generateImage"
-                    >
-                        <LoaderCircle v-if="uploading" class="animate-spin" />
-                        <Sparkles v-else />
-                        Generate image
-                    </Button>
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            :disabled="
+                                uploading || (imagePrompt.trim() === '' && !canGenerateWithoutPrompt)
+                            "
+                            @click="generateImage"
+                        >
+                            <LoaderCircle v-if="uploading" class="animate-spin" />
+                            <Sparkles v-else />
+                            Generate image
+                        </Button>
+                        <Button
+                            v-if="currentImage"
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            :disabled="uploading"
+                            @click="improveImage"
+                        >
+                            <LoaderCircle v-if="uploading" class="animate-spin" />
+                            <Sparkles v-else />
+                            Improve sharpness
+                        </Button>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        Generate creates a new photo for this slot. Improve sharpness rebuilds a
+                        cleaner, sharper version when the current image looks blurry or small.
+                    </p>
                 </div>
                 <div
                     class="rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground"

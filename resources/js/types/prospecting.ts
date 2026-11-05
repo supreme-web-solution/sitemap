@@ -277,6 +277,7 @@ export type SiteService = {
     description: string;
     slug?: string;
     body?: string;
+    image_path?: string | null;
 };
 
 export type SiteFaq = {
@@ -334,6 +335,7 @@ export type SiteDesignChoices = {
 export type SiteMedia = {
     logo: string | null;
     photos: string[];
+    services?: Array<string | null>;
     maxPhotos: number;
 };
 

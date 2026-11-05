@@ -30,7 +30,33 @@
         .brand-mark { width: 2.25rem; height: 2.25rem; border-radius: var(--radius); background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; transition: width .28s ease, height .28s ease; }
         .brand-logo { height: 2.5rem; width: auto; max-width: 9rem; object-fit: contain; transition: height .28s ease, max-width .28s ease; }
         .gallery { display: grid; gap: 1rem; margin-top: 2.5rem; min-width: 0; max-width: 100%; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
-        .gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); }
+        .gallery-item { position: relative; margin: 0; min-width: 0; overflow: hidden; border-radius: var(--radius); }
+        .gallery-item img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); display: block; }
+        .gallery-zoom {
+            position: absolute; right: .7rem; bottom: .7rem; z-index: 2;
+            display: inline-grid; place-items: center; width: 2.35rem; height: 2.35rem; padding: 0;
+            border: 0; border-radius: 999px; cursor: pointer;
+            background: rgba(15, 23, 42, .72); color: #fff;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, .28);
+            opacity: 0; transform: translateY(.2rem); transition: opacity .18s ease, transform .18s ease, background .18s ease;
+        }
+        .gallery-zoom svg { width: 1.05rem; height: 1.05rem; }
+        .gallery-item:hover .gallery-zoom, .gallery-item:focus-within .gallery-zoom, .gallery-zoom:focus-visible { opacity: 1; transform: none; }
+        .gallery-zoom:hover, .gallery-zoom:focus-visible { background: rgba(15, 23, 42, .92); }
+        @media (hover: none) { .gallery-zoom { opacity: 1; transform: none; } }
+        .gallery-lightbox { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; width: 100vw; height: 100vh; }
+        .gallery-lightbox::backdrop { background: rgba(8, 12, 24, .82); backdrop-filter: blur(4px); }
+        .gallery-lightbox[open] { display: grid; place-items: center; }
+        .gallery-lightbox__panel { position: relative; width: min(1100px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); }
+        .gallery-lightbox__img { display: block; width: 100%; max-height: calc(100vh - 2rem); object-fit: contain; border-radius: calc(var(--radius) + 2px); background: #0b1220; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+        .gallery-lightbox__close {
+            position: absolute; top: .6rem; right: .6rem; z-index: 2;
+            display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem;
+            border: 0; border-radius: 999px; cursor: pointer;
+            background: rgba(255,255,255,.92); color: #0f172a; font: 700 1.25rem/1 system-ui, sans-serif;
+        }
+        .gallery-lightbox__close:hover { background: #fff; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
         .locale-switcher { display: none; gap: .65rem; font-size: .85rem; margin-right: .5rem; }
         .locale-switcher a { text-decoration: none; opacity: .75; }
         .locale-switcher a[aria-current="page"] { opacity: 1; font-weight: 700; }
@@ -358,9 +384,16 @@
         .footer-nav { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
         .footer-nav a { text-decoration: none; opacity: .8; }
         .footer-nav a:hover { opacity: 1; }
-        .footer-social { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; }
-        .footer-social a { text-decoration: none; opacity: .85; }
-        .footer-social a:hover { opacity: 1; }
+        .footer-social { display: flex; flex-wrap: wrap; gap: .55rem; }
+        .footer-social__link {
+            display: inline-grid; place-items: center; width: 2.4rem; height: 2.4rem;
+            border-radius: 999px; text-decoration: none; opacity: .9;
+            background: color-mix(in srgb, currentColor 12%, transparent); color: inherit;
+            transition: opacity .15s ease, background .15s ease, transform .15s ease;
+        }
+        .footer-social__link:hover { opacity: 1; background: color-mix(in srgb, var(--accent) 28%, transparent); transform: translateY(-1px); }
+        .footer-social__icon { display: grid; place-items: center; width: 1.15rem; height: 1.15rem; }
+        .footer-social__icon svg { width: 100%; height: 100%; display: block; }
         @media (min-width: 768px) {
             .nav { display: flex; min-width: 0; }
             .header-cta { display: inline-flex; }
@@ -577,6 +610,64 @@
             window.addEventListener('resize', update);
         })();
     </script>
+
+    <dialog class="gallery-lightbox" id="gallery-lightbox" aria-label="Gallery photo">
+        <div class="gallery-lightbox__panel">
+            <button type="button" class="gallery-lightbox__close" data-gallery-close aria-label="Close">&times;</button>
+            <img class="gallery-lightbox__img" alt="">
+        </div>
+    </dialog>
+    <script>
+        (() => {
+            const dialog = document.getElementById('gallery-lightbox');
+            const image = dialog?.querySelector('.gallery-lightbox__img');
+
+            if (! dialog || ! image) {
+                return;
+            }
+
+            const open = (src, alt) => {
+                image.src = src;
+                image.alt = alt || '';
+                if (typeof dialog.showModal === 'function') {
+                    dialog.showModal();
+                } else {
+                    dialog.setAttribute('open', '');
+                }
+            };
+
+            const close = () => {
+                if (typeof dialog.close === 'function') {
+                    dialog.close();
+                } else {
+                    dialog.removeAttribute('open');
+                }
+                image.removeAttribute('src');
+            };
+
+            document.addEventListener('click', (event) => {
+                const zoom = event.target.closest?.('[data-gallery-open]');
+
+                if (zoom) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    open(zoom.dataset.gallerySrc || '', zoom.dataset.galleryAlt || '');
+
+                    return;
+                }
+
+                if (event.target === dialog || event.target.closest?.('[data-gallery-close]')) {
+                    close();
+                }
+            });
+
+            dialog.addEventListener('cancel', (event) => {
+                event.preventDefault();
+                close();
+            });
+        })();
+    </script>
+
     @if ($editing)
         @include('sites.partials.editor-bridge')
     @endif

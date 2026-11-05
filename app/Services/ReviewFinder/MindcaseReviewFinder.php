@@ -22,7 +22,7 @@ class MindcaseReviewFinder implements ReviewFinder
     public function __construct(
         protected ?string $apiKey,
         protected string $baseUrl,
-        protected int $maxReviews = 60,
+        protected int $maxReviews = 50,
     ) {
         //
     }
@@ -37,13 +37,28 @@ class MindcaseReviewFinder implements ReviewFinder
             ->post('data/google-maps/reviews/run?wait=true&wait_timeout='.self::WAIT_TIMEOUT, [
                 'params' => [
                     'urls' => $lead->reviewsUrl(),
-                    'maxReviews' => $this->maxReviews,
+                    'maxReviews' => $this->requestLimit($lead),
                     'sortBy' => 'mostRelevant',
                 ],
             ])
             ->throw();
 
         return $this->toResult($response->json());
+    }
+
+    /**
+     * Ask for at most the configured cap, and no more than the business's known Google total.
+     */
+    protected function requestLimit(Lead $lead): int
+    {
+        $cap = max(1, $this->maxReviews);
+        $known = (int) ($lead->reviews_count ?? 0);
+
+        if ($known > 0) {
+            return max(1, min($cap, $known));
+        }
+
+        return $cap;
     }
 
     /**

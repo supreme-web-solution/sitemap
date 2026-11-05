@@ -228,34 +228,36 @@
 
     /* ===== Gallery variants ===== */
     .gallery-v-masonry .gallery { display: block; column-count: 3; column-gap: 1rem; }
-    .gallery-v-masonry .gallery img { margin-bottom: 1rem; break-inside: avoid; }
-    .gallery-v-masonry .gallery img:nth-child(3n+1) { aspect-ratio: 3 / 4; }
-    .gallery-v-masonry .gallery img:nth-child(3n+2) { aspect-ratio: 4 / 3; }
-    .gallery-v-masonry .gallery img:nth-child(3n) { aspect-ratio: 1 / 1; }
+    .gallery-v-masonry .gallery .gallery-item { margin-bottom: 1rem; break-inside: avoid; }
+    .gallery-v-masonry .gallery .gallery-item:nth-child(3n+1) img { aspect-ratio: 3 / 4; }
+    .gallery-v-masonry .gallery .gallery-item:nth-child(3n+2) img { aspect-ratio: 4 / 3; }
+    .gallery-v-masonry .gallery .gallery-item:nth-child(3n) img { aspect-ratio: 1 / 1; }
     @media (max-width: 700px) { .gallery-v-masonry .gallery { column-count: 2; } }
 
     .gallery-v-mosaic .gallery { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 190px; grid-auto-flow: dense; }
-    .gallery-v-mosaic .gallery img { height: 100%; aspect-ratio: auto; }
-    .gallery-v-mosaic .gallery img:first-child { grid-column: span 2; grid-row: span 2; }
+    .gallery-v-mosaic .gallery .gallery-item { height: 100%; }
+    .gallery-v-mosaic .gallery .gallery-item img { height: 100%; aspect-ratio: auto; }
+    .gallery-v-mosaic .gallery .gallery-item:first-child { grid-column: span 2; grid-row: span 2; }
     @media (max-width: 700px) {
         .gallery-v-mosaic .gallery { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
-        .gallery-v-mosaic .gallery img:first-child { grid-row: span 1; }
+        .gallery-v-mosaic .gallery .gallery-item:first-child { grid-row: span 1; }
     }
 
     .gallery-v-strip .gallery { display: flex; max-width: 100%; min-width: 0; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding-bottom: .75rem; scrollbar-width: thin; }
-    .gallery-v-strip .gallery img { flex: 0 0 min(80%, 26rem); scroll-snap-align: start; }
+    .gallery-v-strip .gallery .gallery-item { flex: 0 0 min(80%, 26rem); scroll-snap-align: start; }
 
     .gallery-v-polaroid .gallery { gap: 1.75rem; padding: .5rem; }
-    .gallery-v-polaroid .gallery img { background: #fff; padding: .6rem .6rem 2.4rem; border-radius: 3px; box-shadow: 0 14px 30px -12px rgba(0,0,0,.35); aspect-ratio: 1 / 1; transform: rotate(-1.5deg); transition: transform .25s ease; }
-    .gallery-v-polaroid .gallery img:nth-child(even) { transform: rotate(1.6deg); }
-    .gallery-v-polaroid .gallery img:hover { transform: rotate(0) scale(1.03); }
+    .gallery-v-polaroid .gallery .gallery-item { background: #fff; padding: .6rem .6rem 2.4rem; border-radius: 3px; box-shadow: 0 14px 30px -12px rgba(0,0,0,.35); transform: rotate(-1.5deg); transition: transform .25s ease; }
+    .gallery-v-polaroid .gallery .gallery-item img { aspect-ratio: 1 / 1; border-radius: 2px; }
+    .gallery-v-polaroid .gallery .gallery-item:nth-child(even) { transform: rotate(1.6deg); }
+    .gallery-v-polaroid .gallery .gallery-item:hover { transform: rotate(0) scale(1.03); }
     @media (max-width: 700px) {
         .gallery-v-polaroid .gallery { overflow: clip; }
-        .gallery-v-polaroid .gallery img, .gallery-v-polaroid .gallery img:nth-child(even), .gallery-v-polaroid .gallery img:hover { transform: none; }
+        .gallery-v-polaroid .gallery .gallery-item, .gallery-v-polaroid .gallery .gallery-item:nth-child(even), .gallery-v-polaroid .gallery .gallery-item:hover { transform: none; }
     }
 
     .gallery-v-duo .gallery { grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
-    .gallery-v-duo .gallery img { aspect-ratio: 3 / 2; }
+    .gallery-v-duo .gallery .gallery-item img { aspect-ratio: 3 / 2; }
     @media (max-width: 600px) { .gallery-v-duo .gallery { grid-template-columns: 1fr; } }
 
     /* ===== FAQ variants ===== */

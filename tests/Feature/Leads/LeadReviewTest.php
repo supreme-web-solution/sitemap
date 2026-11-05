@@ -68,7 +68,10 @@ test('the review finder asks mindcase for the places reviews and keeps only revi
         ]),
     ]);
 
-    $lead = Lead::factory()->create(['maps_url' => 'https://maps.google.com/?cid=42']);
+    $lead = Lead::factory()->create([
+        'maps_url' => 'https://maps.google.com/?cid=42',
+        'reviews_count' => 18135,
+    ]);
 
     $result = app(ReviewFinder::class)->start($lead);
 
@@ -80,6 +83,43 @@ test('the review finder asks mindcase for the places reviews and keeps only revi
         && $request['params']['urls'] === 'https://maps.google.com/?cid=42'
         && $request['params']['maxReviews'] === config('prospecting.reviews.fetch_limit')
         && ! array_key_exists('language', $request['params'] ?? []));
+});
+
+test('review fetch asks for the business total when it is below the cap', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/reviews/run*' => Http::response([
+            'job_id' => 'reviews-small',
+            'status' => 'completed',
+            'data' => [mindcaseReviewRow()],
+        ]),
+    ]);
+
+    $lead = Lead::factory()->create(['reviews_count' => 12]);
+
+    app(ReviewFinder::class)->start($lead);
+
+    Http::assertSent(fn (Request $request) => ($request['params']['maxReviews'] ?? null) === 12);
+});
+
+test('at most fifty strong reviews are stored even when more are returned', function () {
+    $lead = Lead::factory()->create();
+
+    $reviews = [];
+
+    for ($i = 0; $i < 80; $i++) {
+        $reviews[] = new PlaceReview(
+            'ext-'.$i,
+            'Reviewer '.$i,
+            $i % 2 === 0 ? 5 : 4,
+            'This is a substantial written review about the business quality number '.$i,
+        );
+    }
+
+    $saved = app(StoreLeadReviews::class)->handle($lead, $reviews);
+
+    expect($saved)->toBe(50)
+        ->and($lead->reviews()->count())->toBe(50);
 });
 
 test('a completed fetch keeps only strong written reviews and marks the lead as fetched', function () {

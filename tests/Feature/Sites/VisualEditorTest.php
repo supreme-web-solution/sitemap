@@ -456,6 +456,33 @@ test('a photo can be replaced, added and removed', function () {
         ->assertJsonCount(1, 'photos');
 });
 
+test('a service card image can be uploaded and removed', function () {
+    Storage::fake('public');
+    [$site, $user] = editorSite();
+    $params = ['current_team' => $user->currentTeam->slug, 'site' => $site->id];
+
+    $this->actingAs($user)
+        ->post(route('sites.media.store', $params), [
+            'slot' => 'service',
+            'index' => 0,
+            'image' => UploadedFile::fake()->image('service.jpg', 800, 600),
+        ])
+        ->assertOk()
+        ->assertJsonPath('services.0', fn (?string $url) => is_string($url) && $url !== '' && ! str_starts_with($url, 'data:'));
+
+    expect($site->fresh()->content['services'][0]['image_path'] ?? null)->not->toBeEmpty();
+
+    $path = $site->fresh()->content['services'][0]['image_path'];
+    Storage::disk('public')->assertExists($path);
+
+    $this->actingAs($user)
+        ->deleteJson(route('sites.media.destroy', $params), ['slot' => 'service', 'index' => 0])
+        ->assertOk();
+
+    expect($site->fresh()->content['services'][0]['image_path'] ?? null)->toBeNull();
+    Storage::disk('public')->assertMissing($path);
+});
+
 test('the logo can be replaced and removed', function () {
     Storage::fake('public');
     [$site, $user] = editorSite();

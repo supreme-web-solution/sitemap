@@ -370,16 +370,36 @@ const reloadFromServer = () => {
     });
 };
 
-const onMediaChanged = (changed: Pick<SiteMedia, 'logo' | 'photos'>) => {
-    media.value = { ...media.value, ...changed };
+const onMediaChanged = (changed: Pick<SiteMedia, 'logo' | 'photos' | 'services'> & { revision?: number }) => {
+    media.value = {
+        ...media.value,
+        logo: changed.logo,
+        photos: changed.photos,
+        services: changed.services ?? media.value.services,
+    };
     canUndoMedia.value = true;
+
+    if (typeof changed.revision === 'number') {
+        editor.syncRevision(changed.revision);
+    }
+
     canvas.value?.reload();
 };
 
 const undoMediaChange = async (): Promise<void> => {
     try {
         const next = await undoSiteImage(props.teamSlug, props.site.id);
-        media.value = { ...media.value, ...next };
+        media.value = {
+            ...media.value,
+            logo: next.logo,
+            photos: next.photos,
+            services: next.services ?? media.value.services,
+        };
+
+        if (typeof next.revision === 'number') {
+            editor.syncRevision(next.revision);
+        }
+
         canUndoMedia.value = false;
         canvas.value?.reload();
         toast.success('Image change undone');

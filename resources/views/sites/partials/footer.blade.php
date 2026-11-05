@@ -21,7 +21,7 @@
             @if (! empty($socialLinks))
                 <nav class="footer-social" aria-label="Social">
                     @foreach ($socialLinks as $platform => $url)
-                        <a href="{{ $url }}" rel="noopener noreferrer">{{ ucfirst($platform) }}</a>
+                        @include('sites.partials.social-link', ['platform' => $platform, 'url' => $url])
                     @endforeach
                 </nav>
             @endif

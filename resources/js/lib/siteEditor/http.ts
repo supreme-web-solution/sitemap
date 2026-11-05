@@ -17,9 +17,13 @@ export const requestHeaders = (): Record<string, string> => ({
     'X-XSRF-TOKEN': xsrfToken(),
 });
 
-export type MediaSlot = { slot: 'logo' | 'photo'; index: number | null };
+export type MediaSlotName = 'logo' | 'photo' | 'service';
 
-type MediaResponse = Pick<SiteMedia, 'logo' | 'photos'>;
+export type MediaSlot = { slot: MediaSlotName; index: number | null };
+
+export type MediaResponse = Pick<SiteMedia, 'logo' | 'photos' | 'services'> & {
+    revision?: number;
+};
 
 const failure = async (response: Response): Promise<Error> => {
     const body = (await response.json().catch(() => null)) as {
@@ -67,6 +71,35 @@ export const generateSiteImage = async (
 ): Promise<MediaResponse> => {
     const data = new FormData();
     data.append('generate', '1');
+    data.append('slot', target.slot);
+    data.append('prompt', prompt);
+
+    if (target.index !== null) {
+        data.append('index', String(target.index));
+    }
+
+    const response = await fetch(storeMedia.url({ current_team: teamSlug, site: siteId }), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: requestHeaders(),
+        body: data,
+    });
+
+    if (!response.ok) {
+        throw await failure(response);
+    }
+
+    return (await response.json()) as MediaResponse;
+};
+
+export const improveSiteImage = async (
+    teamSlug: string,
+    siteId: number,
+    target: MediaSlot,
+    prompt = '',
+): Promise<MediaResponse> => {
+    const data = new FormData();
+    data.append('improve', '1');
     data.append('slot', target.slot);
     data.append('prompt', prompt);
 

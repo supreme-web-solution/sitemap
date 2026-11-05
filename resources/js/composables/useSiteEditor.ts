@@ -258,6 +258,14 @@ export function useSiteEditor(options: {
     };
 
     /**
+     * Keep the save queue in sync after media endpoints change site content (service images).
+     */
+    const syncRevision = (newRevision: number): void => {
+        revision.value = newRevision;
+        serverDocument = JSON.parse(JSON.stringify(draft.value));
+    };
+
+    /**
      * Stop saving because the website changed somewhere else (an AI edit, a restore or a teammate).
      */
     const markConflict = (reason: string): void => {
@@ -318,6 +326,7 @@ export function useSiteEditor(options: {
         redo,
         flush,
         reset,
+        syncRevision,
         markConflict,
     };
 }

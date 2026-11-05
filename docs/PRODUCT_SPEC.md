@@ -1,4 +1,4 @@
-# Sitemap — Product Specification
+# MapMatic — Product Specification
 
 A client-acquisition platform for agencies, freelancers and web sales teams, modelled on the workflow of [@sitemap](https://atsitemap.com/):
 

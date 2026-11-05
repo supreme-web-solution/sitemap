@@ -11,8 +11,8 @@
     <section class="block gallery-block">
         <div class="container">
             <div class="gallery">
-                @foreach ($galleryPhotos as $photo)
-                    <img src="{{ $photo }}" alt="{{ $lead->name }} photo {{ $loop->iteration }}" loading="lazy" decoding="async"{!! $e->image('photo', $loop->index, 'Photo '.$loop->iteration) !!}>
+                @foreach ($galleryPhotos as $index => $photo)
+                    @include('sites.partials.gallery-item', ['photo' => $photo, 'index' => $index])
                 @endforeach
             </div>
         </div>

@@ -46,3 +46,74 @@ test('the visual editor can generate and attach an ai photo', function () {
 
     expect($lead->fresh()->photo_paths)->toHaveCount(1);
 });
+
+test('the visual editor can generate a service card image without a prompt', function () {
+    Storage::fake('public');
+
+    config([
+        'sites.image_driver' => 'openrouter',
+        'services.openrouter.key' => 'test-key',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+            return Http::response([
+                'data' => [['b64_json' => base64_encode('fake-service-image'), 'media_type' => 'image/png']],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create();
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'generate' => true,
+            'slot' => 'service',
+            'index' => 0,
+        ])
+        ->assertOk()
+        ->assertJsonPath('services.0', fn (?string $url) => is_string($url) && ! str_starts_with($url, 'data:'));
+
+    expect($site->fresh()->content['services'][0]['image_path'] ?? null)->not->toBeEmpty();
+});
+
+test('the visual editor can improve an existing photo', function () {
+    Storage::fake('public');
+
+    config([
+        'sites.image_driver' => 'openrouter',
+        'services.openrouter.key' => 'test-key',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+            return Http::response([
+                'data' => [['b64_json' => base64_encode('improved-image-bytes'), 'media_type' => 'image/png']],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'photo_paths' => ['teams/1/leads/1/original.jpg'],
+    ]);
+    Storage::disk('public')->put('teams/1/leads/1/original.jpg', 'original');
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'improve' => true,
+            'slot' => 'photo',
+            'index' => 0,
+        ])
+        ->assertOk()
+        ->assertJsonCount(1, 'photos');
+
+    expect($lead->fresh()->photo_paths[0])->not->toBe('teams/1/leads/1/original.jpg');
+});

@@ -58,11 +58,13 @@ return [
     */
 
     'reviews' => [
-        'fetch_limit' => (int) env('REVIEWS_FETCH_LIMIT', 60),
+        // Ask Mindcase for at most this many; businesses with fewer return what they have.
+        'fetch_limit' => (int) env('REVIEWS_FETCH_LIMIT', 50),
         'minimum_rating' => 4,
         'minimum_length' => 25,
         'maximum_length' => 400,
-        'stored_per_lead' => 30,
+        // Keep the best written reviews only — never more than this, even for huge Google totals.
+        'stored_per_lead' => (int) env('REVIEWS_STORED_PER_LEAD', 50),
     ],
 
     /*

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Keeps one undo step for visual-editor logo/photo changes (files are copied before replace).
+ * Keeps one undo step for visual-editor logo/photo/service image changes (files are copied before replace).
  */
 class SiteMediaUndo
 {
@@ -25,6 +25,13 @@ class SiteMediaUndo
         }
 
         $photos = $lead->photo_paths ?? [];
+        $servicePaths = [];
+
+        foreach (array_values($site->content['services'] ?? []) as $service) {
+            $servicePaths[] = is_array($service) && is_string($service['image_path'] ?? null)
+                ? $this->duplicatePath($service['image_path'])
+                : null;
+        }
 
         Cache::put($key, [
             'logo_path' => $this->duplicatePath($lead->logo_path),
@@ -32,11 +39,12 @@ class SiteMediaUndo
                 fn (?string $path) => $path !== null ? $this->duplicatePath($path) : null,
                 $photos,
             ),
+            'service_image_paths' => $servicePaths,
         ], now()->addDay());
     }
 
     /**
-     * @return array{logo_path: ?string, photo_paths: list<?string>}|null
+     * @return array{logo_path: ?string, photo_paths: list<?string>, service_image_paths?: list<?string>}|null
      */
     public function pull(Site $site): ?array
     {
@@ -52,13 +60,17 @@ class SiteMediaUndo
     }
 
     /**
-     * @param  array{logo_path: ?string, photo_paths: list<?string>}  $snapshot
+     * @param  array{logo_path: ?string, photo_paths: list<?string>, service_image_paths?: list<?string>}  $snapshot
      */
     public function forgetStoredPaths(array $snapshot): void
     {
         $this->forgetPath($snapshot['logo_path'] ?? null);
 
         foreach ($snapshot['photo_paths'] ?? [] as $path) {
+            $this->forgetPath($path);
+        }
+
+        foreach ($snapshot['service_image_paths'] ?? [] as $path) {
             $this->forgetPath($path);
         }
     }
