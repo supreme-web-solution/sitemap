@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { Trash2 } from 'lucide-vue';
+import { Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
