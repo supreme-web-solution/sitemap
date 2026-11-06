@@ -20,6 +20,7 @@ export type ImageSelection = {
     slot: 'logo' | 'photo' | 'service' | 'home_hero' | 'about_hero' | 'about_portrait' | 'services_hero' | 'service_hero' | 'gallery_hero' | 'contact_hero' | 'blog_hero' | 'post_hero' | 'landing_hero' | 'location_hero';
     index: number | null;
     label: string;
+    generateNonce?: number;
 };
 
 export type SectionSelection = {

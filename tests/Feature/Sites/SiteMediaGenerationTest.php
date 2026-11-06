@@ -3,9 +3,67 @@
 use App\Models\Lead;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\SiteBuilder\SiteImagePromptBuilder;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+
+test('gallery prompts change with the photo and the variation', function () {
+    $lead = Lead::factory()->create(['category' => 'Plumbing', 'city' => 'Austin']);
+
+    $first = SiteImagePromptBuilder::forGallery($lead, 1, null, 0);
+    $nextSlot = SiteImagePromptBuilder::forGallery($lead, 2, null, 0);
+    $sameSlotAgain = SiteImagePromptBuilder::forGallery($lead, 1, null, 1);
+
+    expect($first)->toContain('Gallery photograph')
+        ->and($first)->toContain('different scene')
+        ->and($first)->not->toBe($nextSlot)
+        ->and($first)->not->toBe($sameSlotAgain);
+});
+
+test('adding a gallery photo generates from the gallery context without a typed prompt', function () {
+    Storage::fake('public');
+
+    config([
+        'sites.image_driver' => 'openrouter',
+        'services.openrouter.key' => 'test-key',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+            return Http::response([
+                'data' => [['b64_json' => base64_encode('gallery-image'), 'media_type' => 'image/png']],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'category' => 'Plumbing',
+        'city' => 'Austin',
+        'photo_paths' => ['teams/1/leads/1/hero.jpg'],
+    ]);
+    Storage::disk('public')->put('teams/1/leads/1/hero.jpg', 'hero');
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'generate' => true,
+            'slot' => 'photo',
+            'index' => 1,
+        ])
+        ->assertOk()
+        ->assertJsonCount(2, 'photos');
+
+    expect($lead->fresh()->photo_paths)->toHaveCount(2)
+        ->and($lead->fresh()->photo_paths[0])->toBe('teams/1/leads/1/hero.jpg');
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'openrouter.ai/api/v1/images')
+        && str_contains($request->body(), 'Gallery photograph')
+        && str_contains($request->body(), 'different scene'));
+});
 
 test('the visual editor can generate and attach an ai photo', function () {
     Storage::fake('public');

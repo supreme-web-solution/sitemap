@@ -190,11 +190,18 @@ class SiteImageGenerationPlanner
             }
         : 'gallery';
 
+        $hint = trim($userInstruction);
+        $prompt = $photoIndex === 0
+            ? SiteImagePromptBuilder::forHero($lead, $site, $hint !== '' ? $hint : null)
+            : SiteImagePromptBuilder::forGallery($lead, $photoIndex, $hint !== '' ? $hint : null, random_int(0, 64));
+
         return new SiteImageGenerationPlan(
-            prompt: SiteImagePromptBuilder::forHero($lead, $site, $userInstruction),
+            prompt: $prompt,
             aspectRatio: $aspectRatio,
             placement: $placement,
-            reasoning: 'Heuristic plan from hero layout preset '.$heroVariant.' and photo index '.$photoIndex.'.',
+            reasoning: $photoIndex === 0
+                ? 'Heuristic plan from hero layout preset '.$heroVariant.'.'
+                : 'Gallery photo '.$photoIndex.' uses its own scene so it does not repeat the hero.',
             fromLlm: false,
         );
     }

@@ -260,7 +260,9 @@ class SiteMediaController extends Controller
         $improve = $request->boolean('improve');
         $prompt = trim((string) ($data['prompt'] ?? ''));
 
-        if (! $improve && $prompt === '' && $data['slot'] === 'photo') {
+        $galleryIndex = (int) ($data['index'] ?? count($site->lead->photo_paths ?? []));
+
+        if (! $improve && $prompt === '' && $data['slot'] === 'photo' && $galleryIndex === 0) {
             throw ValidationException::withMessages(['prompt' => __('Describe the photo you want.')]);
         }
 

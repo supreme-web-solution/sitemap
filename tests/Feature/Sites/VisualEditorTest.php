@@ -511,6 +511,7 @@ test('the gallery editor shows an add-photo control while under the photo limit'
 
     expect($html)->toContain('Add a photo')
         ->and($html)->toContain('data-edit-image="photo"')
+        ->and($html)->toContain('data-edit-generate="1"')
         ->and($html)->toContain('data-edit-index="2"');
 });
 

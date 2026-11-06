@@ -186,9 +186,19 @@ const canUseAiImage = computed(() => {
     return selection !== null && selection.slot !== 'logo' && props.aiAvailable;
 });
 
-const canGenerateWithoutPrompt = computed(
-    () => imageSelection.value?.slot === 'service' || isPagePhoto.value,
-);
+const canGenerateWithoutPrompt = computed(() => {
+    const selection = imageSelection.value;
+
+    if (!selection) {
+        return false;
+    }
+
+    if (selection.slot === 'service' || isPagePhoto.value) {
+        return true;
+    }
+
+    return selection.slot === 'photo' && (selection.index ?? 0) > 0;
+});
 
 const canAddPhoto = computed(() => {
     const selection = imageSelection.value;
@@ -277,6 +287,20 @@ const generateImage = async () => {
         uploading.value = false;
     }
 };
+
+const seenGenerateNonce = ref<number | null>(null);
+
+watch(
+    () => (props.selection.kind === 'image' ? props.selection.generateNonce : undefined),
+    (nonce) => {
+        if (nonce == null || nonce === seenGenerateNonce.value || uploading.value) {
+            return;
+        }
+
+        seenGenerateNonce.value = nonce;
+        void generateImage();
+    },
+);
 
 const improveImage = async () => {
     const selection = imageSelection.value;
@@ -501,9 +525,13 @@ const textareaClass =
                             type="button"
                             class="text-xs font-medium text-primary hover:underline"
                             :disabled="uploading"
-                            @click="askingForNewPhoto = true"
+                            @click="
+                                imageSelection?.slot === 'photo' && canGenerateWithoutPrompt
+                                    ? generateImage()
+                                    : (askingForNewPhoto = true)
+                            "
                         >
-                            or generate one
+                            {{ imageSelection?.slot === 'photo' ? 'Generate with AI' : 'or generate one' }}
                         </button>
                     </div>
                     <div
@@ -616,6 +644,7 @@ const textareaClass =
                 </button>
                 <p v-if="imageSelection.slot === 'photo'" class="text-xs text-muted-foreground">
                     {{ media.photos.length }} of {{ media.maxPhotos }}. Home shows the first 6.
+                    Each generated gallery photo is a different scene.
                 </p>
                 <p v-else-if="isPagePhoto" class="text-xs text-muted-foreground">
                     Only this page uses this photo.

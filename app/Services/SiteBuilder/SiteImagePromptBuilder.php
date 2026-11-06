@@ -66,6 +66,29 @@ class SiteImagePromptBuilder
     }
 
     /**
+     * A gallery photograph that is a different scene from the hero and from the other gallery shots.
+     */
+    public static function forGallery(Lead $lead, int $index, ?string $userHint = null, int $variation = 0): string
+    {
+        $hint = trim((string) $userHint);
+        $scenes = self::galleryScenes($lead);
+        $scene = $scenes[($index + $variation) % count($scenes)];
+        $category = trim((string) ($lead->category ?? 'local service business'));
+        $city = trim((string) ($lead->city ?? ''));
+        $name = trim((string) $lead->name);
+
+        return Str::limit(implode(' ', array_filter([
+            'Gallery photograph for a local business website.',
+            'This must be a different scene, subject, and camera angle from the hero photo and from the other gallery photos.',
+            'Scene: '.$scene.'.',
+            "Business: {$name} ({$category}).",
+            $city !== '' ? "Setting suggests {$city} or a similar local neighbourhood." : null,
+            'Photorealistic, well-lit, no text, no logos, no watermark, no collage.',
+            $hint !== '' ? 'Also include: '.Str::limit($hint, 240, '') : null,
+        ])), 900, '');
+    }
+
+    /**
      * Edit the attached photograph so it is sharper, without inventing a new scene.
      */
     public static function forSharpen(?string $userHint = null): string
@@ -106,5 +129,39 @@ class SiteImagePromptBuilder
         }
 
         return 'a professional scene that matches a '.Str::lower($category).' business, appropriate for a marketing website hero';
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected static function galleryScenes(Lead $lead): array
+    {
+        $category = Str::lower((string) ($lead->category ?? ''));
+
+        if (Str::contains($category, 'plumb')) {
+            return [
+                'a plumber repairing a kitchen faucet, hands and fixture in frame, bright modern kitchen',
+                'a tidy utility room with a water heater and copper pipes, no people',
+                'a closed service van parked on a tree-lined residential street, no posed portrait',
+                'a finished modern bathroom with a new faucet and clean tile, no people',
+                'a technician inspecting an under-sink drain with a flashlight',
+                'an outdoor hose bib and neat exterior plumbing on a house wall',
+                'tools and fittings laid out on a clean drop cloth before a repair',
+                'a candid conversation in a hallway, not a posed portrait in front of a vehicle',
+            ];
+        }
+
+        $subject = self::subjectForCategory((string) ($lead->category ?? 'local service business'));
+
+        return [
+            'a close, well-lit detail of the work: '.$subject,
+            'a wide view of the workplace with nobody posing for the camera: '.$subject,
+            'the finished result a customer would want to show: '.$subject,
+            'tools and materials prepared before the job, orderly and realistic: '.$subject,
+            'the work in progress, candid, with natural posture if anyone is present: '.$subject,
+            'the outside of the job site as the crew arrives, no readable signage: '.$subject,
+            'the space after the work is done, quiet and clean: '.$subject,
+            'another room and another time of day for the same kind of job: '.$subject,
+        ];
     }
 }
