@@ -24,6 +24,7 @@ import type { SettingsTab } from '@/components/sites/editor/EditorSettingsDialog
 import SiteEditorWorkspace from '@/components/sites/editor/SiteEditorWorkspace.vue';
 import SiteChatPanel from '@/components/sites/SiteChatPanel.vue';
 import SiteHealthPanel from '@/components/sites/SiteHealthPanel.vue';
+import SiteTransferPanel from '@/components/sites/SiteTransferPanel.vue';
 import SitePreviewAccessPanel from '@/components/sites/SitePreviewAccessPanel.vue';
 import SitePostsPanel from '@/components/SitePostsPanel.vue';
 import SitePublishPanel from '@/components/SitePublishPanel.vue';
@@ -660,11 +661,18 @@ const copyLink = async () => {
                     :site-id="site.id"
                     :team-slug="teamSlug"
                     :health="health"
-                    :transferred-at="site.transferredAt"
-                    :transferred-to-email="site.transferredToEmail"
                     :can-fix="chat.available"
                     :fixing="chat.busy"
                     @fix="fixWithAi"
+                />
+            </template>
+
+            <template #transfer>
+                <SiteTransferPanel
+                    :site-id="site.id"
+                    :team-slug="teamSlug"
+                    :transferred-at="site.transferredAt"
+                    :transferred-to-email="site.transferredToEmail"
                 />
             </template>
 

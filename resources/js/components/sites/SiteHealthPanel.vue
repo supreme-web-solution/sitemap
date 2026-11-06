@@ -1,21 +1,15 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3';
-import { LoaderCircle } from '@lucide/vue';
+import { router } from '@inertiajs/vue3';
 import CheckList from '@/components/CheckList.vue';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { formatRelativeTime } from '@/lib/format';
 import { store as runHealth } from '@/routes/sites/health';
-import { store as transferSite } from '@/routes/sites/transfer';
 import type { SiteHealth } from '@/types';
 
 const props = defineProps<{
     siteId: number;
     teamSlug: string;
     health: SiteHealth;
-    transferredAt: string | null;
-    transferredToEmail: string | null;
     canFix?: boolean;
     fixing?: boolean;
 }>();
@@ -24,14 +18,12 @@ const emit = defineEmits<{
     fix: [key: string];
 }>();
 
-const args = { current_team: props.teamSlug, site: props.siteId };
-const form = useForm({ email: '' });
-
 const check = () =>
-    router.post(runHealth.url(args), {}, { preserveScroll: true });
-
-const transfer = () =>
-    form.post(transferSite.url(args), { preserveScroll: true });
+    router.post(
+        runHealth.url({ current_team: props.teamSlug, site: props.siteId }),
+        {},
+        { preserveScroll: true },
+    );
 </script>
 
 <template>
@@ -84,26 +76,5 @@ const transfer = () =>
                 </li>
             </ul>
         </div>
-        <form class="mt-4 grid gap-2" @submit.prevent="transfer">
-            <Label for="transfer-email">Transfer ownership</Label>
-            <Input
-                id="transfer-email"
-                v-model="form.email"
-                type="email"
-                required
-                placeholder="client@example.com"
-            />
-            <p class="text-xs text-muted-foreground">
-                Unpublishes the live copy, stores a backup, and emails the client.
-            </p>
-            <Button type="submit" size="sm" class="w-fit" :disabled="form.processing">
-                <LoaderCircle v-if="form.processing" class="animate-spin" />
-                Transfer
-            </Button>
-            <p v-if="transferredAt" class="text-xs text-muted-foreground">
-                Transferred to {{ transferredToEmail }}
-                {{ formatRelativeTime(transferredAt) }}.
-            </p>
-        </form>
     </section>
 </template>

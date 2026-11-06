@@ -5,6 +5,7 @@ import {
     History,
     Lock,
     Newspaper,
+    Send,
     ShieldCheck,
     SlidersHorizontal,
     Star,
@@ -25,6 +26,7 @@ export type SettingsTab =
     | 'access'
     | 'reviews'
     | 'quality'
+    | 'transfer'
     | 'posts'
     | 'history';
 
@@ -73,6 +75,12 @@ const sections: Section[] = [
         label: 'Quality & health',
         description: 'Speed, page size, and checks before you send this website.',
         icon: ShieldCheck,
+    },
+    {
+        value: 'transfer',
+        label: 'Transfer',
+        description: 'Hand this website to the client.',
+        icon: Send,
     },
     {
         value: 'posts',

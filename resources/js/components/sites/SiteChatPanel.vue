@@ -92,6 +92,9 @@ const displayMessages = computed((): SiteChatMessage[] => {
     return messages;
 });
 
+const isPendingAssistant = (message: SiteChatMessage): boolean =>
+    message.role === 'assistant' && message.status === 'pending';
+
 const showBuildLog = computed(() => props.chat.busy || form.processing);
 
 const buildLogLines = computed((): string[] => {
@@ -107,6 +110,12 @@ const buildLogLines = computed((): string[] => {
 
     return [];
 });
+
+const visibleMessages = computed(() =>
+    displayMessages.value.filter(
+        (message) => !(showBuildLog.value && isPendingAssistant(message)),
+    ),
+);
 
 const editorTab = inject<Ref<string>>('siteEditorTab', ref('selection'));
 
@@ -305,9 +314,6 @@ const submit = () => {
         });
 };
 
-const isPendingAssistant = (message: SiteChatMessage): boolean =>
-    message.role === 'assistant' && message.status === 'pending';
-
 const cancelling = ref(false);
 const retryingMessageId = ref<number | null>(null);
 
@@ -375,11 +381,11 @@ const cancelEdit = () => {
                 ]"
             >
                 <ol
-                    v-if="displayMessages.length || showBuildLog"
+                    v-if="visibleMessages.length || showBuildLog"
                     class="grid gap-2 pr-1 text-sm"
                 >
                     <li
-                        v-for="message in displayMessages"
+                        v-for="message in visibleMessages"
                         :key="message.id"
                         class="rounded-lg px-3 py-2"
                         :class="

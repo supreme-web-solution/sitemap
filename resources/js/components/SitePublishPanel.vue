@@ -184,9 +184,11 @@ const promoteToLive = () => {
             v-if="!publishing.dnsConfigured"
             class="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300"
         >
-            The server address for customer domains is not configured yet, so
-            only the ownership record can be checked. Set
-            <code>SITES_CNAME_TARGET</code> or <code>SITES_SERVER_IP</code>.
+            Client domains cannot be pointed at this server yet. On the host,
+            set <code>SITES_CNAME_TARGET</code> to the hostname a client should
+            CNAME to, or <code>SITES_SERVER_IP</code> to this server’s public
+            IP. Until one of those is set, only the ownership TXT record can be
+            checked.
         </p>
 
         <ul v-if="publishing.domains.length" class="mt-4 grid gap-3">
