@@ -16,12 +16,13 @@ use Illuminate\Support\Carbon;
  * @property int|null $user_id
  * @property SiteTemplate $template
  * @property array<string, mixed> $content
+ * @property array{photo_paths?: list<string>|null, logo_path?: string|null}|null $media
  * @property string|null $label
  * @property Carbon|null $created_at
  * @property-read Site $site
  * @property-read User|null $user
  */
-#[Fillable(['site_id', 'user_id', 'template', 'content', 'label'])]
+#[Fillable(['site_id', 'user_id', 'template', 'content', 'media', 'label'])]
 class SiteVersion extends Model
 {
     /** @use HasFactory<SiteVersionFactory> */
@@ -57,6 +58,7 @@ class SiteVersion extends Model
         return [
             'template' => SiteTemplate::class,
             'content' => 'array',
+            'media' => 'array',
         ];
     }
 }

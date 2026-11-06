@@ -288,20 +288,6 @@ const generateImage = async () => {
     }
 };
 
-const seenGenerateNonce = ref<number | null>(null);
-
-watch(
-    () => (props.selection.kind === 'image' ? props.selection.generateNonce : undefined),
-    (nonce) => {
-        if (nonce == null || nonce === seenGenerateNonce.value || uploading.value) {
-            return;
-        }
-
-        seenGenerateNonce.value = nonce;
-        void generateImage();
-    },
-);
-
 const improveImage = async () => {
     const selection = imageSelection.value;
 
@@ -525,13 +511,9 @@ const textareaClass =
                             type="button"
                             class="text-xs font-medium text-primary hover:underline"
                             :disabled="uploading"
-                            @click="
-                                imageSelection?.slot === 'photo' && canGenerateWithoutPrompt
-                                    ? generateImage()
-                                    : (askingForNewPhoto = true)
-                            "
+                            @click="askingForNewPhoto = true"
                         >
-                            {{ imageSelection?.slot === 'photo' ? 'Generate with AI' : 'or generate one' }}
+                            or generate one
                         </button>
                     </div>
                     <div

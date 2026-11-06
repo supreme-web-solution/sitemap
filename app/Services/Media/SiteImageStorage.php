@@ -119,7 +119,7 @@ class SiteImageStorage
 
     public function delete(?string $path): void
     {
-        if ($path === null || $path === '') {
+        if ($path === null || $path === '' || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             return;
         }
 
@@ -138,7 +138,7 @@ class SiteImageStorage
      */
     public function forgetReplaced(?string $path): void
     {
-        if ($path === null || $path === '' || $this->isCloudinary($path)) {
+        if ($path === null || $path === '' || $this->isCloudinary($path) || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             return;
         }
 

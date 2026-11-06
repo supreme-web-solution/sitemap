@@ -588,18 +588,12 @@
                 event.preventDefault();
                 event.stopPropagation();
                 markSelected(image);
-                const imageSelection = {
+                send('select', {
                     kind: 'image',
                     slot: image.dataset.editImage,
                     index: image.dataset.editIndex === '' ? null : Number(image.dataset.editIndex),
                     label: image.dataset.editLabel || 'Image',
-                };
-
-                if (image.dataset.editGenerate === '1') {
-                    imageSelection.generateNonce = Date.now();
-                }
-
-                send('select', imageSelection);
+                });
                 send('image', {
                     slot: image.dataset.editImage,
                     index: image.dataset.editIndex === '' ? null : Number(image.dataset.editIndex),

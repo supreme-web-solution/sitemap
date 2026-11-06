@@ -42,7 +42,7 @@ class SiteEditController extends Controller
             $validated = $validator->validate();
 
             if ($document != $before) {
-                $locked->snapshotForEditSession($request->user()->id);
+                $locked->snapshotForEditSession($request->user()->id, $this->editLabel($request->validated('ops')));
                 $locked->update([
                     'template' => $validated['template'],
                     'content' => SiteContentSchema::toContent($validated),
@@ -64,5 +64,25 @@ class SiteEditController extends Controller
             'document' => SiteEditApplier::document($updated),
             'quality' => $quality->check($updated),
         ]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $ops
+     */
+    protected function editLabel(array $ops): string
+    {
+        $first = $ops[0] ?? [];
+        $path = str_replace(['.', '_'], ' ', (string) ($first['path'] ?? 'the website'));
+
+        if (count($ops) > 1) {
+            return __('Edited the website');
+        }
+
+        return match ((string) ($first['op'] ?? 'set')) {
+            'remove' => __('Removed :path', ['path' => $path]),
+            'insert' => __('Added :path', ['path' => $path]),
+            'move' => __('Moved :path', ['path' => $path]),
+            default => __('Changed :path', ['path' => $path]),
+        };
     }
 }

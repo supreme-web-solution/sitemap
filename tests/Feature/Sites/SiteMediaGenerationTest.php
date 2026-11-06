@@ -65,6 +65,47 @@ test('adding a gallery photo generates from the gallery context without a typed 
         && str_contains($request->body(), 'different scene'));
 });
 
+test('adding a gallery photo keeps the listing photos already on screen', function () {
+    Storage::fake('public');
+
+    config([
+        'sites.image_driver' => 'openrouter',
+        'services.openrouter.key' => 'test-key',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+            return Http::response([
+                'data' => [['b64_json' => base64_encode('gallery-image'), 'media_type' => 'image/png']],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'photo_paths' => null,
+        'photo_url' => null,
+        'listing_photo_urls' => ['https://example.com/one.jpg', 'https://example.com/two.jpg'],
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'generate' => true,
+            'slot' => 'photo',
+            'index' => 2,
+        ])
+        ->assertOk()
+        ->assertJsonCount(3, 'photos');
+
+    expect($lead->fresh()->photo_paths[0])->toBe('https://example.com/one.jpg')
+        ->and($lead->fresh()->photo_paths[1])->toBe('https://example.com/two.jpg')
+        ->and($lead->fresh()->photo_paths)->toHaveCount(3)
+        ->and($site->versions()->count())->toBe(1);
+});
+
 test('the visual editor can generate and attach an ai photo', function () {
     Storage::fake('public');
 

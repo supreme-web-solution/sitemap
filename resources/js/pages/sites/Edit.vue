@@ -362,6 +362,14 @@ const copyLink = async () => {
                 <Button
                     variant="outline"
                     size="sm"
+                    data-test="editor-history-open"
+                    @click="openSettings('history')"
+                >
+                    <History /> History
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
                     class="relative"
                     data-test="editor-settings-open"
                     @click="openSettings('general')"
@@ -668,8 +676,9 @@ const copyLink = async () => {
             <template #history>
                 <section class="panel p-5" data-test="version-history">
                     <p class="text-sm text-muted-foreground">
-                        Restoring a version saves the current one first, so
-                        nothing is lost.
+                        Every saved change is kept here. Pick any version to
+                        put the website, including its photos, back to that
+                        point. The current version is saved first.
                     </p>
                     <ul
                         v-if="versions.length"

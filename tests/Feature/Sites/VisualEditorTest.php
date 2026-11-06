@@ -102,24 +102,20 @@ test('a set operation can change one section layout without swapping the templat
         ->and($site->fresh()->content['variants']['about_page'])->toBe('portrait');
 });
 
-test('edits made close together share one editing session version', function () {
+test('each saved edit keeps the previous version', function () {
     [$site, $user] = editorSite();
     $original = $site->content['headline'];
 
     sendEdits($user, $site, [['op' => 'set', 'path' => 'headline', 'value' => 'First change']])->assertOk();
     sendEdits($user, $site, [['op' => 'set', 'path' => 'headline', 'value' => 'Second change']])->assertOk();
 
-    $version = $site->versions()->sole();
+    $versions = $site->versions()->orderBy('id')->get();
 
-    expect($version->label)->toBe('Visual editing session')
-        ->and($version->content['headline'])->toBe($original)
-        ->and($version->user_id)->toBe($user->id);
-
-    $this->travel(20)->minutes();
-
-    sendEdits($user, $site, [['op' => 'set', 'path' => 'headline', 'value' => 'Third change']])->assertOk();
-
-    expect($site->versions()->count())->toBe(2);
+    expect($versions)->toHaveCount(2)
+        ->and($versions[0]->content['headline'])->toBe($original)
+        ->and($versions[0]->label)->toBe('Changed headline')
+        ->and($versions[0]->user_id)->toBe($user->id)
+        ->and($versions[1]->content['headline'])->toBe('First change');
 });
 
 test('an edit that changes nothing does not bump the revision or save a version', function () {
@@ -511,7 +507,7 @@ test('the gallery editor shows an add-photo control while under the photo limit'
 
     expect($html)->toContain('Add a photo')
         ->and($html)->toContain('data-edit-image="photo"')
-        ->and($html)->toContain('data-edit-generate="1"')
+        ->and($html)->not->toContain('data-edit-generate')
         ->and($html)->toContain('data-edit-index="2"');
 });
 

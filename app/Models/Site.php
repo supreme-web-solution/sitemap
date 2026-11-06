@@ -61,11 +61,6 @@ class Site extends Model
     public const MAX_VERSIONS = 30;
 
     /**
-     * Minutes of continuous visual editing that share one history entry.
-     */
-    public const EDIT_SESSION_MINUTES = 15;
-
-    /**
      * Bootstrap the model and its traits.
      *
      * Any change to the template or content moves the revision on, so a stale editor
@@ -209,10 +204,16 @@ class Site extends Model
      */
     public function snapshot(?int $userId = null, ?string $label = null): SiteVersion
     {
+        $this->loadMissing('lead');
+
         $version = $this->versions()->create([
             'user_id' => $userId,
             'template' => $this->template,
             'content' => $this->content,
+            'media' => $this->lead === null ? null : [
+                'photo_paths' => $this->lead->photo_paths,
+                'logo_path' => $this->lead->logo_path,
+            ],
             'label' => $label,
         ]);
 
@@ -224,19 +225,11 @@ class Site extends Model
     }
 
     /**
-     * Save a revision for a stretch of visual editing, at most one per editing session,
-     * so autosaves do not push real history out of the version limit.
+     * Save the website as it is now, before the edit is stored, so history can return to it.
      */
-    public function snapshotForEditSession(?int $userId): ?SiteVersion
+    public function snapshotForEditSession(?int $userId, ?string $label = null): SiteVersion
     {
-        $label = __('Visual editing session');
-
-        $recent = $this->versions()
-            ->where('label', $label)
-            ->where('created_at', '>=', now()->subMinutes(self::EDIT_SESSION_MINUTES))
-            ->exists();
-
-        return $recent ? null : $this->snapshot($userId, $label);
+        return $this->snapshot($userId, $label ?? __('Visual edit'));
     }
 
     /**

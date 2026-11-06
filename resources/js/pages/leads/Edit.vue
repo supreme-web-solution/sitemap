@@ -255,8 +255,10 @@ const textareaClass =
 <template>
     <Head :title="`Review ${lead.name}`" />
 
-    <div class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6">
-        <header class="panel flex flex-col gap-4 p-5 md:p-6">
+    <div
+        class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6 xl:h-[calc(100dvh-4rem)] xl:overflow-hidden"
+    >
+        <header class="panel flex shrink-0 flex-col gap-4 p-5 md:p-6">
             <div
                 class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
             >
@@ -336,8 +338,12 @@ const textareaClass =
             </div>
         </header>
 
-        <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
-            <div class="flex min-w-0 flex-col gap-6">
+        <div
+            class="grid gap-6 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_26rem] xl:overflow-hidden"
+        >
+            <div
+                class="flex min-w-0 flex-col gap-6 xl:min-h-0 xl:overflow-y-auto xl:overscroll-y-contain"
+            >
                 <RedesignWorkflowCard
                     :lead="lead"
                     :team-slug="teamSlug"
@@ -655,7 +661,7 @@ const textareaClass =
 
             <aside
                 ref="sidebarRef"
-                class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-16 xl:max-h-[calc(100dvh-4rem)] xl:overflow-y-auto xl:overscroll-y-contain xl:scroll-smooth xl:pb-2 xl:pr-1"
+                class="flex min-w-0 flex-col gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-y-contain xl:pr-1"
             >
                 <LeadScoreCard :lead="lead" />
                 <SalesAssistantCard

@@ -14,7 +14,6 @@
                 <button
                     type="button"
                     class="edit-add-image is-gallery"
-                    data-edit-generate="1"
                     {!! $e->image('photo', $galleryCount, 'Photo '.($galleryCount + 1)) !!}
                 >
                     Add a photo

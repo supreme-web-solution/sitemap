@@ -60,6 +60,19 @@ test('saving without changes does not create a version', function () {
     expect($site->versions()->count())->toBe(0);
 });
 
+test('restoring a version puts the photos back as well', function () {
+    [$site, $user] = editableSite();
+    $site->lead->update(['photo_paths' => ['teams/1/original.jpg']]);
+    $version = $site->snapshot($user->id, 'Before the photo change');
+    $site->lead->update(['photo_paths' => ['teams/1/replacement.jpg']]);
+
+    $this->actingAs($user)
+        ->post(route('sites.versions.restore', ['current_team' => $user->currentTeam->slug, 'site' => $site->id, 'version' => $version->id]))
+        ->assertRedirect();
+
+    expect($site->lead->fresh()->photo_paths)->toBe(['teams/1/original.jpg']);
+});
+
 test('an earlier version can be restored and the current state is kept as a version', function () {
     [$site, $user] = editableSite();
     $original = $site->content['headline'];

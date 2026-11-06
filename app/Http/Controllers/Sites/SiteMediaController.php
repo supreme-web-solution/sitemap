@@ -88,7 +88,7 @@ class SiteMediaController extends Controller
             return $this->media($site, $lead);
         }
 
-        $paths = $lead->photo_paths ?? [];
+        $paths = $this->editablePhotoPaths($lead);
         $index = $data['index'] ?? count($paths);
 
         if ($index >= count($paths) && count($paths) >= UpdateLeadProfileRequest::MAX_PHOTOS) {
@@ -96,6 +96,8 @@ class SiteMediaController extends Controller
 
             throw ValidationException::withMessages(['image' => __('A website can have up to :max photos.', ['max' => UpdateLeadProfileRequest::MAX_PHOTOS])]);
         }
+
+        $site->snapshot($request->user()?->id, __('Before a photo change'));
 
         if (isset($paths[$index])) {
             $imageStorage->forgetReplaced($paths[$index]);
@@ -155,6 +157,8 @@ class SiteMediaController extends Controller
         if (! isset($paths[$index])) {
             throw ValidationException::withMessages(['index' => __('That photo is not an uploaded photo.')]);
         }
+
+        $site->snapshot($request->user()?->id, __('Before removing a photo'));
 
         $imageStorage->forgetReplaced($paths[$index]);
         unset($paths[$index]);
@@ -278,7 +282,7 @@ class SiteMediaController extends Controller
                 return $this->generatedPlacement($site, $lead, $currentTeam, $images, $data['slot'], $prompt, $improve, $imageStorage);
             }
 
-            $paths = $lead->photo_paths ?? [];
+            $paths = $this->editablePhotoPaths($lead);
             $index = $data['index'] ?? count($paths);
 
             if ($improve && ! isset($paths[$index])) {
@@ -317,7 +321,7 @@ class SiteMediaController extends Controller
             ]);
         }
 
-        $paths = $lead->photo_paths ?? [];
+        $paths = $this->editablePhotoPaths($lead);
         $index = $data['index'] ?? count($paths);
 
         if ($index >= count($paths) && count($paths) >= UpdateLeadProfileRequest::MAX_PHOTOS) {
@@ -325,6 +329,8 @@ class SiteMediaController extends Controller
 
             throw ValidationException::withMessages(['prompt' => __('A website can have up to :max photos.', ['max' => UpdateLeadProfileRequest::MAX_PHOTOS])]);
         }
+
+        $site->snapshot($request->user()?->id, $improve ? __('Before sharpening a photo') : __('Before adding a gallery photo'));
 
         if (isset($paths[$index])) {
             $imageStorage->forgetReplaced($paths[$index]);
@@ -662,6 +668,34 @@ class SiteMediaController extends Controller
             || str_starts_with($binary, "\x89PNG")
             || str_starts_with($binary, 'GIF8')
             || (str_starts_with($binary, 'RIFF') && str_contains(substr($binary, 0, 16), 'WEBP'));
+    }
+
+    /**
+     * Photos already on screen. Listing photos are kept when the first saved file is added.
+     *
+     * @return list<string>
+     */
+    protected function editablePhotoPaths(Lead $lead): array
+    {
+        $stored = array_values(array_filter(
+            $lead->photo_paths ?? [],
+            fn ($path): bool => is_string($path) && $path !== '',
+        ));
+
+        if ($stored !== []) {
+            return $stored;
+        }
+
+        $listing = array_values(array_filter(
+            $lead->listing_photo_urls ?? [],
+            fn ($url): bool => is_string($url) && $url !== '',
+        ));
+
+        if ($listing !== []) {
+            return $listing;
+        }
+
+        return filled($lead->photo_url) ? [$lead->photo_url] : [];
     }
 
     protected function slots(): array

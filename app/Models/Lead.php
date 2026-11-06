@@ -385,18 +385,32 @@ class Lead extends Model
     public function photoUrls(): array
     {
         $uploaded = app(SiteImageStorage::class)->urls($this->photo_paths ?? []);
+        $listingPhotos = array_values(array_filter(
+            $this->listing_photo_urls ?? [],
+            fn ($url): bool => is_string($url) && $url !== '',
+        ));
 
-        if ($uploaded !== []) {
+        if ($uploaded === []) {
+            if ($listingPhotos !== []) {
+                return $listingPhotos;
+            }
+
+            return $this->photo_url ? [$this->photo_url] : [];
+        }
+
+        $keepsListingPhotos = ! collect($this->photo_paths ?? [])->contains(
+            fn ($path): bool => is_string($path) && (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')),
+        );
+
+        if (! $keepsListingPhotos) {
             return $uploaded;
         }
 
-        $listingPhotos = $this->listing_photo_urls ?? [];
-
-        if ($listingPhotos !== []) {
-            return $listingPhotos;
-        }
-
-        return $this->photo_url ? [$this->photo_url] : [];
+        return array_values(array_unique([
+            ...$uploaded,
+            ...$listingPhotos,
+            ...($this->photo_url ? [$this->photo_url] : []),
+        ]));
     }
 
     /**

@@ -179,7 +179,7 @@ class SiteController extends Controller
             'versions' => $site->versions()
                 ->with('user:id,name')
                 ->latest('id')
-                ->limit(15)
+                ->limit(40)
                 ->get()
                 ->map(fn (SiteVersion $version) => [
                     'id' => $version->id,

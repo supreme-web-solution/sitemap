@@ -23,6 +23,15 @@ class SiteVersionController extends Controller
             'content' => $version->content,
         ]);
 
+        if (is_array($version->media) && $site->lead !== null) {
+            $site->lead->forceFill([
+                'photo_paths' => $version->media['photo_paths'] ?? null,
+                'logo_path' => array_key_exists('logo_path', $version->media)
+                    ? $version->media['logo_path']
+                    : $site->lead->logo_path,
+            ])->save();
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Earlier version restored.')]);
 
         return back();
