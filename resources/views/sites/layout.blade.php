@@ -30,7 +30,7 @@
         .brand-mark { width: 2.25rem; height: 2.25rem; border-radius: var(--radius); background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; transition: width .28s ease, height .28s ease; }
         .brand-logo { height: 2.5rem; width: auto; max-width: 9rem; object-fit: contain; transition: height .28s ease, max-width .28s ease; }
         .gallery { display: grid; gap: 1rem; margin-top: 2.5rem; min-width: 0; max-width: 100%; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
-        .gallery-item { position: relative; margin: 0; min-width: 0; overflow: hidden; border-radius: var(--radius); }
+        .gallery-item { position: relative; margin: 0; min-width: 0; overflow: hidden; border-radius: var(--radius); cursor: zoom-in; }
         .gallery-item img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); display: block; }
         .gallery-zoom {
             position: absolute; right: .7rem; bottom: .7rem; z-index: 2;
@@ -660,6 +660,12 @@
                 const zoom = event.target.closest?.('[data-gallery-open]');
 
                 if (zoom) {
+                    const editing = document.documentElement.classList.contains('sm-editing');
+
+                    if (editing && event.target.closest?.('[data-edit-image]')) {
+                        return;
+                    }
+
                     event.preventDefault();
                     event.stopPropagation();
                     open(zoom.dataset.gallerySrc || '', zoom.dataset.galleryAlt || '');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Leads;
 
+use App\Actions\Leads\DeleteLead;
 use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
 use App\Enums\WebsiteFilter;
@@ -101,5 +102,21 @@ class LeadController extends Controller
         }
 
         return back();
+    }
+
+    /**
+     * Permanently delete the lead, its website, and the other records saved for it.
+     */
+    public function destroy(Team $currentTeam, Lead $lead, DeleteLead $deleteLead): RedirectResponse
+    {
+        $name = $lead->name;
+        $deleteLead->handle($lead);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Deleted :name and everything saved for it.', ['name' => $name]),
+        ]);
+
+        return to_route('leads.index', $currentTeam);
     }
 }

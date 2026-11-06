@@ -61,6 +61,7 @@ class SiteMediaController extends Controller
         }
 
         if ($data['slot'] === 'logo') {
+            $this->keepHistory($site, __('Before changing the logo'));
             $imageStorage->forgetReplaced($lead->logo_path);
             $lead->logo_path = $stored;
             $lead->save();
@@ -77,12 +78,14 @@ class SiteMediaController extends Controller
                 throw ValidationException::withMessages(['index' => __('Choose which service image to update.')]);
             }
 
+            $this->keepHistory($site, __('Before changing a service photo'));
             $this->writeServiceImage($site, (int) $index, $stored, $imageStorage);
 
             return $this->media($site, $lead);
         }
 
         if (SiteImagePlacements::is($data['slot'])) {
+            $this->keepHistory($site, $this->photoLabel($data['slot']));
             $this->writePlacement($site, $data['slot'], $stored, $imageStorage);
 
             return $this->media($site, $lead);
@@ -126,6 +129,7 @@ class SiteMediaController extends Controller
         $mediaUndo->remember($site, $lead);
 
         if ($data['slot'] === 'logo') {
+            $this->keepHistory($site, __('Before removing the logo'));
             $imageStorage->forgetReplaced($lead->logo_path);
             $lead->logo_path = null;
             $lead->save();
@@ -140,12 +144,14 @@ class SiteMediaController extends Controller
                 throw ValidationException::withMessages(['index' => __('Choose which service image to remove.')]);
             }
 
+            $this->keepHistory($site, __('Before removing a service photo'));
             $this->writeServiceImage($site, (int) $index, null, $imageStorage);
 
             return $this->media($site, $lead);
         }
 
         if (SiteImagePlacements::is($data['slot'])) {
+            $this->keepHistory($site, $this->photoLabel($data['slot']));
             $this->writePlacement($site, $data['slot'], null, $imageStorage);
 
             return $this->media($site, $lead);
@@ -463,6 +469,7 @@ class SiteMediaController extends Controller
         $generated = $improve
             ? $images->improve($plan, $this->imageBytes($imageStorage, $existing, null), $currentTeam->id, $lead->id)
             : $images->generate($plan, $currentTeam->id, $lead->id);
+        $this->keepHistory($site, __('Before changing a service photo'));
         $this->writeServiceImage($site, $index, $generated['path'], $imageStorage);
 
         return $this->media($site, $lead);
@@ -538,6 +545,7 @@ class SiteMediaController extends Controller
             ? $images->improve($plan, $this->imageBytes($imageStorage, $source['path'], $source['url']), $currentTeam->id, $lead->id)
             : $images->generate($plan, $currentTeam->id, $lead->id);
 
+        $this->keepHistory($site, $this->photoLabel($slot));
         $this->writePlacement($site, $slot, $generated['path'], $imageStorage);
 
         return $this->media($site, $lead);
@@ -696,6 +704,16 @@ class SiteMediaController extends Controller
         }
 
         return filled($lead->photo_url) ? [$lead->photo_url] : [];
+    }
+
+    protected function keepHistory(Site $site, string $label): void
+    {
+        $site->snapshot(auth()->id(), $label);
+    }
+
+    protected function photoLabel(string $slot): string
+    {
+        return __('Before changing the :photo photo', ['photo' => str_replace('_', ' ', $slot)]);
     }
 
     protected function slots(): array

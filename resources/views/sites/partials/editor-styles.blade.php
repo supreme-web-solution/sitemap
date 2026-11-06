@@ -6,7 +6,8 @@
     html.sm-editing [data-edit-image] { cursor: pointer; outline: 2px solid transparent; outline-offset: -2px; transition: outline-color .12s ease, filter .12s ease; }
     html.sm-editing [data-edit-image]:hover { outline-color: rgba(37, 99, 235, .8); filter: brightness(.92); }
     html.sm-editing [data-edit-image].sm-selected { outline-color: #2563eb; }
-    html.sm-editing .gallery-zoom { opacity: 1; transform: none; z-index: 3; }
+    html.sm-editing .gallery-item { cursor: pointer; }
+    html.sm-editing .gallery-zoom { opacity: 1; transform: none; z-index: 3; cursor: zoom-in; }
     /* Overlay / full-bleed heroes: gradient and text container sit over the <img>; let empty photo areas receive clicks. */
     html.sm-editing .hero::after,
     html.sm-editing .hero.page-hero::after { pointer-events: none; }

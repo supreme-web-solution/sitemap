@@ -3,7 +3,12 @@
     /** @var int $index */
     $alt = ($lead->name ?? 'Business').' photo '.($index + 1);
 @endphp
-<figure class="gallery-item">
+<figure
+    class="gallery-item"
+    data-gallery-open
+    data-gallery-src="{{ $photo }}"
+    data-gallery-alt="{{ $alt }}"
+>
     <img
         src="{{ $photo }}"
         alt="{{ $alt }}"

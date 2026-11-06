@@ -114,6 +114,8 @@ const editor = useSiteEditor({
             reloadPending = false;
             canvas.value?.reload();
         }
+
+        router.reload({ only: ['versions'], preserveState: true, preserveScroll: true });
     },
 });
 
@@ -379,6 +381,7 @@ const onMediaChanged = (changed: Pick<SiteMedia, 'logo' | 'photos' | 'services' 
         placements: changed.placements ?? media.value.placements,
     };
     canUndoMedia.value = true;
+    router.reload({ only: ['versions'], preserveState: true, preserveScroll: true });
 
     if (typeof changed.revision === 'number') {
         editor.syncRevision(changed.revision);
@@ -404,6 +407,7 @@ const undoMediaChange = async (): Promise<void> => {
 
         canUndoMedia.value = false;
         canvas.value?.reload();
+        router.reload({ only: ['versions'], preserveState: true, preserveScroll: true });
         toast.success('Image change undone');
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Could not undo the image change.');

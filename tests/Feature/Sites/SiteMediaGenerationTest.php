@@ -250,7 +250,9 @@ test('sharpening a page hero uses the photo already on screen', function () {
         ->assertOk();
 
     expect($lead->fresh()->photo_paths)->toBe(['teams/1/leads/1/shared.jpg'])
-        ->and($site->fresh()->content['images']['home_hero'] ?? null)->not->toBeEmpty();
+        ->and($site->fresh()->content['images']['home_hero'] ?? null)->not->toBeEmpty()
+        ->and($site->versions()->count())->toBe(1)
+        ->and($site->versions()->first()->label)->toBe('Before changing the home hero photo');
 
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'chat/completions')
         && str_contains($request->body(), base64_encode('shared')));

@@ -3,7 +3,10 @@
 use App\Enums\LeadStatus;
 use App\Models\Lead;
 use App\Models\LeadSearch;
+use App\Models\Proposal;
+use App\Models\Site;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected from the leads page', function () {
@@ -87,4 +90,49 @@ test('another team lead cannot be updated through your team', function () {
         ->assertNotFound();
 
     expect($otherLead->fresh()->status)->toBe(LeadStatus::New);
+});
+
+test('deleting a lead removes its website, photos, and other records', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'name' => 'Handyman Ram',
+        'logo_path' => 'teams/1/leads/9/logo.png',
+        'photo_paths' => ['teams/1/leads/9/photo.jpg'],
+    ]);
+    Storage::disk('public')->put('teams/1/leads/9/logo.png', 'logo');
+    Storage::disk('public')->put('teams/1/leads/9/photo.jpg', 'photo');
+    Storage::disk('public')->put('teams/1/leads/9/hero.png', 'hero');
+    $site = Site::factory()->create([
+        'lead_id' => $lead->id,
+        'content' => [
+            ...Site::factory()->make()->content,
+            'images' => ['home_hero' => 'teams/1/leads/9/hero.png'],
+        ],
+    ]);
+    $proposal = Proposal::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->from(route('leads.edit', ['current_team' => $user->currentTeam->slug, 'lead' => $lead->id]))
+        ->delete(route('leads.destroy', ['current_team' => $user->currentTeam->slug, 'lead' => $lead->id]))
+        ->assertRedirect(route('leads.index', $user->currentTeam));
+
+    expect(Lead::query()->find($lead->id))->toBeNull()
+        ->and(Site::query()->find($site->id))->toBeNull()
+        ->and(Proposal::query()->find($proposal->id))->toBeNull()
+        ->and(Storage::disk('public')->exists('teams/1/leads/9/logo.png'))->toBeFalse()
+        ->and(Storage::disk('public')->exists('teams/1/leads/9/photo.jpg'))->toBeFalse()
+        ->and(Storage::disk('public')->exists('teams/1/leads/9/hero.png'))->toBeFalse();
+});
+
+test('a lead from another team cannot be deleted', function () {
+    $user = User::factory()->create();
+    $lead = Lead::factory()->create();
+
+    $this->actingAs($user)
+        ->delete(route('leads.destroy', ['current_team' => $user->currentTeam->slug, 'lead' => $lead->id]))
+        ->assertNotFound();
+
+    expect($lead->fresh())->not->toBeNull();
 });

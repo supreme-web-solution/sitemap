@@ -8,6 +8,7 @@ import {
     RotateCcw,
     Sparkles,
 } from '@lucide/vue';
+import DeleteLeadDialog from '@/components/leads/DeleteLeadDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
     Tooltip,
@@ -149,5 +150,10 @@ const emit = defineEmits<{
                 }}
             </TooltipContent>
         </Tooltip>
+        <DeleteLeadDialog
+            :lead-id="lead.id"
+            :lead-name="lead.name"
+            :team-slug="teamSlug"
+        />
     </div>
 </template>

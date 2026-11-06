@@ -89,6 +89,10 @@ watch(
 const openSettings = (tab: SettingsTab) => {
     settingsTab.value = tab;
     settingsOpen.value = true;
+
+    if (tab === 'history') {
+        router.reload({ only: ['versions'], preserveState: true, preserveScroll: true });
+    }
 };
 
 onMounted(() => {

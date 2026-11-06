@@ -186,6 +186,7 @@ Route::prefix('{current_team}')
         Route::get('leads/board', LeadBoardController::class)->name('leads.board');
         Route::get('leads/export', LeadExportController::class)->name('leads.export');
         Route::patch('leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
+        Route::delete('leads/{lead}', [LeadController::class, 'destroy'])->name('leads.destroy');
         Route::get('leads/{lead}/edit', [LeadProfileController::class, 'edit'])->name('leads.edit');
         Route::put('leads/{lead}/profile', [LeadProfileController::class, 'update'])->name('leads.profile.update');
         Route::post('lead-searches', [LeadSearchController::class, 'store'])

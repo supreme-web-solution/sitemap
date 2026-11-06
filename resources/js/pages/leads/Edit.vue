@@ -29,6 +29,7 @@ import ReviewSummaryCard from '@/components/leads/ReviewSummaryCard.vue';
 import SalesAssistantCard from '@/components/leads/SalesAssistantCard.vue';
 import OutreachCard from '@/components/leads/OutreachCard.vue';
 import VerificationCard from '@/components/leads/VerificationCard.vue';
+import DeleteLeadDialog from '@/components/leads/DeleteLeadDialog.vue';
 import RedesignWorkflowCard from '@/components/leads/RedesignWorkflowCard.vue';
 import WebsiteAuditCard from '@/components/leads/WebsiteAuditCard.vue';
 import WebsiteBrandCard from '@/components/leads/WebsiteBrandCard.vue';
@@ -334,6 +335,12 @@ const textareaClass =
                             <Receipt /> Create invoice
                         </Link>
                     </Button>
+                    <DeleteLeadDialog
+                        appearance="button"
+                        :lead-id="lead.id"
+                        :lead-name="lead.name"
+                        :team-slug="teamSlug"
+                    />
                 </div>
             </div>
         </header>
