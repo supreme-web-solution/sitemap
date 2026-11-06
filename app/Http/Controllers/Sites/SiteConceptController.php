@@ -32,6 +32,12 @@ class SiteConceptController extends Controller
             ]);
         }
 
+        if ($lead->site_generation_status === SiteGenerationStatus::Queued) {
+            throw ValidationException::withMessages([
+                'concepts' => __('Wait until the website finishes building before generating designs.'),
+            ]);
+        }
+
         $dispatch->handle($lead);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Building three design options for :name.', ['name' => $lead->name])]);

@@ -15,7 +15,7 @@ import {
 import { choose, store } from '@/routes/leads/concepts';
 import type { LeadConcepts, SiteConceptOption } from '@/types';
 
-const props = defineProps<{ leadId: number; concepts: LeadConcepts }>();
+const props = defineProps<{ leadId: number; concepts: LeadConcepts; siteBuilding?: boolean }>();
 
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
@@ -187,11 +187,18 @@ const pick = (id: number) => {
                 </li>
             </ul>
 
+            <p
+                v-if="siteBuilding"
+                class="mt-3 text-sm text-muted-foreground"
+            >
+                Available after the website finishes building.
+            </p>
             <Button
                 v-if="!isBuilding"
                 class="mt-4"
                 size="sm"
                 variant="outline"
+                :disabled="siteBuilding"
                 @click="request"
             >
                 {{

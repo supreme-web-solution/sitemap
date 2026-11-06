@@ -8,6 +8,7 @@ use App\Enums\SiteSection;
 use App\Http\Controllers\Sites\PreviewSectionViewController;
 use App\Models\Lead;
 use App\Models\Site;
+use App\Services\Media\SiteImageStorage;
 use App\Services\Preview\PreviewLink;
 
 class SiteRenderer
@@ -118,7 +119,9 @@ class SiteRenderer
                     ->all()
                 : [],
             'logoUrl' => $lead->logoUrl(),
-            'heroImage' => $photos[0] ?? null,
+            'heroImage' => $this->placedImage($content, SiteImagePlacements::forPageType($page['type']), $photos[0] ?? null),
+            'heroSlot' => SiteImagePlacements::forPageType($page['type']),
+            'aboutPortrait' => $this->placedImage($content, 'about_portrait', $photos[1] ?? $photos[0] ?? null),
             'galleryPhotos' => $photos,
             'hours' => $hours,
             'phoneHref' => $lead->phone ? 'tel:'.preg_replace('/[^\d+]/', '', $lead->phone) : null,
@@ -297,6 +300,20 @@ class SiteRenderer
         }
 
         return $ordered + $hours;
+    }
+
+    /**
+     * A page-specific photo, or the shared lead photo until that page has its own.
+     */
+    protected function placedImage(array $content, string $slot, ?string $fallback): ?string
+    {
+        $path = $content['images'][$slot] ?? null;
+
+        if (! is_string($path) || $path === '') {
+            return $fallback;
+        }
+
+        return app(SiteImageStorage::class)->url($path) ?? $fallback;
     }
 
     /**

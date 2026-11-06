@@ -10,6 +10,7 @@ use App\Enums\PaymentProvider;
 use App\Enums\SiteGenerationStatus;
 use App\Enums\SiteVibe;
 use App\Observers\LeadObserver;
+use App\Services\Media\SiteImageStorage;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -22,7 +23,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -372,7 +372,9 @@ class Lead extends Model
      */
     public function logoUrl(): ?string
     {
-        return $this->logo_path ? Storage::disk('public')->url($this->logo_path) : null;
+        return $this->logo_path
+            ? app(SiteImageStorage::class)->url($this->logo_path)
+            : null;
     }
 
     /**
@@ -382,10 +384,7 @@ class Lead extends Model
      */
     public function photoUrls(): array
     {
-        $uploaded = array_map(
-            fn (string $path) => Storage::disk('public')->url($path),
-            $this->photo_paths ?? [],
-        );
+        $uploaded = app(SiteImageStorage::class)->urls($this->photo_paths ?? []);
 
         if ($uploaded !== []) {
             return $uploaded;

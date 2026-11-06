@@ -336,6 +336,7 @@ export type SiteMedia = {
     logo: string | null;
     photos: string[];
     services?: Array<string | null>;
+    placements?: Record<string, string | null>;
     maxPhotos: number;
 };
 

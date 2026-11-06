@@ -17,6 +17,7 @@ use App\Models\SequenceEnrollment;
 use App\Models\SiteConcept;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
+use App\Services\Media\SiteImageStorage;
 use App\Services\Outreach\DefaultEmailTemplates;
 use App\Services\Outreach\DefaultFollowUpSequences;
 use App\Services\Outreach\MergeFieldRenderer;
@@ -28,7 +29,6 @@ use App\Services\SiteBuilder\SectionVariants;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -205,8 +205,7 @@ class LeadProfileController extends Controller
      */
     public function update(UpdateLeadProfileRequest $request, Team $currentTeam, Lead $lead, DispatchSiteGeneration $dispatchSiteGeneration): RedirectResponse
     {
-        $directory = "teams/{$currentTeam->id}/leads/{$lead->id}";
-        $disk = Storage::disk('public');
+        $images = app(SiteImageStorage::class);
 
         $lead->fill([
             ...$request->safe()->only(['name', 'category', 'description', 'phone', 'email', 'address', 'city', 'vibe']),
@@ -216,17 +215,21 @@ class LeadProfileController extends Controller
 
         if ($request->hasFile('logo') || $request->boolean('remove_logo')) {
             if ($lead->logo_path) {
-                $disk->delete($lead->logo_path);
+                $images->delete($lead->logo_path);
             }
 
-            $lead->logo_path = $request->file('logo')?->store($directory, 'public');
+            $lead->logo_path = $request->hasFile('logo')
+                ? $images->storeUploadedFile($request->file('logo'), $currentTeam->id, $lead->id)['path']
+                : null;
         }
 
         if ($request->hasFile('photos') || $request->boolean('remove_photos')) {
-            $disk->delete($lead->photo_paths ?? []);
+            foreach ($lead->photo_paths ?? [] as $path) {
+                $images->delete($path);
+            }
 
             $lead->photo_paths = array_map(
-                fn (UploadedFile $photo) => $photo->store($directory, 'public'),
+                fn (UploadedFile $photo) => $images->storeUploadedFile($photo, $currentTeam->id, $lead->id)['path'],
                 $request->file('photos', []),
             ) ?: null;
         }

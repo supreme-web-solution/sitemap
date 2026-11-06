@@ -4,8 +4,8 @@ namespace App\Services\SiteBuilder;
 
 use App\Models\Site;
 use App\Models\SitePost;
+use App\Services\Media\SiteImageStorage;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -105,7 +105,7 @@ class SitePages
 
             $imagePath = is_string($service['image_path'] ?? null) ? $service['image_path'] : null;
             $imageUrl = $imagePath !== null && $imagePath !== ''
-                ? Storage::disk('public')->url($imagePath)
+                ? (app(SiteImageStorage::class)->url($imagePath) ?? ServiceCardPlaceholder::url((string) $service['title'], count($services)))
                 : ServiceCardPlaceholder::url((string) $service['title'], count($services));
 
             $services[] = [

@@ -370,12 +370,13 @@ const reloadFromServer = () => {
     });
 };
 
-const onMediaChanged = (changed: Pick<SiteMedia, 'logo' | 'photos' | 'services'> & { revision?: number }) => {
+const onMediaChanged = (changed: Pick<SiteMedia, 'logo' | 'photos' | 'services' | 'placements'> & { revision?: number }) => {
     media.value = {
         ...media.value,
         logo: changed.logo,
         photos: changed.photos,
         services: changed.services ?? media.value.services,
+        placements: changed.placements ?? media.value.placements,
     };
     canUndoMedia.value = true;
 
@@ -394,6 +395,7 @@ const undoMediaChange = async (): Promise<void> => {
             logo: next.logo,
             photos: next.photos,
             services: next.services ?? media.value.services,
+            placements: next.placements ?? media.value.placements,
         };
 
         if (typeof next.revision === 'number') {

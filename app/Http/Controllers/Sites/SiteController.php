@@ -19,6 +19,7 @@ use App\Models\SiteVersion;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use App\Services\Domains\DomainVerifier;
+use App\Services\Media\SiteImageStorage;
 use App\Services\Preview\PreviewLink;
 use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteChatMessagePresenter;
@@ -26,6 +27,7 @@ use App\Services\SiteBuilder\SiteContentSchema;
 use App\Services\SiteBuilder\SiteCopy;
 use App\Services\SiteBuilder\SiteDesign;
 use App\Services\SiteBuilder\SiteEditProgress;
+use App\Services\SiteBuilder\SiteImagePlacements;
 use App\Services\SiteBuilder\SitePages;
 use App\Services\SiteBuilder\SiteQualityChecker;
 use App\Services\SiteBuilder\SiteStaging;
@@ -93,6 +95,17 @@ class SiteController extends Controller
                     'services' => collect(app(SitePages::class)->services($site->content ?? []))
                         ->map(fn (array $service) => $service['image_url'] ?? null)
                         ->values()
+                        ->all(),
+                    'placements' => collect(SiteImagePlacements::KEYS)
+                        ->mapWithKeys(function (string $key) use ($site): array {
+                            $photos = $site->lead->photoUrls();
+                            $path = $site->content['images'][$key] ?? null;
+                            $url = is_string($path) && $path !== ''
+                                ? app(SiteImageStorage::class)->url($path)
+                                : ($key === 'about_portrait' ? ($photos[1] ?? $photos[0] ?? null) : ($photos[0] ?? null));
+
+                            return [$key => $url];
+                        })
                         ->all(),
                     'maxPhotos' => UpdateLeadProfileRequest::MAX_PHOTOS,
                 ],

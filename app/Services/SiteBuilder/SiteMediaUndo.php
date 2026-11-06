@@ -4,21 +4,25 @@ namespace App\Services\SiteBuilder;
 
 use App\Models\Lead;
 use App\Models\Site;
+use App\Services\Media\SiteImageStorage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Keeps one undo step for visual-editor logo/photo/service image changes (files are copied before replace).
+ * Keeps one undo step for visual-editor logo/photo/service image changes.
+ * Local files are copied; Cloudinary assets keep their public id until the snapshot is discarded.
  */
 class SiteMediaUndo
 {
     private const CACHE_PREFIX = 'site_media_undo:';
 
+    public function __construct(protected SiteImageStorage $images) {}
+
     public function remember(Site $site, Lead $lead): void
     {
-        $key = self::CACHE_PREFIX.$site->id;
-        $previous = Cache::get($key);
+        $cacheKey = self::CACHE_PREFIX.$site->id;
+        $previous = Cache::get($cacheKey);
 
         if (is_array($previous)) {
             $this->forgetStoredPaths($previous);
@@ -29,17 +33,25 @@ class SiteMediaUndo
 
         foreach (array_values($site->content['services'] ?? []) as $service) {
             $servicePaths[] = is_array($service) && is_string($service['image_path'] ?? null)
-                ? $this->duplicatePath($service['image_path'])
+                ? $this->preservePath($service['image_path'])
                 : null;
         }
 
-        Cache::put($key, [
-            'logo_path' => $this->duplicatePath($lead->logo_path),
+        $imagePaths = [];
+
+        foreach (SiteImagePlacements::KEYS as $placement) {
+            $stored = is_array($site->content['images'] ?? null) ? ($site->content['images'][$placement] ?? null) : null;
+            $imagePaths[$placement] = is_string($stored) ? $this->preservePath($stored) : null;
+        }
+
+        Cache::put($cacheKey, [
+            'logo_path' => $this->preservePath($lead->logo_path),
             'photo_paths' => array_map(
-                fn (?string $path) => $path !== null ? $this->duplicatePath($path) : null,
+                fn (?string $path) => $path !== null ? $this->preservePath($path) : null,
                 $photos,
             ),
             'service_image_paths' => $servicePaths,
+            'placement_paths' => $imagePaths,
         ], now()->addDay());
     }
 
@@ -64,21 +76,29 @@ class SiteMediaUndo
      */
     public function forgetStoredPaths(array $snapshot): void
     {
-        $this->forgetPath($snapshot['logo_path'] ?? null);
+        $this->forgetPreserved($snapshot['logo_path'] ?? null);
 
         foreach ($snapshot['photo_paths'] ?? [] as $path) {
-            $this->forgetPath($path);
+            $this->forgetPreserved($path);
         }
 
         foreach ($snapshot['service_image_paths'] ?? [] as $path) {
-            $this->forgetPath($path);
+            $this->forgetPreserved($path);
+        }
+
+        foreach ($snapshot['placement_paths'] ?? [] as $path) {
+            $this->forgetPreserved($path);
         }
     }
 
-    protected function duplicatePath(?string $path): ?string
+    protected function preservePath(?string $path): ?string
     {
         if ($path === null) {
             return null;
+        }
+
+        if ($this->images->isCloudinary($path)) {
+            return $path;
         }
 
         $disk = Storage::disk('public');
@@ -96,9 +116,19 @@ class SiteMediaUndo
         return $destination;
     }
 
-    protected function forgetPath(?string $path): void
+    protected function forgetPreserved(?string $path): void
     {
-        if ($path !== null && str_contains($path, '/.undo/')) {
+        if ($path === null) {
+            return;
+        }
+
+        if ($this->images->isCloudinary($path)) {
+            $this->images->delete($path);
+
+            return;
+        }
+
+        if (str_contains($path, '/.undo/')) {
             Storage::disk('public')->delete($path);
         }
     }

@@ -5,7 +5,7 @@ namespace App\Services\SiteBuilder;
 use App\Data\SiteImageGenerationPlan;
 use App\Models\Site;
 use App\Services\Ai\AiProviderErrors;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Media\SiteImageStorage;
 use Illuminate\Support\Str;
 
 /**
@@ -93,8 +93,8 @@ class SiteServiceImageGenerator
 
             $oldPath = is_string($service['image_path'] ?? null) ? $service['image_path'] : null;
 
-            if ($oldPath !== null && Storage::disk('public')->exists($oldPath)) {
-                Storage::disk('public')->delete($oldPath);
+            if ($oldPath !== null) {
+                app(SiteImageStorage::class)->forgetReplaced($oldPath);
             }
 
             $services[$index]['image_path'] = $result['path'];

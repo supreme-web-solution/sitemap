@@ -473,8 +473,31 @@ test('overlay heroes expose a change-photo control in the editor', function () {
 
     expect($html)->toContain('Change photo')
         ->and($html)->toContain('edit-change-hero')
-        ->and($html)->toContain('data-edit-image="photo"')
-        ->and($html)->toContain('data-edit-label="Hero photo"');
+        ->and($html)->toContain('data-edit-image="home_hero"')
+        ->and($html)->toContain('data-edit-label="Home hero photo"');
+});
+
+test('replacing the home hero does not change the gallery photos', function () {
+    Storage::fake('public');
+    [$site, $user] = editorSite();
+    $site->lead->update([
+        'photo_paths' => ['teams/1/leads/1/shared.jpg'],
+    ]);
+    Storage::disk('public')->put('teams/1/leads/1/shared.jpg', 'shared');
+
+    $this->actingAs($user)
+        ->post(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'slot' => 'home_hero',
+            'image' => UploadedFile::fake()->image('home.jpg', 800, 600),
+        ])
+        ->assertOk()
+        ->assertJsonPath('photos.0', fn (?string $url) => is_string($url) && str_contains($url, 'shared.jpg'));
+
+    $site->refresh();
+
+    expect($site->lead->fresh()->photo_paths)->toBe(['teams/1/leads/1/shared.jpg'])
+        ->and($site->content['images']['home_hero'] ?? null)->not->toBeEmpty()
+        ->and($site->content['images']['about_hero'] ?? null)->toBeNull();
 });
 
 test('the gallery editor shows an add-photo control while under the photo limit', function () {

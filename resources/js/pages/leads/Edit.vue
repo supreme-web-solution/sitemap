@@ -660,7 +660,11 @@ const textareaClass =
                     :enrollments="enrollments"
                 />
                 <ReviewSummaryCard :summary="lead.reviewsSummary" />
-                <LeadConceptsCard :lead-id="lead.id" :concepts="concepts" />
+                <LeadConceptsCard
+                    :lead-id="lead.id"
+                    :concepts="concepts"
+                    :site-building="isBuilding"
+                />
                 <ClientPortalCard :lead="lead" />
                 <LeadMessagesCard :lead-id="lead.id" :messaging="messaging" />
                 <div id="lead-outreach-card">

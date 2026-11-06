@@ -64,6 +64,20 @@ return [
         'title' => env('OPENROUTER_APP_TITLE', env('APP_NAME')),
     ],
 
+    /*
+    | Site logos, gallery photos, AI images, and service cards. When configured,
+    | uploads go to Cloudinary (stored as WebP) and are delivered with f_auto,q_auto.
+    | CLOUDINARY_URL alone is enough; the split vars are also supported.
+    */
+    'cloudinary' => [
+        'url' => env('CLOUDINARY_URL'),
+        'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+        'key' => env('CLOUDINARY_API_KEY'),
+        'secret' => env('CLOUDINARY_API_SECRET'),
+        'folder' => env('CLOUDINARY_FOLDER', 'mapmatic'),
+        'secure' => (bool) env('CLOUDINARY_SECURE', true),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

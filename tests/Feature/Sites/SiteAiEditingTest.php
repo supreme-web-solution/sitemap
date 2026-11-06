@@ -127,6 +127,24 @@ test('requesting three designs queues one job per vibe on the ai queue', functio
         && $batch->jobs->every(fn ($job) => $job instanceof GenerateSiteConcept));
 });
 
+test('three designs cannot start while the website is still building', function () {
+    Bus::fake();
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'site_generation_status' => SiteGenerationStatus::Queued,
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('leads.edit', ['current_team' => $user->currentTeam->slug, 'lead' => $lead]))
+        ->post(route('leads.concepts.store', ['current_team' => $user->currentTeam->slug, 'lead' => $lead]))
+        ->assertRedirect()
+        ->assertSessionHasErrors('concepts');
+
+    expect($lead->fresh()->concepts_status)->not->toBe(SiteGenerationStatus::Queued);
+    Bus::assertNothingBatched();
+});
+
 test('three concepts are generated and choosing one becomes the website', function () {
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create([

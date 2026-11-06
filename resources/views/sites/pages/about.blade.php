@@ -1,8 +1,6 @@
 @extends('sites.layout')
 
 @php
-    $aboutPhotoIndex = isset($galleryPhotos[1]) ? 1 : 0;
-    $aboutPortrait = $galleryPhotos[$aboutPhotoIndex] ?? $heroImage ?? null;
     $quoteHref = collect($nav)->contains('key', 'contact') ? $urls->to('contact') : ($phoneHref ?? '#contact');
 @endphp
 
@@ -31,9 +29,9 @@
             </div>
             <figure class="about-portrait">
                 @if ($aboutPortrait)
-                    <img src="{{ $aboutPortrait }}" alt="{{ $lead->name }}" loading="lazy" decoding="async"{!! $e->image('photo', $aboutPhotoIndex, 'About photo') !!}>
+                    <img src="{{ $aboutPortrait }}" alt="{{ $lead->name }}" loading="lazy" decoding="async"{!! $e->image('about_portrait', null, 'About photo') !!}>
                 @elseif ($editing)
-                    <button type="button" class="edit-add-image is-block"{!! $e->image('photo', $aboutPhotoIndex, 'About photo') !!}>Add a photo</button>
+                    <button type="button" class="edit-add-image is-block"{!! $e->image('about_portrait', null, 'About photo') !!}>Add a photo</button>
                 @else
                     <div class="about-portrait__fallback" aria-hidden="true">{{ mb_strtoupper(mb_substr($lead->name, 0, 1)) }}</div>
                 @endif

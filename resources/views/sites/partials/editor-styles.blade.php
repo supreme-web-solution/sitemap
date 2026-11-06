@@ -21,14 +21,15 @@
     html.sm-editing body:is(.hero-v-overlay, .hero-v-card, .hero-v-centered, .layout-editorial-hero) .hero > .container .rating {
         pointer-events: auto;
     }
-    html.sm-editing .edit-change-hero {
-        position: absolute; z-index: 3; right: 1.25rem; bottom: 1.25rem; top: auto;
-        padding: .55rem .95rem; border-radius: 999px;
-        border: 2px solid rgba(255,255,255,.85); background: rgba(15,23,42,.78); color: #fff;
-        font: 600 .85rem system-ui, sans-serif; cursor: pointer;
-        box-shadow: 0 10px 28px rgba(15,23,42,.35);
+    html.sm-editing .hero > .edit-change-hero {
+        position: absolute; z-index: 3; inset: auto 1rem 1rem auto;
+        display: inline-flex; align-items: center; align-self: flex-end; width: max-content; height: auto; min-height: 0; aspect-ratio: auto;
+        padding: .35rem .7rem; border: 0; border-radius: 999px;
+        background: rgba(15, 23, 42, .72); color: #fff; backdrop-filter: blur(8px);
+        font: 600 .75rem/1 system-ui, sans-serif; letter-spacing: .01em; cursor: pointer;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, .28);
     }
-    html.sm-editing .edit-change-hero:hover { background: rgba(15,23,42,.92); }
+    html.sm-editing .hero > .edit-change-hero:hover { background: rgba(15, 23, 42, .88); }
     html.sm-editing .edit-add-image { position: absolute; z-index: 2; right: 1.25rem; top: 5.5rem; padding: .6rem 1rem; border-radius: 999px; border: 2px dashed #2563eb; background: rgba(255,255,255,.92); color: #1d4ed8; font: 600 .9rem system-ui, sans-serif; cursor: pointer; }
     html.sm-editing .edit-add-image.is-gallery {
         position: relative; inset: auto; right: auto; top: auto; z-index: 1;

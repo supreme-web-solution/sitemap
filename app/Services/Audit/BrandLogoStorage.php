@@ -3,9 +3,8 @@
 namespace App\Services\Audit;
 
 use App\Models\Lead;
+use App\Services\Media\SiteImageStorage;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class BrandLogoStorage
 {
@@ -14,7 +13,10 @@ class BrandLogoStorage
      */
     protected const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
 
-    public function __construct(protected SafeHttpFetcher $fetcher) {}
+    public function __construct(
+        protected SafeHttpFetcher $fetcher,
+        protected SiteImageStorage $images,
+    ) {}
 
     /**
      * Download a logo from a public URL and attach it to the lead.
@@ -41,19 +43,21 @@ class BrandLogoStorage
             return false;
         }
 
-        $disk = Storage::disk('public');
-        $directory = "teams/{$lead->team_id}/leads/{$lead->id}";
-        $path = "{$directory}/".Str::uuid()->toString().".{$extension}";
+        if ($lead->team_id === null) {
+            return false;
+        }
 
-        if (! $disk->put($path, $page['body'])) {
+        try {
+            $stored = $this->images->storeBinary($page['body'], (int) $lead->team_id, (int) $lead->id, $extension);
+        } catch (\Throwable) {
             return false;
         }
 
         if ($lead->logo_path) {
-            $disk->delete($lead->logo_path);
+            $this->images->delete($lead->logo_path);
         }
 
-        $lead->forceFill(['logo_path' => $path])->save();
+        $lead->forceFill(['logo_path' => $stored['path']])->save();
 
         return true;
     }

@@ -193,7 +193,7 @@ test('the owner logo and photos are used on the site', function () {
         ->assertSee('id="gallery-lightbox"', escape: false);
 });
 
-test('uploaded website photos are stored on the public disk under the team lead folder', function () {
+test('uploaded website photos are stored on the public disk when cloudinary is not configured', function () {
     Storage::fake('public');
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create();

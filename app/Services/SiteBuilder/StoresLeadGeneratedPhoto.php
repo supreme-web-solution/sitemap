@@ -2,9 +2,8 @@
 
 namespace App\Services\SiteBuilder;
 
+use App\Services\Media\SiteImageStorage;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 trait StoresLeadGeneratedPhoto
 {
@@ -13,15 +12,7 @@ trait StoresLeadGeneratedPhoto
      */
     protected function storeLeadPhotoBinary(string $binary, int $teamId, int $leadId, string $extension = 'png'): array
     {
-        $extension = ltrim(strtolower($extension), '.');
-        $path = "teams/{$teamId}/leads/{$leadId}/ai-".Str::lower(Str::random(10)).'.'.$extension;
-
-        Storage::disk('public')->put($path, $binary);
-
-        return [
-            'path' => $path,
-            'url' => Storage::disk('public')->url($path),
-        ];
+        return app(SiteImageStorage::class)->storeBinary($binary, $teamId, $leadId, $extension);
     }
 
     /**

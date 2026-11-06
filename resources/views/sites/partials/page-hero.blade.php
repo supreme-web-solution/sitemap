@@ -2,15 +2,16 @@
     $quoteHref = collect($nav)->contains('key', 'contact') ? $urls->to('contact') : ($phoneHref ?? '#contact');
     $headingAttributes = ! empty($headingKey) ? $e->label($headingKey) : (! empty($headingPath) ? $e->text($headingPath, $headingLabel ?? 'Heading', 60) : '');
     $introAttributes = ! empty($introKey) ? $e->label($introKey) : (! empty($introPath) ? $e->text($introPath, $introLabel ?? 'Introduction', 250, true) : '');
+    $heroSlot = $heroSlot ?? 'home_hero';
 @endphp
 <section class="hero page-hero">
     @if ($heroImage)
-        <img class="hero-image" src="{{ $heroImage }}" alt="{{ $lead->name }}" loading="eager" decoding="async"{!! $e->image('photo', 0, 'Hero photo') !!}>
+        <img class="hero-image" src="{{ $heroImage }}" alt="{{ $lead->name }}" loading="eager" decoding="async"{!! $e->image($heroSlot, null, 'Page hero photo') !!}>
         @if ($editing)
-            <button type="button" class="edit-add-image edit-change-hero"{!! $e->image('photo', 0, 'Hero photo') !!}>Change photo</button>
+            <button type="button" class="edit-change-hero"{!! $e->image($heroSlot, null, 'Page hero photo') !!}>Change photo</button>
         @endif
     @elseif ($editing)
-        <button type="button" class="edit-add-image"{!! $e->image('photo', 0, 'Hero photo') !!}>Add a hero photo</button>
+        <button type="button" class="edit-add-image"{!! $e->image($heroSlot, null, 'Page hero photo') !!}>Add a hero photo</button>
     @endif
     <div class="container">
         @include('sites.partials.breadcrumbs')

@@ -77,11 +77,11 @@ const imageSelection = computed(() => {
 
     // Overlay heroes are hard to click — when the Hero section is selected, still offer photo tools.
     if (props.selection.kind === 'section' && props.selection.key === 'hero') {
-        return { kind: 'image' as const, slot: 'photo' as const, index: 0, label: 'Hero photo' };
+        return { kind: 'image' as const, slot: 'home_hero' as const, index: null, label: 'Home hero photo' };
     }
 
     if (props.selection.kind === 'design' && props.selection.region === 'hero') {
-        return { kind: 'image' as const, slot: 'photo' as const, index: 0, label: 'Hero photo' };
+        return { kind: 'image' as const, slot: 'home_hero' as const, index: null, label: 'Home hero photo' };
     }
 
     return null;
@@ -166,16 +166,28 @@ const currentImage = computed(() => {
         return url && !url.startsWith('data:') ? url : null;
     }
 
+    if (selection.slot !== 'photo') {
+        return props.media.placements?.[selection.slot] ?? null;
+    }
+
     return props.media.photos[selection.index ?? 0] ?? null;
+});
+
+const isPagePhoto = computed(() => {
+    const slot = imageSelection.value?.slot;
+
+    return slot !== undefined && slot !== 'logo' && slot !== 'photo' && slot !== 'service';
 });
 
 const canUseAiImage = computed(() => {
     const selection = imageSelection.value;
 
-    return selection !== null && (selection.slot === 'photo' || selection.slot === 'service') && props.aiAvailable;
+    return selection !== null && selection.slot !== 'logo' && props.aiAvailable;
 });
 
-const canGenerateWithoutPrompt = computed(() => imageSelection.value?.slot === 'service');
+const canGenerateWithoutPrompt = computed(
+    () => imageSelection.value?.slot === 'service' || isPagePhoto.value,
+);
 
 const canAddPhoto = computed(() => {
     const selection = imageSelection.value;
@@ -231,7 +243,7 @@ const startAddPhoto = () => {
 const generateImage = async () => {
     const selection = imageSelection.value;
 
-    if (!selection || (selection.slot !== 'photo' && selection.slot !== 'service')) {
+    if (!selection || (selection.slot === 'logo')) {
         return;
     }
 
@@ -259,7 +271,7 @@ const generateImage = async () => {
 const improveImage = async () => {
     const selection = imageSelection.value;
 
-    if (!selection || (selection.slot !== 'photo' && selection.slot !== 'service') || !currentImage.value) {
+    if (!selection || selection.slot === 'logo' || !currentImage.value) {
         return;
     }
 
@@ -515,8 +527,11 @@ const textareaClass =
                     </Button>
                 </div>
                 <p v-if="imageSelection.slot === 'photo'" class="text-xs text-muted-foreground">
-                    {{ media.photos.length }} of {{ media.maxPhotos }} photos used. Home shows the
-                    first 6; the rest appear on the Gallery page.
+                    {{ media.photos.length }} of {{ media.maxPhotos }} gallery photos. Home shows
+                    the first 6; the rest appear on the Gallery page. Page heroes are separate.
+                </p>
+                <p v-else-if="isPagePhoto" class="text-xs text-muted-foreground">
+                    This photo belongs to this page only. Other pages keep their own images.
                 </p>
                 <div
                     v-if="canUseAiImage"

@@ -17,7 +17,7 @@ export type TextSelection = {
 
 export type ImageSelection = {
     kind: 'image';
-    slot: 'logo' | 'photo' | 'service';
+    slot: 'logo' | 'photo' | 'service' | 'home_hero' | 'about_hero' | 'about_portrait' | 'services_hero' | 'service_hero' | 'gallery_hero' | 'contact_hero' | 'blog_hero' | 'post_hero' | 'landing_hero' | 'location_hero';
     index: number | null;
     label: string;
 };
@@ -69,7 +69,7 @@ export type FrameMessage =
           value: string;
           final: boolean;
       }
-    | { type: 'image'; slot: 'logo' | 'photo' | 'service'; index: number | null; label: string }
+    | { type: 'image'; slot: ImageSelection['slot']; index: number | null; label: string }
     | { type: 'section'; action: 'up' | 'down' | 'hide' | 'improve'; key: string }
     | { type: 'inview'; key: string; label: string }
     | { type: 'shortcut'; name: 'undo' | 'redo' | 'save' };

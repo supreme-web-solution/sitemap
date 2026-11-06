@@ -37,5 +37,9 @@
         <env name="ANTHROPIC_API_KEY" value="" force="true"/>
         <env name="OPENAI_API_KEY" value="" force="true"/>
         <env name="ADMIN_EMAILS" value="" force="true"/>
+        <env name="CLOUDINARY_URL" value="" force="true"/>
+        <env name="CLOUDINARY_CLOUD_NAME" value="" force="true"/>
+        <env name="CLOUDINARY_API_KEY" value="" force="true"/>
+        <env name="CLOUDINARY_API_SECRET" value="" force="true"/>
     </php>
 </phpunit>

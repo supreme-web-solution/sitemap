@@ -4,13 +4,14 @@ namespace App\Services\SiteBuilder;
 
 use App\Http\Requests\Leads\UpdateLeadProfileRequest;
 use App\Models\Site;
-use Illuminate\Support\Facades\Storage;
+use App\Services\Media\SiteImageStorage;
 
 class SiteHeroImageRegenerator
 {
     public function __construct(
         protected LeadPhotoGenerator $images,
         protected SiteImageGenerationPlanner $planner,
+        protected SiteImageStorage $storage,
     ) {}
 
     /**
@@ -45,10 +46,10 @@ class SiteHeroImageRegenerator
         $paths = array_values($lead->photo_paths ?? []);
 
         if (isset($paths[0])) {
-            Storage::disk('public')->delete($paths[0]);
+            $this->storage->forgetReplaced($paths[0]);
             $paths[0] = $generated['path'];
         } elseif (count($paths) >= UpdateLeadProfileRequest::MAX_PHOTOS) {
-            Storage::disk('public')->delete($generated['path']);
+            $this->storage->delete($generated['path']);
 
             throw new \RuntimeException(__('A website can have up to :max photos.', ['max' => UpdateLeadProfileRequest::MAX_PHOTOS]));
         } else {
