@@ -13,6 +13,8 @@ use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteChatAttachment;
+use App\Services\SiteBuilder\SiteEditLog;
+use App\Support\Queues;
 use App\Services\SiteBuilder\SiteEditApplier;
 use App\Services\SiteBuilder\SitePendingChatEdit;
 use App\Services\SiteBuilder\SiteQualityChecker;
@@ -198,6 +200,12 @@ class SiteChatController extends Controller
                 : __('Trying your edit again…'),
             'status' => SiteChatMessage::STATUS_PENDING,
             'user_message_id' => $userMessageId,
+        ]);
+
+        SiteEditLog::info('edit queued', [
+            'site_id' => $site->id,
+            'chat_message_id' => $assistant->id,
+            'queue' => Queues::AI,
         ]);
 
         ApplySiteEdit::dispatch($assistant, $designTarget, $previewEdits);

@@ -14,6 +14,6 @@ class SiteEditLog
      */
     public static function info(string $step, array $context = []): void
     {
-        Log::info('[site-edit] '.$step, $context);
+        Log::channel('site-edit')->info('[site-edit] '.$step, $context);
     }
 }

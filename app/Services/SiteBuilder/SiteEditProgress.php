@@ -18,6 +18,11 @@ class SiteEditProgress
 
     public function line(string $line): void
     {
+        SiteEditLog::info('progress', [
+            'chat_message_id' => $this->messageId,
+            'step' => $line,
+        ]);
+
         $lines = Cache::get(self::key($this->messageId), []);
 
         if (! is_array($lines)) {

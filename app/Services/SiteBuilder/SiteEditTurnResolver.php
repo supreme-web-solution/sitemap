@@ -69,7 +69,20 @@ class SiteEditTurnResolver
             'Submit turn_json via the tool.',
         ]));
 
+        SiteEditLog::info('turn agent prompting', [
+            'site_id' => $site->id,
+            'prompt_chars' => strlen($prompt),
+            'attachment_count' => count($attachmentPaths),
+        ]);
+
+        $started = microtime(true);
         $agent->prompt($prompt, SiteChatAttachment::imagesForPrompt($attachmentPaths));
+
+        SiteEditLog::info('turn agent prompt returned', [
+            'site_id' => $site->id,
+            'seconds' => round(microtime(true) - $started, 2),
+            'has_turn' => is_array($submission->turn) && $submission->turn !== [],
+        ]);
 
         $this->conversation->persistConversationId($site, $agent->currentConversation());
 

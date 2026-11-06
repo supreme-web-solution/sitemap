@@ -116,6 +116,10 @@ Route::middleware(EnsureBrandedPreviewHost::class)->group(function () {
 
 Route::get('internal/domains/allowed', DomainAllowedController::class)->name('domains.allowed');
 
+Route::get('handoff/{site}', [SiteExportController::class, 'handoff'])
+    ->middleware('signed')
+    ->name('sites.handoff');
+
 Route::get('i/{invoice:public_token}', [InvoicePayController::class, 'show'])->name('invoices.public');
 Route::post('i/{invoice:public_token}/pay/{provider}', [InvoicePayController::class, 'pay'])
     ->middleware('throttle:invoice-payments')

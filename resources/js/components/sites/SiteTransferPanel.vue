@@ -27,8 +27,9 @@ const transfer = () =>
     <section class="panel p-5" data-test="transfer-ownership">
         <h3 class="text-base font-semibold">Transfer ownership</h3>
         <p class="mt-1 text-sm text-muted-foreground">
-            Enter the client’s email. This unpublishes the live copy, stores a
-            backup, and emails them a link to take over the website.
+            Enter the client’s email. This takes the live copy offline, stores a
+            backup, and emails them a download link. The link does not need a
+            login.
         </p>
         <form class="mt-4 grid max-w-md gap-2" @submit.prevent="transfer">
             <Label for="transfer-email">Client email</Label>

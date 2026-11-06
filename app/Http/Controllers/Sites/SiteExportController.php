@@ -20,6 +20,22 @@ class SiteExportController extends Controller
      */
     public function __invoke(Team $currentTeam, Site $site, SiteRenderer $renderer, SitePages $pages): BinaryFileResponse
     {
+        return $this->archive($site, $renderer, $pages);
+    }
+
+    /**
+     * Download a transferred website from the signed link in the client email.
+     */
+    public function handoff(Site $site, SiteRenderer $renderer, SitePages $pages): BinaryFileResponse
+    {
+        return $this->archive($site, $renderer, $pages);
+    }
+
+    /**
+     * Build the static ZIP and send it as a download.
+     */
+    protected function archive(Site $site, SiteRenderer $renderer, SitePages $pages): BinaryFileResponse
+    {
         $path = tempnam(sys_get_temp_dir(), 'site-export-');
 
         $zip = new ZipArchive;

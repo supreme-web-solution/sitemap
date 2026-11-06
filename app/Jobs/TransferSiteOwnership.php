@@ -2,12 +2,13 @@
 
 namespace App\Jobs;
 
-use App\Mail\OutreachEmail;
+use App\Mail\SiteTransferEmail;
 use App\Models\Site;
 use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 
 class TransferSiteOwnership implements ShouldQueue
 {
@@ -44,17 +45,12 @@ class TransferSiteOwnership implements ShouldQueue
             'transferred_to_email' => $this->email,
         ])->save();
 
-        $brand = $site->team->brand();
-        $exportUrl = route('sites.export', ['current_team' => $site->team->slug, 'site' => $site->id]);
+        $expires = now()->addDays(30);
 
-        Mail::to($this->email)->queue(new OutreachEmail(
-            __('Your website files for :name', ['name' => $site->lead->name]),
-            __("The website for :name has been transferred to you.\n\nDownload the files from the agency, or ask them to send the ZIP export. The live copy on our hosting has been unpublished so you can host it yourself.\n\n:url", [
-                'name' => $site->lead->name,
-                'url' => $exportUrl,
-            ]),
-            $brand['name'],
-            $brand['email'] ?? '',
+        Mail::to($this->email)->queue(new SiteTransferEmail(
+            $site,
+            URL::temporarySignedRoute('sites.handoff', $expires, ['site' => $site]),
+            $expires->toFormattedDateString(),
         ));
     }
 }

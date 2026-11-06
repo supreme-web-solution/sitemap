@@ -57,8 +57,19 @@ class ApplySiteEdit implements ShouldBeUnique, ShouldQueue
         $message = $this->message->fresh();
 
         if ($message === null || $message->status !== SiteChatMessage::STATUS_PENDING) {
+            SiteEditLog::info('apply job skipped', [
+                'chat_message_id' => $this->message->id,
+                'status' => $message?->status,
+            ]);
+
             return;
         }
+
+        SiteEditLog::info('apply job started', [
+            'site_id' => $message->site_id,
+            'chat_message_id' => $message->id,
+            'queue' => Queues::AI,
+        ]);
 
         $site = $message->site;
         $userMessage = $site->chatMessages()
@@ -97,7 +108,21 @@ class ApplySiteEdit implements ShouldBeUnique, ShouldQueue
 
         SiteEditAiContext::reset();
 
+        SiteEditLog::info('turn resolve starting', [
+            'site_id' => $site->id,
+            'chat_message_id' => $message->id,
+            'instruction' => Str::limit($instruction, 300),
+        ]);
+
+        $started = microtime(true);
         $turn = app(SiteEditTurnResolver::class)->resolve($site, $instruction, $attachmentPaths);
+
+        SiteEditLog::info('turn resolve finished', [
+            'site_id' => $site->id,
+            'chat_message_id' => $message->id,
+            'seconds' => round(microtime(true) - $started, 2),
+            'reply_only' => $turn->isReplyOnly(),
+        ]);
 
         if ($turn->isReplyOnly() && SiteEditAiContext::hadQuotaFailure()) {
             $this->markFailed($message, $turn->message !== ''
@@ -304,6 +329,12 @@ class ApplySiteEdit implements ShouldBeUnique, ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
+        SiteEditLog::info('apply job failed', [
+            'chat_message_id' => $this->message->id,
+            'exception' => $exception === null ? null : $exception::class,
+            'message' => $exception === null ? null : Str::limit($exception->getMessage(), 500),
+        ]);
+
         $message = $this->message->fresh();
 
         if ($message !== null && $message->status === SiteChatMessage::STATUS_PENDING) {
@@ -348,6 +379,11 @@ class ApplySiteEdit implements ShouldBeUnique, ShouldQueue
 
             return;
         }
+
+        SiteEditLog::info('apply job marked failed', [
+            'chat_message_id' => $message->id,
+            'reason' => Str::limit($reason, 300),
+        ]);
 
         $message->forceFill([
             'status' => SiteChatMessage::STATUS_FAILED,
