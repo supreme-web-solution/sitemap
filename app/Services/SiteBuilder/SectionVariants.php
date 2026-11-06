@@ -47,9 +47,11 @@ class SectionVariants
                 'list' => 'Rows',
                 'numbered' => 'Numbered practice areas',
                 'columns' => 'Open columns',
-                'featured' => 'One featured, rest smaller',
+                'featured' => 'First card in the brand colour',
                 'tiles' => 'Soft colour tiles',
                 'outline' => 'Outlined',
+                'stage' => 'Photo stage',
+                'rail' => 'Open editorial',
             ],
         ],
         'about' => [
@@ -222,7 +224,7 @@ class SectionVariants
             },
             'services_page' => match ($services) {
                 'featured' => 'featured',
-                'tiles', 'outline' => 'cards',
+                'tiles', 'outline', 'stage' => 'cards',
                 default => 'zigzag',
             },
             'mission' => match ($about) {

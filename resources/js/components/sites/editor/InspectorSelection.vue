@@ -3,10 +3,12 @@ import {
     ArrowDown,
     ArrowUp,
     EyeOff,
+    ImagePlus,
     LoaderCircle,
     RotateCcw,
     Sparkles,
     Trash2,
+    WandSparkles,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
@@ -526,32 +528,35 @@ const textareaClass =
                     >
                         <button
                             type="button"
-                            class="rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
+                            class="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
                             :disabled="uploading"
                             @click="
                                 uploadTargetIndex = null;
                                 fileInput?.click();
                             "
                         >
+                            <ImagePlus class="size-3.5" />
                             Replace
                         </button>
                         <button
                             v-if="canUseAiImage"
                             type="button"
-                            class="rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
+                            class="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
                             :disabled="uploading"
                             @click="improveImage"
                         >
+                            <WandSparkles class="size-3.5" />
                             Sharpen
                         </button>
                         <button
                             v-if="canUseAiImage"
                             type="button"
-                            class="rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
+                            class="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
                             :disabled="uploading"
                             @click="askingForNewPhoto = !askingForNewPhoto"
                         >
-                            New photo
+                            <Sparkles class="size-3.5" />
+                            New with AI
                         </button>
                     </div>
                 </div>
@@ -595,7 +600,8 @@ const textareaClass =
                             (imagePrompt.trim() === '' && !canGenerateWithoutPrompt)
                         "
                     >
-                        Create
+                        <Sparkles class="size-3.5" />
+                        Create with AI
                     </Button>
                 </form>
                 <button

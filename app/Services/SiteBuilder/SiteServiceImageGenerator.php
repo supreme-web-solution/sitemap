@@ -44,7 +44,7 @@ class SiteServiceImageGenerator
 
         $variants = SectionVariants::withDefaults($content['variants'] ?? []);
 
-        if (! in_array($variants['services'] ?? '', ['featured', 'tiles', 'cards'], true)) {
+        if (! in_array($variants['services'] ?? '', ['featured', 'tiles', 'cards', 'stage', 'rail', 'columns', 'numbered', 'outline'], true)) {
             $variants['services'] = 'featured';
             $content['variants'] = SectionVariants::clean($variants);
         }

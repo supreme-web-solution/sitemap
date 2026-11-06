@@ -57,4 +57,50 @@ class OpenAiImageGenerator
 
         return $this->storeLeadPhotoBinary($binary, $teamId, $leadId);
     }
+
+    /**
+     * @return array{path: string, url: string}
+     *
+     * @throws ConnectionException
+     * @throws \RuntimeException
+     */
+    public function improve(SiteImageGenerationPlan $plan, string $source, int $teamId, int $leadId): array
+    {
+        $apiKey = config('services.openai.key');
+
+        if (! filled($apiKey)) {
+            throw new \RuntimeException(ImageGenerationMessages::notConfiguredMessage());
+        }
+
+        try {
+            $response = Http::baseUrl('https://api.openai.com/v1')
+                ->withToken($apiKey)
+                ->acceptJson()
+                ->connectTimeout(10)
+                ->timeout(120)
+                ->attach('image', $source, 'source.jpg')
+                ->post('images/edits', [
+                    'model' => config('sites.image_model'),
+                    'prompt' => $plan->prompt,
+                    'size' => $plan->openAiSize(),
+                ]);
+        } catch (ConnectionException $exception) {
+            Log::warning('OpenAI image edit connection failed.', ['message' => $exception->getMessage()]);
+
+            throw new \RuntimeException(ImageGenerationMessages::unavailableMessage());
+        }
+
+        if ($response->failed()) {
+            Log::warning('OpenAI image edit failed.', [
+                'status' => $response->status(),
+                'body' => Str::limit($response->body(), 500),
+            ]);
+
+            throw new \RuntimeException(ImageGenerationMessages::messageForFailedResponse($response));
+        }
+
+        $binary = $this->binaryFromEditPayload($response->json(), self::DRIVER);
+
+        return $this->storeLeadPhotoBinary($binary, $teamId, $leadId);
+    }
 }

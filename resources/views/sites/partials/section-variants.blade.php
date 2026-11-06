@@ -186,20 +186,17 @@
     .services-v-columns .service-icon { margin: 0 0 .75rem; width: auto; height: auto; background: none; border-radius: 0; place-items: start; }
 
     .service-photo { width: 100%; height: 11rem; object-fit: cover; border-radius: var(--radius); margin-bottom: 1rem; display: block; background: color-mix(in srgb, var(--accent) 18%, #1f2937); }
-    .services-v-numbered .service-photo { height: 9rem; }
-    .services-v-columns .service-photo { height: 10rem; margin-bottom: .85rem; }
-    .services-v-featured .service-photo { height: 13rem; }
-    .services-v-tiles .service-photo { height: 10rem; }
-    .services-v-outline .service-photo { height: 10rem; }
-    .services-v-featured .services { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .services-v-featured .service:first-child { grid-column: span 2; background: var(--accent); color: var(--on-accent); border-color: transparent; }
+    .services-block .services { grid-template-columns: 1fr; }
+    .services-block .service p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; line-height: 1.45; }
+    .services-block:not(.services-v-list):not(.services-v-stage):not(.services-v-rail) .service-photo { height: auto; aspect-ratio: 4 / 3; }
+    .services-v-featured .service:first-child { background: var(--accent); color: var(--on-accent); border-color: transparent; }
     .services-v-featured .service:first-child h3 { font-size: 1.55rem; }
     .services-v-featured .service:first-child p { opacity: .92; }
     .services-v-featured .service:first-child .service-icon { background: rgba(255,255,255,.2); color: inherit; }
     .services-v-featured .service:first-child .more-link { color: inherit; }
-    @media (max-width: 800px) {
-        .services-v-featured .services { grid-template-columns: 1fr; }
-        .services-v-featured .service:first-child { grid-column: auto; }
+    @media (min-width: 760px) {
+        .services-block:not(.services-v-list) .services,
+        .services-page-block .services { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     .services-v-tiles .service { background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent); border-radius: calc(var(--radius) * 1.4); box-shadow: none; padding: 2rem 1.75rem; text-align: center; transition: transform .2s ease; }
@@ -208,6 +205,24 @@
 
     .services-v-outline .service { background: transparent; border: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent); box-shadow: none; transition: background .2s ease, border-color .2s ease, transform .2s ease; }
     .services-v-outline .service:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); border-color: var(--accent); transform: translateY(-2px); }
+
+    .services-v-stage .service { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-height: 22rem; padding: 1.35rem 1.4rem 1.4rem; overflow: hidden; color: #fff; border: 0; isolation: isolate; }
+    .services-v-stage .service-photo { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border-radius: inherit; object-fit: cover; z-index: -2; }
+    .services-v-stage .service::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(15, 23, 42, .86) 0%, rgba(15, 23, 42, .28) 52%, rgba(15, 23, 42, .08) 100%); }
+    .services-v-stage .service h3, .services-v-stage .service p, .services-v-stage .service .more-link { position: relative; color: #fff; }
+    .services-v-stage .service p { opacity: .92; }
+    .services-v-stage .service-icon { display: none; }
+
+    .services-v-rail .services { gap: 2.75rem 2.25rem; }
+    .services-v-rail .service { background: transparent; border: 0; box-shadow: none; padding: 0; text-align: left; }
+    .services-v-rail .service-photo { aspect-ratio: 5 / 4; border-radius: 1.35rem; margin-bottom: 1rem; }
+    .services-v-rail .service h3 { font-size: 1.45rem; letter-spacing: -.02em; }
+    .services-v-rail .service .more-link { display: inline-block; margin-top: .85rem; }
+    .services-v-rail .service-icon { display: none; }
+
+    .services-v-tiles .section-actions,
+    .services-v-stage .section-actions,
+    .services-v-rail .section-actions { justify-content: center; }
 
     /* ===== About variants ===== */
     .about-v-centered .about-block .split { grid-template-columns: 1fr; gap: 1rem; max-width: 46rem; margin: 0 auto; text-align: center; }

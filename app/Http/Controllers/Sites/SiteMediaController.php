@@ -8,6 +8,8 @@ use App\Http\Requests\Leads\UpdateLeadProfileRequest;
 use App\Models\Lead;
 use App\Models\Site;
 use App\Models\Team;
+use App\Services\Audit\SafeHttpFetcher;
+use App\Services\Audit\UnsafeUrlException;
 use App\Services\Media\SiteImageStorage;
 use App\Services\SiteBuilder\LeadPhotoGenerator;
 use App\Services\SiteBuilder\SiteImageGenerationPlanner;
@@ -18,6 +20,8 @@ use App\Services\SiteBuilder\SitePages;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -279,24 +283,26 @@ class SiteMediaController extends Controller
                 throw ValidationException::withMessages(['prompt' => __('Select an existing photo to improve.')]);
             }
 
-            $planPrompt = $improve
-                ? SiteImagePromptBuilder::forImprove($lead, $site, $prompt !== '' ? $prompt : null)
-                : $prompt;
-            $plan = $improve
-                ? new SiteImageGenerationPlan(
-                    prompt: $planPrompt,
-                    aspectRatio: '16:9',
-                    placement: 'hero',
-                    reasoning: 'Sharpen and clean up an existing website photo.',
-                    fromLlm: false,
-                )
-                : $imagePlanner->plan($site, $lead, $planPrompt, (int) $index);
-
-            $generated = $images->generate(
-                $plan,
-                $currentTeam->id,
-                $lead->id,
-            );
+            if ($improve) {
+                $generated = $images->improve(
+                    new SiteImageGenerationPlan(
+                        prompt: SiteImagePromptBuilder::forSharpen($prompt !== '' ? $prompt : null),
+                        aspectRatio: '16:9',
+                        placement: 'hero',
+                        reasoning: 'Sharpen and clean up an existing website photo.',
+                        fromLlm: false,
+                    ),
+                    $this->imageBytes($imageStorage, $paths[$index], null),
+                    $currentTeam->id,
+                    $lead->id,
+                );
+            } else {
+                $generated = $images->generate(
+                    $imagePlanner->plan($site, $lead, $prompt, (int) $index),
+                    $currentTeam->id,
+                    $lead->id,
+                );
+            }
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (ConnectionException|\RuntimeException $exception) {
@@ -436,19 +442,19 @@ class SiteMediaController extends Controller
             throw ValidationException::withMessages(['prompt' => __('Upload or generate an image before improving it.')]);
         }
 
-        $planPrompt = $improve
-            ? SiteImagePromptBuilder::forServiceImprove($lead, $title, $description, $prompt !== '' ? $prompt : null)
-            : SiteImagePromptBuilder::forServiceCard($lead, $title, $description, $prompt !== '' ? $prompt : null);
-
         $plan = new SiteImageGenerationPlan(
-            prompt: $planPrompt,
+            prompt: $improve
+                ? SiteImagePromptBuilder::forSharpen($prompt !== '' ? $prompt : null)
+                : SiteImagePromptBuilder::forServiceCard($lead, $title, $description, $prompt !== '' ? $prompt : null),
             aspectRatio: '4:3',
             placement: 'service_card',
             reasoning: $improve ? 'Sharpen and clean up a service card photo.' : 'Generate a service card marketing photo.',
             fromLlm: false,
         );
 
-        $generated = $images->generate($plan, $currentTeam->id, $lead->id);
+        $generated = $improve
+            ? $images->improve($plan, $this->imageBytes($imageStorage, $existing, null), $currentTeam->id, $lead->id)
+            : $images->generate($plan, $currentTeam->id, $lead->id);
         $this->writeServiceImage($site, $index, $generated['path'], $imageStorage);
 
         return $this->media($site, $lead);
@@ -504,23 +510,25 @@ class SiteMediaController extends Controller
         bool $improve,
         SiteImageStorage $imageStorage,
     ): JsonResponse {
-        $existing = $this->placementSourcePath($site, $lead, $slot);
+        $source = $this->placementSource($site, $lead, $slot);
 
-        if ($improve && $existing === null) {
+        if ($improve && $source['path'] === null && $source['url'] === null) {
             throw ValidationException::withMessages(['prompt' => __('Upload or generate an image before improving it.')]);
         }
 
-        $planPrompt = $improve
-            ? SiteImagePromptBuilder::forImprove($lead, $site, $prompt !== '' ? $prompt : null)
-            : ($prompt !== '' ? $prompt : SiteImagePromptBuilder::forHero($lead, $site, null));
-
-        $generated = $images->generate(new SiteImageGenerationPlan(
-            prompt: $planPrompt,
+        $plan = new SiteImageGenerationPlan(
+            prompt: $improve
+                ? SiteImagePromptBuilder::forSharpen($prompt !== '' ? $prompt : null)
+                : ($prompt !== '' ? $prompt : SiteImagePromptBuilder::forHero($lead, $site, null)),
             aspectRatio: '16:9',
             placement: $slot,
             reasoning: $improve ? 'Sharpen this page photo.' : 'Generate a photo for this page only.',
             fromLlm: false,
-        ), $currentTeam->id, $lead->id);
+        );
+
+        $generated = $improve
+            ? $images->improve($plan, $this->imageBytes($imageStorage, $source['path'], $source['url']), $currentTeam->id, $lead->id)
+            : $images->generate($plan, $currentTeam->id, $lead->id);
 
         $this->writePlacement($site, $slot, $generated['path'], $imageStorage);
 
@@ -528,26 +536,130 @@ class SiteMediaController extends Controller
     }
 
     /**
-     * The photo currently shown for a page slot, including the shared fallback.
+     * The photo currently shown for a page slot, including a listing photo that is only a URL.
+     *
+     * @return array{path: string|null, url: string|null}
      */
-    protected function placementSourcePath(Site $site, Lead $lead, string $slot): ?string
+    protected function placementSource(Site $site, Lead $lead, string $slot): array
     {
         $stored = $site->content['images'][$slot] ?? null;
 
         if (is_string($stored) && $stored !== '') {
-            return $stored;
+            return ['path' => $stored, 'url' => null];
         }
 
         $photos = array_values(array_filter(
             $lead->photo_paths ?? [],
             fn ($path): bool => is_string($path) && $path !== '',
         ));
+        $path = $slot === 'about_portrait'
+            ? ($photos[1] ?? $photos[0] ?? null)
+            : ($photos[0] ?? null);
 
-        if ($slot === 'about_portrait') {
-            return $photos[1] ?? $photos[0] ?? null;
+        if (is_string($path) && $path !== '') {
+            return ['path' => $path, 'url' => null];
         }
 
-        return $photos[0] ?? null;
+        $urls = $lead->photoUrls();
+        $url = $slot === 'about_portrait'
+            ? ($urls[1] ?? $urls[0] ?? null)
+            : ($urls[0] ?? null);
+
+        return [
+            'path' => null,
+            'url' => is_string($url) && $url !== '' ? $url : null,
+        ];
+    }
+
+    protected function imageBytes(SiteImageStorage $imageStorage, ?string $path, ?string $url): string
+    {
+        if (is_string($path) && $path !== '') {
+            if ($imageStorage->isCloudinary($path) || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                $url = $imageStorage->url($path) ?? $url;
+            } elseif (Storage::disk('public')->exists($path)) {
+                $binary = Storage::disk('public')->get($path);
+
+                if (is_string($binary) && $binary !== '') {
+                    return $binary;
+                }
+            }
+        }
+
+        if (! is_string($url) || $url === '') {
+            throw ValidationException::withMessages([
+                'prompt' => __('Upload or generate an image before improving it.'),
+            ]);
+        }
+
+        return $this->downloadImage($url);
+    }
+
+    protected function downloadImage(string $url): string
+    {
+        $fetcher = app(SafeHttpFetcher::class);
+        $current = $url;
+
+        for ($hop = 0; $hop < 3; $hop++) {
+            try {
+                $fetcher->validate($current);
+            } catch (UnsafeUrlException) {
+                break;
+            }
+
+            $response = Http::connectTimeout(5)
+                ->timeout(20)
+                ->withOptions(['allow_redirects' => false])
+                ->accept('image/avif,image/webp,image/jpeg,image/png,*/*')
+                ->get($current);
+
+            if ($response->redirect()) {
+                $location = $response->header('Location');
+                $current = is_string($location) ? $this->absoluteImageUrl($current, $location) : '';
+
+                if ($current === '') {
+                    break;
+                }
+
+                continue;
+            }
+
+            $body = $response->body();
+            $type = strtolower((string) $response->header('Content-Type'));
+
+            if ($response->successful() && $body !== '' && strlen($body) <= 12_000_000 && (str_starts_with($type, 'image/') || $this->looksLikeImage($body))) {
+                return $body;
+            }
+
+            break;
+        }
+
+        throw ValidationException::withMessages([
+            'prompt' => __('The current photo could not be read, so it was not sharpened.'),
+        ]);
+    }
+
+    protected function absoluteImageUrl(string $base, string $location): string
+    {
+        if (preg_match('#^https?://#i', $location) === 1) {
+            return $location;
+        }
+
+        $parts = parse_url($base);
+        $origin = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+
+        if (str_starts_with($location, '/')) {
+            return $origin.$location;
+        }
+
+        return '';
+    }
+
+    protected function looksLikeImage(string $binary): bool
+    {
+        return str_starts_with($binary, "\xFF\xD8\xFF")
+            || str_starts_with($binary, "\x89PNG")
+            || str_starts_with($binary, 'GIF8')
+            || (str_starts_with($binary, 'RIFF') && str_contains(substr($binary, 0, 16), 'WEBP'));
     }
 
     protected function slots(): array

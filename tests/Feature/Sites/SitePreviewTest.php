@@ -158,7 +158,11 @@ test('homepage services section has a primary cta and a view-all button', functi
         ->assertSee('class="section-actions"', escape: false)
         ->assertSee('btn btn-primary', escape: false)
         ->assertSee('btn btn-secondary', escape: false)
-        ->assertSee('View all services');
+        ->assertSee('View all services')
+        ->assertSee('repeat(2, minmax(0, 1fr))', escape: false)
+        ->assertSee('-webkit-line-clamp: 2', escape: false)
+        ->assertSee('services-v-stage', escape: false)
+        ->assertSee('services-v-rail', escape: false);
 });
 
 test('the gallery is left out until the business has enough photos', function () {

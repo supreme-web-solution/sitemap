@@ -90,7 +90,7 @@ test('the visual editor can improve an existing photo', function () {
     ]);
 
     Http::fake(function (Request $request) {
-        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+        if (str_contains($request->url(), 'chat/completions') || str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
             return Http::response([
                 'data' => [['b64_json' => base64_encode('improved-image-bytes'), 'media_type' => 'image/png']],
             ]);
@@ -127,7 +127,7 @@ test('sharpening a page hero uses the photo already on screen', function () {
     ]);
 
     Http::fake(function (Request $request) {
-        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+        if (str_contains($request->url(), 'chat/completions') || str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
             return Http::response([
                 'data' => [['b64_json' => base64_encode('sharper-hero'), 'media_type' => 'image/png']],
             ]);
@@ -152,4 +152,52 @@ test('sharpening a page hero uses the photo already on screen', function () {
 
     expect($lead->fresh()->photo_paths)->toBe(['teams/1/leads/1/shared.jpg'])
         ->and($site->fresh()->content['images']['home_hero'] ?? null)->not->toBeEmpty();
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'chat/completions')
+        && str_contains($request->body(), base64_encode('shared')));
+});
+
+test('sharpening a listing photo edits that photo instead of asking for an upload', function () {
+    Storage::fake('public');
+
+    config([
+        'sites.image_driver' => 'openrouter',
+        'services.openrouter.key' => 'test-key',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'example.com/listing.jpg')) {
+            return Http::response('listing-bytes', 200, ['Content-Type' => 'image/jpeg']);
+        }
+
+        if (str_contains($request->url(), 'chat/completions')) {
+            return Http::response([
+                'data' => [['b64_json' => base64_encode('sharper-listing'), 'media_type' => 'image/png']],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'photo_paths' => null,
+        'photo_url' => null,
+        'listing_photo_urls' => ['https://example.com/listing.jpg'],
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'improve' => true,
+            'slot' => 'home_hero',
+        ])
+        ->assertOk();
+
+    expect($lead->fresh()->photo_paths)->toBeNull()
+        ->and($lead->fresh()->listing_photo_urls)->toBe(['https://example.com/listing.jpg'])
+        ->and($site->fresh()->content['images']['home_hero'] ?? null)->not->toBeEmpty();
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'chat/completions')
+        && str_contains($request->body(), base64_encode('listing-bytes')));
 });

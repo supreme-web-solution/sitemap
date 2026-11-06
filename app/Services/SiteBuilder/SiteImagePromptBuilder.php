@@ -66,35 +66,19 @@ class SiteImagePromptBuilder
     }
 
     /**
-     * Sharper, cleaner replacement photo for a hero or gallery slot.
+     * Edit the attached photograph so it is sharper, without inventing a new scene.
      */
-    public static function forImprove(Lead $lead, Site $site, ?string $userHint = null): string
+    public static function forSharpen(?string $userHint = null): string
     {
-        $base = self::forHero($lead, $site, $userHint);
+        $hint = trim((string) $userHint);
 
-        return Str::limit(
-            $base.' Ultra sharp focus, high resolution, crisp clean details, no blur, professional DSLR quality.',
-            900,
-            '',
-        );
-    }
-
-    /**
-     * Sharper, cleaner replacement photo for a service card.
-     */
-    public static function forServiceImprove(
-        Lead $lead,
-        string $serviceTitle,
-        string $serviceDescription,
-        ?string $userHint = null,
-    ): string {
-        $base = self::forServiceCard($lead, $serviceTitle, $serviceDescription, $userHint);
-
-        return Str::limit(
-            $base.' Ultra sharp focus, high resolution, crisp clean details, no blur, professional DSLR quality.',
-            900,
-            '',
-        );
+        return Str::limit(implode(' ', array_filter([
+            'Edit the attached photograph in place.',
+            'Keep the same people, faces, clothing, pose, vehicle, objects, background, and framing.',
+            'Increase sharpness, clarity, and fine detail. Remove blur and noise.',
+            'Do not add text, logos, watermarks, or new objects.',
+            $hint !== '' ? 'Also: '.Str::limit($hint, 200, '') : null,
+        ])), 900, '');
     }
 
     protected static function subjectForCategory(string $category): string

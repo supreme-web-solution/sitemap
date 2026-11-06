@@ -25,6 +25,23 @@ class LeadPhotoGenerator
         };
     }
 
+    /**
+     * Sharpen an existing photo by sending that image to the configured model.
+     *
+     * @return array{path: string, url: string}
+     */
+    public function improve(SiteImageGenerationPlan $plan, string $source, int $teamId, int $leadId): array
+    {
+        if ($source === '') {
+            throw new \RuntimeException(ImageGenerationMessages::unavailableMessage());
+        }
+
+        return match ($this->activeDriver()) {
+            'openrouter' => $this->openRouter->improve($plan, $source, $teamId, $leadId),
+            default => $this->openAi->improve($plan, $source, $teamId, $leadId),
+        };
+    }
+
     public function configured(): bool
     {
         return match ($this->activeDriver()) {
