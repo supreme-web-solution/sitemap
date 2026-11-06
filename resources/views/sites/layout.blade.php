@@ -203,6 +203,24 @@
             .footer-brand { grid-column: auto; }
         }
         .mobile-cta { display: none; }
+        @media (min-width: 768px) {
+            .mobile-cta {
+                display: inline-flex;
+                position: fixed;
+                right: 1.25rem;
+                bottom: calc(1.25rem + var(--preview-bar-height, 0px));
+                z-index: 35;
+                width: auto;
+                border-radius: 999px;
+                padding: .8rem 1.15rem;
+                box-shadow: 0 12px 28px rgba(0, 0, 0, .22);
+                transform: translateY(140%);
+                opacity: 0;
+                pointer-events: none;
+                transition: transform .32s ease, opacity .32s ease;
+            }
+            .mobile-cta.is-visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        }
         .preview-bar {
             --preview-primary: hsl(265 72% 51%);
             --preview-primary-hover: hsl(265 72% 45%);
@@ -582,15 +600,8 @@
             };
 
             const show = (visible) => {
-                if (desktop.matches) {
-                    bar.classList.remove('is-visible');
-                    document.body.classList.remove('has-mobile-cta');
-
-                    return;
-                }
-
                 bar.classList.toggle('is-visible', visible);
-                document.body.classList.toggle('has-mobile-cta', visible);
+                document.body.classList.toggle('has-mobile-cta', visible && !desktop.matches);
             };
 
             const update = () => {

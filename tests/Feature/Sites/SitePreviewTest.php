@@ -288,6 +288,7 @@ test('every template puts one call to action on the right of the navbar', functi
         ->assertOk()
         ->assertSee('class="btn btn-primary header-cta"', escape: false)
         ->assertSee('class="btn btn-primary mobile-cta"', escape: false)
+        ->assertSee('bottom: calc(1.25rem + var(--preview-bar-height, 0px))', escape: false)
         ->assertSee('Book a visit')
         ->assertSee('overflow-x: clip', escape: false)
         ->assertDontSee('header-call', escape: false);

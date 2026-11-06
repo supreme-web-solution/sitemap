@@ -28,12 +28,10 @@ class SiteExportController extends Controller
             throw new RuntimeException('Unable to create the site export archive.');
         }
 
-        $urls = SiteUrls::root(trailingSlash: true);
-
         foreach ($pages->paths($site) as $pagePath) {
             $zip->addFromString(
                 ltrim($pagePath.'/index.html', '/'),
-                $renderer->render($site, path: $pagePath, urls: $urls),
+                $renderer->render($site, path: $pagePath, urls: SiteUrls::portable($pagePath)),
             );
         }
 

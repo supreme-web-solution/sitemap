@@ -9,7 +9,11 @@ use Illuminate\Support\Str;
 
 class SiteQualityChecker
 {
-    public function __construct(protected SitePages $pages, protected SiteSeo $seo) {}
+    public function __construct(
+        protected SitePages $pages,
+        protected SiteSeo $seo,
+        protected SiteRenderer $renderer,
+    ) {}
 
     /**
      * Phrases a business must confirm before a site may claim them.
@@ -70,6 +74,7 @@ class SiteQualityChecker
             ),
             $this->reviews($site),
             $this->unverifiedClaims($site),
+            ...$this->performance($site),
             ...$this->seoChecks($site),
         ];
 
@@ -100,6 +105,32 @@ class SiteQualityChecker
         }
 
         return $this->result('reviews', 'Customer reviews', 'warn', 'The business has Google reviews but fewer than '.Lead::MIN_TESTIMONIALS.' are available to show. Fetch them from the reviews panel.');
+    }
+
+    /**
+     * Measure the homepage we generate: how long it takes to build and how large the HTML is.
+     *
+     * @return list<array{key: string, label: string, status: string, detail: string}>
+     */
+    protected function performance(Site $site): array
+    {
+        $started = hrtime(true);
+        $html = $this->renderer->render($site) ?? '';
+        $elapsed = (int) ((hrtime(true) - $started) / 1_000_000);
+        $bytes = strlen($html);
+        $kilobytes = max(1, (int) round($bytes / 1024));
+
+        return [
+            match (true) {
+                $html === '' => $this->result('speed', 'Homepage speed', 'warn', 'The homepage could not be measured.'),
+                $elapsed < 1500 => $this->result('speed', 'Homepage speed', 'pass', "The homepage builds in {$elapsed} ms."),
+                default => $this->result('speed', 'Homepage speed', 'warn', "The homepage builds in {$elapsed} ms, which is slow."),
+            },
+            match (true) {
+                $bytes > 1_000_000 => $this->result('weight', 'Homepage size', 'warn', "The homepage HTML is {$kilobytes} KB, which is heavy."),
+                default => $this->result('weight', 'Homepage size', 'pass', "The homepage HTML is {$kilobytes} KB."),
+            },
+        ];
     }
 
     /**

@@ -16,6 +16,7 @@ class SiteUrls
         protected bool $trailingSlash,
         protected string $locale,
         protected string $defaultLocale,
+        protected ?string $fromPath = null,
     ) {}
 
     /**
@@ -38,7 +39,7 @@ class SiteUrls
     }
 
     /**
-     * Links for a site served from the root of its own domain, or from an exported folder.
+     * Links for a site served from the root of its own domain.
      */
     public static function root(string $origin = '', bool $trailingSlash = false, string $locale = SiteLocales::DEFAULT, string $defaultLocale = SiteLocales::DEFAULT): static
     {
@@ -46,10 +47,23 @@ class SiteUrls
     }
 
     /**
+     * Links for a downloaded copy. Each link is relative to the current page, so it
+     * resolves inside the folder whether the files are opened locally or hosted anywhere.
+     */
+    public static function portable(string $fromPath = '', string $locale = SiteLocales::DEFAULT, string $defaultLocale = SiteLocales::DEFAULT): static
+    {
+        return new static('', '', '', true, $locale, $defaultLocale, trim($fromPath, '/'));
+    }
+
+    /**
      * Get the link to a page, relative to the host. An empty path is the home page.
      */
     public function to(string $path = ''): string
     {
+        if ($this->fromPath !== null) {
+            return $this->relativePath($path).$this->query;
+        }
+
         return $this->path($path).$this->query;
     }
 
@@ -58,6 +72,10 @@ class SiteUrls
      */
     public function absolute(string $path = ''): string
     {
+        if ($this->fromPath !== null) {
+            return $this->relativePath($path);
+        }
+
         return $this->origin.$this->path($path);
     }
 
@@ -84,7 +102,21 @@ class SiteUrls
      */
     public function forLocale(string $locale): static
     {
-        return new static($this->origin, $this->base, $this->query, $this->trailingSlash, $locale, $this->defaultLocale);
+        return new static($this->origin, $this->base, $this->query, $this->trailingSlash, $locale, $this->defaultLocale, $this->fromPath);
+    }
+
+    /**
+     * Point at index.html inside each page folder, walking up from the current page.
+     */
+    protected function relativePath(string $path): string
+    {
+        $path = trim($path, '/');
+        $prefix = $this->localePrefix();
+        $target = $prefix === '' ? $path : ($path === '' ? $prefix : $prefix.'/'.$path);
+        $file = ($target === '' ? '' : $target.'/').'index.html';
+        $ups = $this->fromPath === '' ? 0 : count(explode('/', $this->fromPath));
+
+        return ($ups === 0 ? '' : str_repeat('../', $ups)).$file;
     }
 
     protected function path(string $path): string

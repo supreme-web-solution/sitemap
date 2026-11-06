@@ -3,6 +3,7 @@
 use App\Ai\Agents\SitePlanDesigner;
 use App\Enums\SiteTemplate;
 use App\Enums\SiteVibe;
+use App\Models\AiCreditEvent;
 use App\Models\Lead;
 use App\Services\SiteBuilder\ClaudeSitePlanner;
 use App\Services\SiteBuilder\SiteCopywriter;
@@ -165,5 +166,25 @@ test('rule based copy is used when the Claude API is unavailable', function () {
 
     $draft = app(SiteCopywriter::class)->write(Lead::factory()->create(['category' => 'Plumber', 'city' => 'Austin']));
 
-    expect($draft->content['headline'])->toBe('Trusted Plumbing in Austin');
+    expect($draft->content['headline'])->toBe('Trusted Plumbing in Austin')
+        ->and(AiCreditEvent::query()->count())->toBe(0);
+});
+
+test('an anthropic credit error is logged with the time site creation finishes', function () {
+    SitePlanDesigner::fake(fn () => throw new RuntimeException('AI provider [anthropic] has insufficient credits or quota.'));
+
+    $lead = Lead::factory()->create(['name' => 'Blue Dragon Plumbing', 'category' => 'Plumber', 'city' => 'Austin']);
+
+    $draft = app(SiteCopywriter::class)->write($lead);
+
+    $event = AiCreditEvent::query()->sole();
+
+    expect($draft->content['headline'])->toBe('Trusted Plumbing in Austin')
+        ->and($event->provider)->toBe('anthropic')
+        ->and($event->source)->toBe('site_creation')
+        ->and($event->lead_id)->toBe($lead->id)
+        ->and($event->message)->toContain('insufficient credits')
+        ->and($event->outcome)->toBe('Finished with built-in copy')
+        ->and($event->occurred_at)->not->toBeNull()
+        ->and($event->finished_at)->not->toBeNull();
 });

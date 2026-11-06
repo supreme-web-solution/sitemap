@@ -45,16 +45,16 @@ class AiProviderErrors
 
     public static function siteEditUnavailableMessage(): string
     {
-        return __('AI editing is temporarily unavailable (Anthropic credits or quota). Add credits in your Anthropic console, then use Try again. Layout-only fixes may still work when they match built-in presets.');
+        return __('This service is not available right now.');
     }
 
     public static function siteEditPartialUnavailableMessage(): string
     {
-        return __('Some parts of this request need AI (design CSS, copy planning, or generated photos) but Anthropic returned a credits or quota error. Top up Anthropic or configure OpenRouter/OpenAI for photos, then try again.');
+        return __('This service is not available right now.');
     }
 
     public static function serviceImagesNeedImageApiMessage(): string
     {
-        return __('Generating images for each service needs an image API (OpenRouter or OpenAI in your .env). Anthropic text credits alone are not enough for that step.');
+        return __('This service is not available right now.');
     }
 }

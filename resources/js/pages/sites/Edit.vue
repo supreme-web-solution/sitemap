@@ -15,7 +15,7 @@ import {
     Star,
 } from '@lucide/vue';
 import { useClipboard } from '@vueuse/core';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import CheckList from '@/components/CheckList.vue';
 import InputError from '@/components/InputError.vue';
@@ -90,6 +90,14 @@ const openSettings = (tab: SettingsTab) => {
     settingsTab.value = tab;
     settingsOpen.value = true;
 };
+
+onMounted(() => {
+    const query = page.url.split('?')[1] ?? '';
+
+    if (new URLSearchParams(query).get('panel') === 'quality') {
+        openSettings('quality');
+    }
+});
 
 const failedChecks = computed(
     () => liveQuality.value.total - liveQuality.value.passed,
@@ -624,7 +632,9 @@ const copyLink = async () => {
                         </span>
                     </div>
                     <p class="mt-1 text-sm text-muted-foreground">
-                        Check the site before sending it to a client.
+                        Speed, page size, and the other checks for this website
+                        before you send it to a client. The lead page audit is
+                        their old site.
                     </p>
                     <CheckList
                         :items="liveQuality.checks"

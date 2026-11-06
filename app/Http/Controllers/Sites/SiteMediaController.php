@@ -504,9 +504,9 @@ class SiteMediaController extends Controller
         bool $improve,
         SiteImageStorage $imageStorage,
     ): JsonResponse {
-        $existing = $site->content['images'][$slot] ?? null;
+        $existing = $this->placementSourcePath($site, $lead, $slot);
 
-        if ($improve && (! is_string($existing) || $existing === '')) {
+        if ($improve && $existing === null) {
             throw ValidationException::withMessages(['prompt' => __('Upload or generate an image before improving it.')]);
         }
 
@@ -525,6 +525,29 @@ class SiteMediaController extends Controller
         $this->writePlacement($site, $slot, $generated['path'], $imageStorage);
 
         return $this->media($site, $lead);
+    }
+
+    /**
+     * The photo currently shown for a page slot, including the shared fallback.
+     */
+    protected function placementSourcePath(Site $site, Lead $lead, string $slot): ?string
+    {
+        $stored = $site->content['images'][$slot] ?? null;
+
+        if (is_string($stored) && $stored !== '') {
+            return $stored;
+        }
+
+        $photos = array_values(array_filter(
+            $lead->photo_paths ?? [],
+            fn ($path): bool => is_string($path) && $path !== '',
+        ));
+
+        if ($slot === 'about_portrait') {
+            return $photos[1] ?? $photos[0] ?? null;
+        }
+
+        return $photos[0] ?? null;
     }
 
     protected function slots(): array

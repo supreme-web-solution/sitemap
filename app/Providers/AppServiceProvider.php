@@ -7,6 +7,7 @@ use App\Models\LeadReview;
 use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\SitePost;
+use App\Services\Ai\AiCreditLog;
 use App\Services\LeadFinder\LeadFinder;
 use App\Services\LeadFinder\MindcaseLeadFinder;
 use App\Services\Outreach\FollowUpSequenceGenerator;
@@ -68,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
                 apiKey: config('services.anthropic.key'),
                 model: config('services.anthropic.model'),
                 fallback: $fallback,
+                creditLog: $app->make(AiCreditLog::class),
             );
         });
     }

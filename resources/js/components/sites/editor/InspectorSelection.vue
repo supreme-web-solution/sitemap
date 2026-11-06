@@ -3,7 +3,6 @@ import {
     ArrowDown,
     ArrowUp,
     EyeOff,
-    ImagePlus,
     LoaderCircle,
     RotateCcw,
     Sparkles,
@@ -198,6 +197,13 @@ const canAddPhoto = computed(() => {
     );
 });
 
+const askingForNewPhoto = ref(false);
+
+watch(imageSelection, () => {
+    askingForNewPhoto.value = false;
+    imagePrompt.value = '';
+});
+
 const nextPhotoIndex = computed(() => props.media.photos.length);
 
 const upload = async (event: Event) => {
@@ -261,6 +267,8 @@ const generateImage = async () => {
             await generateSiteImage(props.teamSlug, props.siteId, { slot: selection.slot, index: selection.index }, prompt),
         );
         toast.success('Image generated');
+        askingForNewPhoto.value = false;
+        imagePrompt.value = '';
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'The image could not be generated.');
     } finally {
@@ -459,11 +467,10 @@ const textareaClass =
             <div class="grid gap-2" :class="heroPhotoFromSection ? 'mb-4 border-b border-border pb-4' : ''">
                 <Label>{{ imageSelection.label }}</Label>
                 <p v-if="heroPhotoFromSection" class="text-xs text-muted-foreground">
-                    Full-bleed hero layouts use this photo behind the copy. Replace or generate it
-                    here, or use Photo on the section toolbar.
+                    Hover the photo to replace it, sharpen it, or create a new one.
                 </p>
                 <div
-                    class="flex aspect-video items-center justify-center overflow-hidden rounded-lg border bg-muted/40"
+                    class="group relative flex aspect-video items-center justify-center overflow-hidden rounded-lg border bg-muted/40"
                 >
                     <img
                         v-if="currentImage"
@@ -471,7 +478,82 @@ const textareaClass =
                         :alt="imageSelection.label"
                         class="size-full object-cover"
                     />
-                    <span v-else class="text-sm text-muted-foreground">No image yet</span>
+                    <div
+                        v-else
+                        class="flex flex-col items-center gap-2 px-4 text-center"
+                    >
+                        <span class="text-sm text-muted-foreground">No photo yet</span>
+                        <Button
+                            type="button"
+                            size="sm"
+                            :disabled="uploading"
+                            @click="
+                                uploadTargetIndex = null;
+                                fileInput?.click();
+                            "
+                        >
+                            Upload
+                        </Button>
+                        <button
+                            v-if="canUseAiImage"
+                            type="button"
+                            class="text-xs font-medium text-primary hover:underline"
+                            :disabled="uploading"
+                            @click="askingForNewPhoto = true"
+                        >
+                            or generate one
+                        </button>
+                    </div>
+                    <div
+                        v-if="uploading"
+                        class="absolute inset-0 grid place-items-center bg-black/35 text-white"
+                    >
+                        <LoaderCircle class="size-5 animate-spin" />
+                    </div>
+                    <button
+                        v-if="currentImage"
+                        type="button"
+                        class="absolute top-2 right-2 grid size-8 place-items-center rounded-full bg-black/55 text-white opacity-0 transition hover:bg-black/75 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+                        aria-label="Remove photo"
+                        :disabled="uploading"
+                        @click="removeImage"
+                    >
+                        <Trash2 class="size-3.5" />
+                    </button>
+                    <div
+                        v-if="currentImage"
+                        class="absolute inset-x-2 bottom-2 flex flex-wrap gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+                    >
+                        <button
+                            type="button"
+                            class="rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
+                            :disabled="uploading"
+                            @click="
+                                uploadTargetIndex = null;
+                                fileInput?.click();
+                            "
+                        >
+                            Replace
+                        </button>
+                        <button
+                            v-if="canUseAiImage"
+                            type="button"
+                            class="rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
+                            :disabled="uploading"
+                            @click="improveImage"
+                        >
+                            Sharpen
+                        </button>
+                        <button
+                            v-if="canUseAiImage"
+                            type="button"
+                            class="rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
+                            :disabled="uploading"
+                            @click="askingForNewPhoto = !askingForNewPhoto"
+                        >
+                            New photo
+                        </button>
+                    </div>
                 </div>
                 <input
                     ref="fileInput"
@@ -489,107 +571,53 @@ const textareaClass =
                     data-test="add-image-input"
                     @change="upload"
                 />
-                <div class="flex flex-wrap gap-2">
-                    <Button
-                        type="button"
-                        size="sm"
-                        :disabled="uploading"
-                        @click="
-                            uploadTargetIndex = null;
-                            fileInput?.click();
-                        "
-                    >
-                        <LoaderCircle v-if="uploading" class="animate-spin" />
-                        <ImagePlus v-else />
-                        {{ currentImage ? 'Replace image' : 'Upload image' }}
-                    </Button>
-                    <Button
-                        v-if="canAddPhoto"
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        :disabled="uploading"
-                        data-test="add-gallery-photo"
-                        @click="startAddPhoto"
-                    >
-                        <ImagePlus />
-                        Add another photo
-                    </Button>
-                    <Button
-                        v-if="currentImage"
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        :disabled="uploading"
-                        @click="removeImage"
-                    >
-                        <Trash2 /> Remove
-                    </Button>
-                </div>
-                <p v-if="imageSelection.slot === 'photo'" class="text-xs text-muted-foreground">
-                    {{ media.photos.length }} of {{ media.maxPhotos }} gallery photos. Home shows
-                    the first 6; the rest appear on the Gallery page. Page heroes are separate.
-                </p>
-                <p v-else-if="isPagePhoto" class="text-xs text-muted-foreground">
-                    This photo belongs to this page only. Other pages keep their own images.
-                </p>
-                <div
-                    v-if="canUseAiImage"
-                    class="grid gap-2 rounded-lg border border-dashed p-3"
+                <form
+                    v-if="canUseAiImage && askingForNewPhoto"
+                    class="flex gap-2"
+                    @submit.prevent="generateImage"
                 >
-                    <Label for="image-prompt">AI image tools</Label>
                     <Input
                         id="image-prompt"
                         v-model="imagePrompt"
                         :placeholder="
-                            imageSelection.slot === 'service'
-                                ? 'Optional: describe the photo (or leave blank)'
-                                : 'Describe the photo you want'
+                            canGenerateWithoutPrompt
+                                ? 'Optional description'
+                                : 'Describe the photo'
                         "
                         maxlength="500"
+                        autofocus
                     />
-                    <div class="flex flex-wrap gap-2">
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            :disabled="
-                                uploading || (imagePrompt.trim() === '' && !canGenerateWithoutPrompt)
-                            "
-                            @click="generateImage"
-                        >
-                            <LoaderCircle v-if="uploading" class="animate-spin" />
-                            <Sparkles v-else />
-                            Generate image
-                        </Button>
-                        <Button
-                            v-if="currentImage"
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            :disabled="uploading"
-                            @click="improveImage"
-                        >
-                            <LoaderCircle v-if="uploading" class="animate-spin" />
-                            <Sparkles v-else />
-                            Improve sharpness
-                        </Button>
-                    </div>
-                    <p class="text-xs text-muted-foreground">
-                        Generate creates a new photo for this slot. Improve sharpness rebuilds a
-                        cleaner, sharper version when the current image looks blurry or small.
-                    </p>
-                </div>
-                <div
-                    class="rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground"
-                    data-test="media-immediate-save-notice"
+                    <Button
+                        type="submit"
+                        size="sm"
+                        :disabled="
+                            uploading ||
+                            (imagePrompt.trim() === '' && !canGenerateWithoutPrompt)
+                        "
+                    >
+                        Create
+                    </Button>
+                </form>
+                <button
+                    v-if="canAddPhoto"
+                    type="button"
+                    class="w-fit text-xs font-medium text-primary hover:underline"
+                    :disabled="uploading"
+                    data-test="add-gallery-photo"
+                    @click="startAddPhoto"
                 >
-                    JPG, PNG or WebP, up to
-                    {{ imageSelection.slot === 'logo' ? 2 : 5 }} MB. Images save
-                    immediately when you upload, generate, or remove. Use
-                    <strong class="font-medium text-foreground">Undo</strong>
-                    (Ctrl+Z) to revert the last image change only.
-                </div>
+                    Add another gallery photo
+                </button>
+                <p v-if="imageSelection.slot === 'photo'" class="text-xs text-muted-foreground">
+                    {{ media.photos.length }} of {{ media.maxPhotos }}. Home shows the first 6.
+                </p>
+                <p v-else-if="isPagePhoto" class="text-xs text-muted-foreground">
+                    Only this page uses this photo.
+                </p>
+                <p class="text-xs text-muted-foreground">
+                    JPG, PNG or WebP, up to {{ imageSelection.slot === 'logo' ? 2 : 5 }} MB.
+                    Undo reverts the last photo.
+                </p>
             </div>
         </template>
 

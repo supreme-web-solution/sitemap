@@ -98,6 +98,17 @@ test('a version from another site cannot be restored', function () {
         ->assertNotFound();
 });
 
+test('the quality report includes homepage speed and size', function () {
+    [$site] = editableSite();
+
+    $checks = collect(app(SiteQualityChecker::class)->check($site))->get('checks');
+    $keys = collect($checks)->pluck('key');
+
+    expect($keys)->toContain('speed', 'weight')
+        ->and(collect($checks)->firstWhere('key', 'speed')['detail'])->toContain('ms')
+        ->and(collect($checks)->firstWhere('key', 'weight')['detail'])->toContain('KB');
+});
+
 test('the editor shows a quality report and the version history', function () {
     [$site, $user] = editableSite();
     $site->snapshot($user->id, 'Initial');

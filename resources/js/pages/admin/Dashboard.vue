@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import Heading from '@/components/Heading.vue';
-import { dashboard as adminDashboard } from '@/routes/admin';
-import { launchReadiness as adminLaunchReadiness } from '@/routes/admin';
+import { dashboard as adminDashboard, aiCredits as adminAiCredits, launchReadiness as adminLaunchReadiness } from '@/routes/admin';
 import { index as plansIndex } from '@/routes/admin/plans';
 import { edit as editUser, index as usersIndex } from '@/routes/admin/users';
 
@@ -43,6 +42,19 @@ defineOptions({
             title="Admin"
             description="Platform-wide numbers. Manage users, teams and plans from here."
         />
+
+        <p class="text-sm">
+            <Link
+                :href="adminAiCredits()"
+                class="font-medium text-primary hover:underline"
+                data-test="admin-ai-credits-link"
+            >
+                AI credit log
+            </Link>
+            <span class="text-muted-foreground">
+                — Anthropic and other provider credit errors, with the time the job finished.
+            </span>
+        </p>
 
         <p class="text-sm">
             <Link

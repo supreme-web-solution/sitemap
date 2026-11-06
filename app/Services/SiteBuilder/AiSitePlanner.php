@@ -5,8 +5,11 @@ namespace App\Services\SiteBuilder;
 use App\Data\SiteDraft;
 use App\Enums\SiteSection;
 use App\Enums\SiteTemplate;
+use App\Models\AiCreditEvent;
 use App\Models\Lead;
 use App\Models\Site;
+use App\Services\Ai\AiCreditLog;
+use App\Services\Ai\AiProviderErrors;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
@@ -44,6 +47,7 @@ abstract class AiSitePlanner implements SiteCopywriter
         protected string $apiKey,
         protected string $model,
         protected RuleBasedCopywriter $fallback,
+        protected AiCreditLog $creditLog,
     ) {}
 
     /**
@@ -77,12 +81,25 @@ abstract class AiSitePlanner implements SiteCopywriter
     abstract protected function providerName(): string;
 
     /**
+     * Keep a credit or quota failure for the admin log. Other API errors stay in the application log only.
+     */
+    protected function creditFailure(Lead $lead, string $source, ConnectionException|RequestException $exception): ?AiCreditEvent
+    {
+        if (! AiProviderErrors::isQuotaOrAuth($exception)) {
+            return null;
+        }
+
+        return $this->creditLog->record($lead, $this->providerName(), $source, $exception->getMessage());
+    }
+
+    /**
      * Plan the site with the AI model, falling back to rule-based copy on failure.
      */
     public function write(Lead $lead, ?SiteTemplate $template = null): SiteDraft
     {
         $template ??= $lead->vibe?->template();
         $errors = [];
+        $creditEvent = null;
 
         for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
             try {
@@ -93,6 +110,7 @@ abstract class AiSitePlanner implements SiteCopywriter
                 );
             } catch (ConnectionException|RequestException $exception) {
                 Log::warning("{$this->providerName()} site planner request failed.", ['lead_id' => $lead->id, 'message' => $exception->getMessage()]);
+                $creditEvent = $this->creditFailure($lead, 'site_creation', $exception);
 
                 break;
             }
@@ -104,10 +122,19 @@ abstract class AiSitePlanner implements SiteCopywriter
             }
         }
 
+        if ($creditEvent !== null) {
+            $creditEvent = $this->creditLog->finish($creditEvent, 'Finished with built-in copy');
+        }
+
         Log::info("{$this->providerName()} site planner fell back to rule-based copy.", [
             'lead_id' => $lead->id,
+            'provider' => $creditEvent?->provider,
             'errors' => $errors,
-            'reason' => 'Anthropic returned JSON that failed validation after '.self::MAX_ATTEMPTS.' attempts — not an API credit issue unless the log also shows HTTP 402/429.',
+            'occurred_at' => $creditEvent?->occurred_at?->toIso8601String(),
+            'finished_at' => $creditEvent?->finished_at?->toIso8601String(),
+            'reason' => $creditEvent !== null
+                ? ucfirst($creditEvent->provider).' credits or quota blocked the request. The website still finished with built-in copy.'
+                : 'The model returned JSON that failed validation after '.self::MAX_ATTEMPTS.' attempts.',
         ]);
 
         return $this->fallback->write($lead, $template);
@@ -121,6 +148,7 @@ abstract class AiSitePlanner implements SiteCopywriter
         $errors = [];
         $apiFailed = false;
         $apiFailureMessage = null;
+        $creditEvent = null;
 
         SiteEditLog::info('planner revise started', [
             'lead_id' => $lead->id,
@@ -144,6 +172,7 @@ abstract class AiSitePlanner implements SiteCopywriter
                 $apiFailed = true;
                 $apiFailureMessage = $exception->getMessage();
                 SiteEditAiContext::record($exception);
+                $creditEvent = $this->creditFailure($lead, 'site_editor', $exception);
 
                 Log::warning("{$this->providerName()} site editor request failed.", ['lead_id' => $lead->id, 'message' => $exception->getMessage()]);
 
@@ -167,13 +196,22 @@ abstract class AiSitePlanner implements SiteCopywriter
             }
         }
 
-        $fallbackReason = $apiFailed
-            ? 'Anthropic API request failed before a valid plan was returned — often credits, quota, or network. Message: '.Str::limit((string) $apiFailureMessage, 200)
-            : 'Edit plan JSON failed validation after '.self::MAX_ATTEMPTS.' attempts — see errors (often bad template, accent, or copy shape).';
+        if ($creditEvent !== null) {
+            $creditEvent = $this->creditLog->finish($creditEvent, 'Finished with built-in edits');
+        }
+
+        $fallbackReason = $creditEvent !== null
+            ? ucfirst($creditEvent->provider).' credits or quota blocked the request. The edit still finished with built-in changes.'
+            : ($apiFailed
+                ? 'The AI request failed before a valid plan was returned. Message: '.Str::limit((string) $apiFailureMessage, 200)
+                : 'Edit plan JSON failed validation after '.self::MAX_ATTEMPTS.' attempts — see errors (often bad template, accent, or copy shape).');
 
         Log::info("{$this->providerName()} site editor fell back to rule-based edits.", [
             'lead_id' => $lead->id,
+            'provider' => $creditEvent?->provider,
             'errors' => $errors,
+            'occurred_at' => $creditEvent?->occurred_at?->toIso8601String(),
+            'finished_at' => $creditEvent?->finished_at?->toIso8601String(),
             'reason' => $fallbackReason,
         ]);
 

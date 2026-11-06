@@ -206,7 +206,13 @@ test('the export contains a folder for every page', function () {
     expect($files)->toContain('index.html', 'about/index.html', 'services/index.html', 'services/emergency-repairs/index.html', 'blog/index.html', 'blog/winter-pipe-tips/index.html', 'contact/index.html', 'robots.txt');
 
     $about = $zip->getFromName('about/index.html');
-    expect($about)->toContain('href="/services/"')
+    $home = $zip->getFromName('index.html');
+    $service = $zip->getFromName('services/emergency-repairs/index.html');
+    expect($about)->toContain('href="../services/index.html"')
+        ->and($about)->toContain('href="../index.html"')
+        ->and($about)->not->toContain('href="/')
+        ->and($home)->toContain('href="about/index.html"')
+        ->and($service)->toContain('href="../../index.html"')
         ->and($about)->not->toContain('noindex')
         ->and($about)->not->toContain('<div class="claim-bar"');
 });

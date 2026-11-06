@@ -380,6 +380,21 @@ const textareaClass =
                                 <ExternalLink /> Preview
                             </a>
                         </Button>
+                        <Button size="sm" variant="outline" as-child>
+                            <Link
+                                :href="
+                                    editSite(
+                                        {
+                                            current_team: teamSlug,
+                                            site: lead.site.id,
+                                        },
+                                        { query: { panel: 'quality' } },
+                                    )
+                                "
+                            >
+                                Audit this site
+                            </Link>
+                        </Button>
                         <Button size="sm" as-child>
                             <Link
                                 :href="

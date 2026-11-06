@@ -71,7 +71,7 @@ const sections: Section[] = [
     {
         value: 'quality',
         label: 'Quality & health',
-        description: 'Checks to pass before you send this to a client.',
+        description: 'Speed, page size, and checks before you send this website.',
         icon: ShieldCheck,
     },
     {

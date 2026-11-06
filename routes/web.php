@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminAiCreditsController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminLaunchReadinessController;
 use App\Http\Controllers\Admin\AdminPlanController;
@@ -154,6 +155,7 @@ Route::prefix('admin')
     ->group(function () {
         Route::get('/', AdminDashboardController::class)->name('dashboard');
         Route::get('launch-readiness', AdminLaunchReadinessController::class)->name('launch-readiness');
+        Route::get('ai-credits', AdminAiCreditsController::class)->name('ai-credits');
 
         Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
