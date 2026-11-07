@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Payments\ConnectPaymentAccountRequest;
 use App\Models\PaymentAccount;
 use App\Models\Team;
+use App\Services\Payments\ExchangeRateConverter;
 use App\Services\Payments\PaymentException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,15 +22,17 @@ class PaymentAccountController extends Controller
     /**
      * Show the payment providers the team has connected.
      */
-    public function index(Request $request, Team $currentTeam): Response
+    public function index(Request $request, Team $currentTeam, ExchangeRateConverter $exchangeRates): Response
     {
         $accounts = $currentTeam->paymentAccounts()->get()->keyBy(fn (PaymentAccount $account) => $account->provider->value);
+        $localCheckout = $exchangeRates->snapshot('USD', ExchangeRateConverter::LOCAL_CURRENCY);
 
         return Inertia::render('payments/Index', [
             'canManage' => $request->user()->can('update', $currentTeam),
-            'providers' => collect(PaymentProvider::cases())->map(function (PaymentProvider $provider) use ($accounts) {
+            'providers' => collect(PaymentProvider::cases())->map(function (PaymentProvider $provider) use ($accounts, $localCheckout) {
                 /** @var PaymentAccount|null $account */
                 $account = $accounts->get($provider->value);
+                $usesLocalCheckout = in_array($provider, [PaymentProvider::Paystack, PaymentProvider::Flutterwave], true);
 
                 return [
                     'value' => $provider->value,
@@ -43,6 +46,7 @@ class PaymentAccountController extends Controller
                     'webhookUrl' => $account
                         ? route($provider->webhookRoute(), $account->webhook_key)
                         : null,
+                    'localCheckout' => $usesLocalCheckout ? $localCheckout : null,
                 ];
             })->values(),
         ]);

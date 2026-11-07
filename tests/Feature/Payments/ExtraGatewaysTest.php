@@ -52,10 +52,16 @@ test('flutterwave is connected after the secret key is verified', function () {
 });
 
 test('starting a paystack payment redirects to the authorization url', function () {
-    Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
-        'status' => true,
-        'data' => ['authorization_url' => 'https://checkout.paystack.com/abc'],
-    ])]);
+    Http::fake([
+        'open.er-api.com/*' => Http::response([
+            'result' => 'success',
+            'rates' => ['NGN' => 1500, 'USD' => 1],
+        ]),
+        'api.paystack.co/transaction/initialize' => Http::response([
+            'status' => true,
+            'data' => ['authorization_url' => 'https://checkout.paystack.com/abc'],
+        ]),
+    ]);
     [$invoice] = extraGatewayInvoice('paystack');
 
     $this->post(route('invoices.public.pay', ['invoice' => $invoice->public_token, 'provider' => 'paystack']))
@@ -65,16 +71,22 @@ test('starting a paystack payment redirects to the authorization url', function 
 });
 
 test('paystack currency rejection is explained on the invoice page', function () {
-    Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
-        'status' => false,
-        'message' => 'Currency not supported',
-    ], 400)]);
+    Http::fake([
+        'open.er-api.com/*' => Http::response([
+            'result' => 'success',
+            'rates' => ['NGN' => 1500, 'USD' => 1],
+        ]),
+        'api.paystack.co/transaction/initialize' => Http::response([
+            'status' => false,
+            'message' => 'Currency not supported',
+        ], 400),
+    ]);
     [$invoice] = extraGatewayInvoice('paystack');
 
     $this->from(route('invoices.public', $invoice->public_token))
         ->post(route('invoices.public.pay', ['invoice' => $invoice->public_token, 'provider' => 'paystack']))
         ->assertRedirect(route('invoices.public', ['invoice' => $invoice->public_token, 'status' => 'error']))
-        ->assertSessionHas('payment_error', 'Paystack cannot charge this invoice in USD. Enable USD on the Paystack account, or pay with another provider.');
+        ->assertSessionHas('payment_error', 'Paystack cannot charge this invoice in NGN. Enable NGN on the Paystack account, or pay with another provider.');
 });
 
 test('a signed paystack webhook marks the invoice paid and is safe to repeat', function () {

@@ -107,7 +107,8 @@ test('every service gets its own page linked from the services page', function (
         ->assertOk()
         ->assertSee('We answer leaks at any hour.')
         ->assertSee('agree the next step before anything begins')
-        ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+        ->assertHeaderMissing('X-Robots-Tag')
+        ->assertSee('index, follow, max-image-preview:large', escape: false);
 });
 
 test('a service without a stored slug still gets a stable page from its title', function () {

@@ -85,4 +85,13 @@ return [
         ],
     ],
 
+    /*
+    | Free mid-market rates (no API key). Used to charge Paystack / Flutterwave
+    | in NGN when invoices are stored in USD. Cache for several hours — the
+    | open endpoint only refreshes about once per day.
+    */
+    'exchange_rate' => [
+        'url' => env('EXCHANGE_RATE_URL', 'https://open.er-api.com/v6/latest'),
+    ],
+
 ];

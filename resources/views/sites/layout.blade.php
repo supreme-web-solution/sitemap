@@ -272,6 +272,17 @@
             .preview-bar__btn--pulse::after { animation: none; opacity: 0; }
         }
         .preview-bar__btn--package { background: #faf5ff; border-color: #e9d5ff; color: #581c87; }
+        .preview-bar__btn--pricing {
+            background: #581c87;
+            border-color: transparent;
+            color: #fff;
+            font-weight: 600;
+        }
+        .preview-bar__btn--pricing:hover {
+            background: #4c1d95;
+            border-color: transparent;
+            color: #fff;
+        }
         .preview-bar__btn--block { width: 100%; margin-top: .25rem; padding: .65rem 1rem; font-size: .9375rem; }
         .preview-modal {
             --preview-primary: hsl(265 72% 51%);

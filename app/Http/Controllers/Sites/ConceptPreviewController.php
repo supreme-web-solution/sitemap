@@ -15,7 +15,7 @@ class ConceptPreviewController extends Controller
      */
     public function __invoke(SiteConcept $siteConcept, SiteRenderer $renderer): Response
     {
-        $html = $renderer->render($this->asSite($siteConcept), asPreview: true);
+        $html = $renderer->render($this->asSite($siteConcept), asPreview: true, blockIndexing: true);
 
         abort_if($html === null, 404);
 

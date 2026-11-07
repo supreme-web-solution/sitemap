@@ -1126,7 +1126,7 @@ const onPickDesign = (lead: Lead) => {
                             />
                         </div>
                         <p
-                            v-if="lead.siteGenerationError"
+                            v-if="lead.siteGenerationError && !lead.site"
                             class="text-xs text-destructive"
                         >
                             {{ lead.siteGenerationError }}
@@ -1351,7 +1351,10 @@ const onPickDesign = (lead: Lead) => {
                                         @pick-design="onPickDesign"
                                     />
                                     <p
-                                        v-if="lead.siteGenerationError"
+                                        v-if="
+                                            lead.siteGenerationError &&
+                                            !lead.site
+                                        "
                                         class="mt-1 text-right text-[10px] leading-tight text-destructive"
                                     >
                                         {{ lead.siteGenerationError }}

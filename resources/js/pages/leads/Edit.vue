@@ -355,10 +355,14 @@ const textareaClass =
                 />
 
                 <div
-                    v-if="isBuilding || lead.site || lead.siteGenerationError"
+                    v-if="
+                        isBuilding ||
+                        lead.site ||
+                        (lead.siteGenerationError && !lead.site)
+                    "
                     class="flex flex-col gap-3 panel p-4 md:flex-row md:items-center md:justify-between"
                     :class="
-                        lead.siteGenerationError
+                        lead.siteGenerationError && !lead.site
                             ? 'border-destructive/40 bg-destructive/5'
                             : 'bg-muted/40'
                     "
@@ -369,7 +373,7 @@ const textareaClass =
                             Building the website… this usually takes under a
                             minute.
                         </template>
-                        <template v-else-if="lead.siteGenerationError">
+                        <template v-else-if="lead.siteGenerationError && !lead.site">
                             {{ lead.siteGenerationError }}
                         </template>
                         <template v-else>

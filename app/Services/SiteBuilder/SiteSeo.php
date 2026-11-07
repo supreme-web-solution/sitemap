@@ -37,11 +37,12 @@ class SiteSeo
      * @param  ResolvedPage  $page
      * @return Seo
      */
-    public function for(Site $site, array $page, SiteUrls $urls, bool $asPreview, bool $asStaging = false, ?array $content = null): array
+    public function for(Site $site, array $page, SiteUrls $urls, bool $asPreview, bool $asStaging = false, ?array $content = null, bool $blockIndexing = false): array
     {
         $lead = $site->lead;
         $content ??= $site->content;
         $image = $lead->photoUrls()[0] ?? $lead->logoUrl();
+        $indexable = ! $asStaging && ! $blockIndexing;
 
         $breadcrumbs = $this->breadcrumbs($page, $urls);
         $schema = [$this->business($lead, $urls, $image)];
@@ -65,13 +66,15 @@ class SiteSeo
         return [
             'title' => $this->title($site, $page, $content),
             'description' => $this->description($site, $page, $content),
-            'canonical' => $asPreview ? null : $urls->absolute($page['path']),
-            'robots' => ($asPreview || $asStaging) ? 'noindex, nofollow' : 'index, follow, max-image-preview:large',
+            'canonical' => ($asPreview && ! $indexable) ? null : $urls->absolute($page['path']),
+            'robots' => $indexable
+                ? 'index, follow, max-image-preview:large'
+                : 'noindex, nofollow',
             'image' => $image,
             'type' => $page['type'] === 'post' ? 'article' : 'website',
             'breadcrumbs' => $breadcrumbs,
             'schema' => $schema,
-            'alternates' => $asPreview ? [] : $this->alternates($site, $page['path'], $urls),
+            'alternates' => ($asPreview && ! $indexable) ? [] : $this->alternates($site, $page['path'], $urls),
         ];
     }
 

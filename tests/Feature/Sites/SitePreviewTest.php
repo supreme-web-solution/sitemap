@@ -23,7 +23,8 @@ test('anyone with the link can view the live preview and the visit is counted', 
 
     $this->get(route('sites.preview', $site->slug))
         ->assertOk()
-        ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+        ->assertHeaderMissing('X-Robots-Tag')
+        ->assertSee('index, follow, max-image-preview:large', escape: false)
         ->assertSee('Austin Pro Plumbing')
         ->assertSee($site->content['headline'])
         ->assertSee('Claim this website')

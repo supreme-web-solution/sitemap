@@ -34,6 +34,8 @@ use Illuminate\Support\Str;
  * @property string|null $paid_via
  * @property string|null $payment_reference
  * @property string|null $pending_reference
+ * @property int|null $pending_amount_cents
+ * @property string|null $pending_currency
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Team $team
@@ -169,6 +171,7 @@ class Invoice extends Model
             'status' => InvoiceStatus::class,
             'kind' => InvoiceKind::class,
             'total_cents' => 'integer',
+            'pending_amount_cents' => 'integer',
             'due_on' => 'date',
             'sent_at' => 'datetime',
             'emailed_at' => 'datetime',

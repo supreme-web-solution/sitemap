@@ -18,7 +18,14 @@
                 Claim this website
             </a>
         @endif
-        @if (($packages ?? collect())->isNotEmpty())
+        @if ($proposalUrl ?? null)
+            <a
+                class="preview-bar__btn preview-bar__btn--package preview-bar__btn--pricing"
+                href="{{ $proposalUrl }}"
+            >
+                See pricing
+            </a>
+        @elseif (($packages ?? collect())->isNotEmpty())
             <div class="preview-bar__packages" role="group" aria-label="Choose a package">
                 @foreach ($packages as $package)
                     <form method="POST" action="{{ $packageAction }}">

@@ -34,7 +34,8 @@ test('a verified preview hostname serves preview pages', function () {
 
     $this->get('https://previews.agency.test/p/'.$site->slug)
         ->assertOk()
-        ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+        ->assertHeaderMissing('X-Robots-Tag')
+        ->assertSee('index, follow, max-image-preview:large', escape: false);
 });
 
 test('another teams site cannot be opened on a branded preview host', function () {

@@ -40,9 +40,15 @@ class SitePreviewController extends Controller
             $site->recordView();
         }
 
-        $response = response($html)->header('X-Robots-Tag', 'noindex, nofollow');
+        $response = response($html);
 
-        return $editor ? $response->header('Cache-Control', 'no-store, private') : $response;
+        if ($editor) {
+            return $response
+                ->header('X-Robots-Tag', 'noindex, nofollow')
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        return $response;
     }
 
     protected function isTeamMember(Request $request, Site $site): bool

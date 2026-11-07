@@ -21,6 +21,7 @@ class ProposalEmail extends Mailable
         public Proposal $proposal,
         public string $senderName,
         public ?string $senderEmail = null,
+        public bool $isPreview = false,
     ) {}
 
     /**
@@ -28,9 +29,14 @@ class ProposalEmail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $brand = $this->proposal->team->brand()['name'];
+        $subject = $this->isPreview
+            ? "[Preview] Proposal for {$this->proposal->lead->name}: {$this->proposal->title}"
+            : "Proposal from {$brand}: {$this->proposal->title}";
+
         return new Envelope(
             replyTo: $this->senderEmail ? [new Address($this->senderEmail, $this->senderName)] : [],
-            subject: "Proposal from {$this->proposal->team->brand()['name']}: {$this->proposal->title}",
+            subject: $subject,
         );
     }
 
@@ -39,6 +45,9 @@ class ProposalEmail extends Mailable
      */
     public function content(): Content
     {
-        return new Content(text: 'mail.proposal');
+        return new Content(
+            html: 'mail.proposal',
+            text: 'mail.proposal-text',
+        );
     }
 }

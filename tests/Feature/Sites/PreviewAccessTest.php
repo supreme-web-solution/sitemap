@@ -7,6 +7,7 @@ use App\Enums\TeamRole;
 use App\Models\Lead;
 use App\Models\Package;
 use App\Models\PreviewComment;
+use App\Models\Proposal;
 use App\Models\Site;
 use App\Models\Team;
 use App\Models\User;
@@ -132,6 +133,39 @@ test('choosing a package from the preview creates a sent proposal', function () 
     ])->assertRedirect();
 
     expect($site->team->proposals()->count())->toBe(1);
+});
+
+test('a sent proposal shows a see pricing button on the preview', function () {
+    $site = Site::factory()->create();
+    $proposal = Proposal::factory()->withDefaultItems()->create([
+        'lead_id' => $site->lead_id,
+        'team_id' => $site->team_id,
+        'status' => ProposalStatus::Sent,
+        'sent_at' => now(),
+    ]);
+    Package::factory()->for($site->team)->create(['name' => 'Hidden package', 'is_active' => true]);
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertSee('See pricing')
+        ->assertSee($proposal->publicUrl(), escape: false)
+        ->assertDontSee('Hidden package');
+});
+
+test('a draft proposal does not show pricing until it is published', function () {
+    $site = Site::factory()->create();
+    Proposal::factory()->withDefaultItems()->create([
+        'lead_id' => $site->lead_id,
+        'team_id' => $site->team_id,
+        'status' => ProposalStatus::Draft,
+        'sent_at' => null,
+    ]);
+    Package::factory()->for($site->team)->create(['name' => 'Starter site', 'is_active' => true]);
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertDontSee('See pricing')
+        ->assertSee('Starter site');
 });
 
 test('the agency can set preview expiry and a password', function () {

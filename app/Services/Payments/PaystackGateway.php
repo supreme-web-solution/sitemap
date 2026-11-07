@@ -18,7 +18,10 @@ class PaystackGateway implements PaymentGateway
 {
     public const BASE_URL = 'https://api.paystack.co';
 
-    public function __construct(protected MarkInvoicePaid $markPaid) {}
+    public function __construct(
+        protected MarkInvoicePaid $markPaid,
+        protected ExchangeRateConverter $exchangeRates,
+    ) {}
 
     public function verifyCredentials(array $credentials): string
     {
@@ -38,15 +41,25 @@ class PaystackGateway implements PaymentGateway
     public function startPayment(Invoice $invoice, PaymentAccount $account, string $returnUrl, string $cancelUrl): string
     {
         $reference = 'inv-'.$invoice->id.'-'.Str::lower(Str::random(10));
-        $currency = strtoupper($invoice->currency);
+        $charge = $this->exchangeRates->chargeForInvoice(
+            $invoice->total_cents,
+            $invoice->currency,
+            ExchangeRateConverter::LOCAL_CURRENCY,
+        );
 
         $response = $this->send(fn () => $this->client($account->credential('secret_key'))->post('/transaction/initialize', [
             'email' => $this->customerEmail($invoice),
-            'amount' => $invoice->total_cents,
-            'currency' => $currency,
+            'amount' => $charge['amount_cents'],
+            'currency' => $charge['currency'],
             'reference' => $reference,
             'callback_url' => $returnUrl,
-            'metadata' => ['invoice_id' => (string) $invoice->id, 'invoice_number' => $invoice->number],
+            'metadata' => [
+                'invoice_id' => (string) $invoice->id,
+                'invoice_number' => $invoice->number,
+                'invoice_currency' => strtoupper($invoice->currency),
+                'invoice_total_cents' => $invoice->total_cents,
+                'fx_rate' => $charge['rate'],
+            ],
         ]));
 
         $url = $response->json('data.authorization_url');
@@ -57,15 +70,20 @@ class PaystackGateway implements PaymentGateway
             Log::warning('Paystack could not initialize a payment.', [
                 'invoice_id' => $invoice->id,
                 'status' => $response->status(),
-                'currency' => $currency,
+                'currency' => $charge['currency'],
+                'amount_cents' => $charge['amount_cents'],
                 'message' => $paystackMessage !== '' ? $paystackMessage : null,
                 'body' => $response->json(),
             ]);
 
-            throw new PaymentException($this->initializeFailureMessage($paystackMessage, $currency));
+            throw new PaymentException($this->initializeFailureMessage($paystackMessage, $charge['currency']));
         }
 
-        $invoice->forceFill(['pending_reference' => $reference])->save();
+        $invoice->forceFill([
+            'pending_reference' => $reference,
+            'pending_amount_cents' => $charge['amount_cents'],
+            'pending_currency' => strtolower($charge['currency']),
+        ])->save();
 
         return $url;
     }
@@ -92,9 +110,12 @@ class PaystackGateway implements PaymentGateway
      */
     public function settle(Invoice $invoice, array $data): bool
     {
+        $expectedAmount = (int) ($invoice->pending_amount_cents ?? $invoice->total_cents);
+        $expectedCurrency = strtolower((string) ($invoice->pending_currency ?: $invoice->currency));
+
         $isFullPayment = strtolower((string) ($data['status'] ?? '')) === 'success'
-            && (int) ($data['amount'] ?? -1) === $invoice->total_cents
-            && strtolower((string) ($data['currency'] ?? '')) === $invoice->currency
+            && (int) ($data['amount'] ?? -1) === $expectedAmount
+            && strtolower((string) ($data['currency'] ?? '')) === $expectedCurrency
             && (string) ($data['metadata']['invoice_id'] ?? '') === (string) $invoice->id;
 
         if (! $isFullPayment) {

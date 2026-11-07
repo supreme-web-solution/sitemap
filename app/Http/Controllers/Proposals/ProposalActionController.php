@@ -45,7 +45,7 @@ class ProposalActionController extends Controller
             $owner = $currentTeam->owner();
 
             Mail::to($lead->email)->queue(new ProposalEmail(
-                $proposal,
+                $proposal->loadMissing(['lead', 'team', 'items']),
                 $owner instanceof User ? $owner->name : $request->user()->name,
                 $currentTeam->contactEmail() ?? $request->user()->email,
             ));
@@ -60,7 +60,44 @@ class ProposalActionController extends Controller
 
         RunAgencyWorkflow::dispatchForLead($lead->fresh(), AutomationTrigger::ProposalSent, [], $request->user()->id);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => $emailing ? __('Proposal emailed to :email.', ['email' => $lead->email]) : __('Proposal is ready. Copy the link to share it.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $emailing
+                ? __('Proposal emailed to the client at :email.', ['email' => $lead->email])
+                : __('Proposal is ready. Copy the link to share it.'),
+        ]);
+
+        return back();
+    }
+
+    /**
+     * Email a preview copy to the signed-in user without marking the proposal as sent.
+     */
+    public function preview(Request $request, Team $currentTeam, Proposal $proposal): RedirectResponse
+    {
+        if ($proposal->items()->doesntExist()) {
+            throw ValidationException::withMessages(['proposal' => __('Add at least one item before previewing the email.')]);
+        }
+
+        $user = $request->user();
+
+        if (blank($user->email)) {
+            throw ValidationException::withMessages(['proposal' => __('Your account needs an email address to receive a preview.')]);
+        }
+
+        $owner = $currentTeam->owner();
+
+        Mail::to($user->email)->queue(new ProposalEmail(
+            $proposal->loadMissing(['lead', 'team', 'items']),
+            $owner instanceof User ? $owner->name : $user->name,
+            $currentTeam->contactEmail() ?? $user->email,
+            isPreview: true,
+        ));
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Preview emailed to you at :email.', ['email' => $user->email]),
+        ]);
 
         return back();
     }

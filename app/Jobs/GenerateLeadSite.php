@@ -64,9 +64,26 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
      */
     public function failed(?Throwable $exception): void
     {
-        $this->lead->update([
+        $lead = $this->lead->fresh(['site']);
+
+        if ($lead === null) {
+            return;
+        }
+
+        // A later regenerate can fail after a site already exists. Keep the site
+        // usable and do not leave a permanent "could not be generated" banner.
+        if ($lead->site !== null) {
+            $lead->forceFill([
+                'site_generation_status' => SiteGenerationStatus::Idle,
+                'site_generation_error' => null,
+            ])->save();
+
+            return;
+        }
+
+        $lead->forceFill([
             'site_generation_status' => SiteGenerationStatus::Failed,
             'site_generation_error' => __('The website could not be generated. Please try again.'),
-        ]);
+        ])->save();
     }
 }

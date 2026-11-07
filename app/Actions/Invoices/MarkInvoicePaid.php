@@ -25,6 +25,8 @@ class MarkInvoicePaid
                 'paid_via' => $via,
                 'payment_reference' => $reference,
                 'pending_reference' => null,
+                'pending_amount_cents' => null,
+                'pending_currency' => null,
             ]);
 
         if ($updated === 0) {

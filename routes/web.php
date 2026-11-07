@@ -51,6 +51,7 @@ use App\Http\Controllers\Portal\PublicWebsiteAuditController;
 use App\Http\Controllers\Proposals\PackageController;
 use App\Http\Controllers\Proposals\ProposalActionController;
 use App\Http\Controllers\Proposals\ProposalController;
+use App\Http\Controllers\Proposals\ProposalDraftController;
 use App\Http\Controllers\Proposals\ProposalPublicController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Sites\ConceptPreviewController;
@@ -361,11 +362,13 @@ Route::prefix('{current_team}')
 
         Route::get('proposals', [ProposalController::class, 'index'])->name('proposals.index');
         Route::get('proposals/create', [ProposalController::class, 'create'])->name('proposals.create');
+        Route::post('proposals/draft-copy', ProposalDraftController::class)->name('proposals.draft-copy');
         Route::post('proposals', [ProposalController::class, 'store'])->name('proposals.store');
         Route::get('proposals/{proposal}/edit', [ProposalController::class, 'edit'])->name('proposals.edit');
         Route::put('proposals/{proposal}', [ProposalController::class, 'update'])->name('proposals.update');
         Route::delete('proposals/{proposal}', [ProposalController::class, 'destroy'])->name('proposals.destroy');
         Route::post('proposals/{proposal}/send', [ProposalActionController::class, 'send'])->name('proposals.send');
+        Route::post('proposals/{proposal}/preview-email', [ProposalActionController::class, 'preview'])->name('proposals.preview-email');
     });
 
 Route::middleware(['auth'])->group(function () {

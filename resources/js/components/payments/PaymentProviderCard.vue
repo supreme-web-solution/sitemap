@@ -192,6 +192,19 @@ const credentialsError = computed(
             </div>
         </div>
 
+        <div
+            v-if="provider.localCheckout"
+            class="mt-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            data-test="provider-fx-note"
+        >
+            <p class="font-medium">
+                {{ provider.localCheckout.formatted }}
+            </p>
+            <p class="mt-0.5 opacity-90">
+                {{ provider.localCheckout.note }}
+            </p>
+        </div>
+
         <p
             v-if="provider.connected"
             class="mt-4 truncate text-sm text-muted-foreground"

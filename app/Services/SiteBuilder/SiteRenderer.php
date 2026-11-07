@@ -2,6 +2,7 @@
 
 namespace App\Services\SiteBuilder;
 
+use App\Enums\ProposalStatus;
 use App\Enums\ReviewsStyle;
 use App\Enums\SiteLayoutVariant;
 use App\Enums\SiteSection;
@@ -30,7 +31,7 @@ class SiteRenderer
     /**
      * Render one page of the site as a self-contained HTML document, or null when the site has no such page.
      */
-    public function render(Site $site, bool $asPreview = false, string $path = '', ?SiteUrls $urls = null, bool $editor = false, bool $asStaging = false): ?string
+    public function render(Site $site, bool $asPreview = false, string $path = '', ?SiteUrls $urls = null, bool $editor = false, bool $asStaging = false, bool $blockIndexing = false): ?string
     {
         $site->loadMissing(['lead', 'designTemplate']);
 
@@ -69,7 +70,15 @@ class SiteRenderer
         $mapEmbedUrl = $this->mapEmbedUrl($lead->name, $lead->address);
         $reviews = $lead->testimonials();
         $reviewsStyle = $this->reviewsStyle($content, $reviews->count());
-        $seo = $this->seo->for($renderSite, $page, $urls, $asPreview, $asStaging, $content);
+        $seo = $this->seo->for(
+            $renderSite,
+            $page,
+            $urls,
+            $asPreview,
+            $asStaging,
+            $content,
+            blockIndexing: $blockIndexing || $editing,
+        );
         $variants = SectionVariants::merge($content['variants'] ?? null, $site->designTemplate?->variants);
         $layoutVariant = $site->designTemplate?->layout_variant ?? SiteLayoutVariant::Standard;
         $layoutClass = trim($layoutVariant->bodyClass().' '.SectionVariants::bodyClasses($variants));
@@ -107,6 +116,14 @@ class SiteRenderer
             'sectionCss' => SiteSectionCss::stylesheet($content),
             'designFontsUrl' => SiteDesign::fontsUrl($content),
             'claimEmail' => $asPreview ? $site->team->owner()?->email : null,
+            'proposalUrl' => $asPreview && ! $editor
+                ? $site->team->proposals()
+                    ->where('lead_id', $lead->id)
+                    ->whereIn('status', [ProposalStatus::Sent, ProposalStatus::Accepted])
+                    ->latest('id')
+                    ->first()
+                    ?->publicUrl()
+                : null,
             'packages' => $asPreview
                 ? $site->team->packages()->where('is_active', true)->orderBy('id')->get()
                 : collect(),

@@ -72,8 +72,10 @@ class LeadProfileController extends Controller
                 'photoUrls' => $lead->photoUrls(),
                 'hasUploadedPhotos' => ! empty($lead->photo_paths),
                 'detailsConfirmedAt' => $lead->details_confirmed_at?->toISOString(),
-                'siteGenerationStatus' => $lead->site_generation_status->value,
-                'siteGenerationError' => $lead->site_generation_error,
+                'siteGenerationStatus' => $lead->site
+                    ? SiteGenerationStatus::Idle->value
+                    : $lead->site_generation_status->value,
+                'siteGenerationError' => $lead->site ? null : $lead->site_generation_error,
                 'site' => $lead->site ? [
                     'id' => $lead->site->id,
                     'previewUrl' => PreviewLink::page($lead->site),

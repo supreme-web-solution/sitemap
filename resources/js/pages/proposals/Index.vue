@@ -3,8 +3,8 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import { FileText, Plus } from '@lucide/vue';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
-import { Button } from '@/components/ui/button';
 import PaginationBar from '@/components/PaginationBar.vue';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { index as leadsIndex } from '@/routes/leads';
 import { create, edit } from '@/routes/proposals';
@@ -44,7 +44,7 @@ const statusClasses: Record<string, string> = {
 <template>
     <Head title="Proposals" />
 
-    <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <div class="flex items-start justify-between gap-4">
             <Heading
                 title="Proposals"
@@ -73,35 +73,66 @@ const statusClasses: Record<string, string> = {
 
         <div v-else class="flex flex-col gap-3">
             <div class="panel overflow-hidden">
-            <table class="w-full table-fixed text-sm">
-                <thead class="text-left text-xs text-muted-foreground">
-                    <tr>
-                        <th class="p-3 font-medium">Proposal</th>
-                        <th class="p-3 font-medium">Client</th>
-                        <th class="p-3 font-medium">First-year value</th>
-                        <th class="p-3 font-medium">Status</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    <tr v-for="proposal in proposals.data" :key="proposal.id">
-                        <td class="p-3">
-                            <Link
-                                :href="edit({ current_team: teamSlug, proposal: proposal.id })"
-                                class="font-medium hover:underline"
-                                >{{ proposal.title }}</Link
-                            >
-                            <p class="text-xs text-muted-foreground">{{ proposal.number }}</p>
-                        </td>
-                        <td class="p-3">{{ proposal.leadName }}</td>
-                        <td class="p-3">{{ proposal.firstYear }}</td>
-                        <td class="p-3">
-                            <span class="rounded-full px-2 py-0.5 text-xs" :class="statusClasses[proposal.status]">
-                                {{ proposal.statusLabel }}
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                <table class="w-full table-fixed text-sm">
+                    <thead class="text-left text-xs text-muted-foreground">
+                        <tr>
+                            <th class="p-3 font-medium">Proposal</th>
+                            <th class="p-3 font-medium">Client</th>
+                            <th class="p-3 font-medium">First-year value</th>
+                            <th class="p-3 font-medium">Status</th>
+                            <th class="w-28 p-3 text-right font-medium">
+                                <span class="sr-only">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        <tr
+                            v-for="proposal in proposals.data"
+                            :key="proposal.id"
+                        >
+                            <td class="p-3">
+                                <Link
+                                    :href="
+                                        edit({
+                                            current_team: teamSlug,
+                                            proposal: proposal.id,
+                                        })
+                                    "
+                                    class="font-medium hover:underline"
+                                    >{{ proposal.title }}</Link
+                                >
+                                <p class="text-xs text-muted-foreground">
+                                    {{ proposal.number }}
+                                </p>
+                            </td>
+                            <td class="p-3">{{ proposal.leadName }}</td>
+                            <td class="p-3">{{ proposal.firstYear }}</td>
+                            <td class="p-3">
+                                <span
+                                    class="rounded-full px-2 py-0.5 text-xs"
+                                    :class="statusClasses[proposal.status]"
+                                >
+                                    {{ proposal.statusLabel }}
+                                </span>
+                            </td>
+                            <td class="p-3 text-right">
+                                <Button size="sm" variant="outline" as-child>
+                                    <Link
+                                        :href="
+                                            edit({
+                                                current_team: teamSlug,
+                                                proposal: proposal.id,
+                                            })
+                                        "
+                                        data-test="proposal-open"
+                                    >
+                                        Open
+                                    </Link>
+                                </Button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
             <PaginationBar :paginator="proposals" />
         </div>

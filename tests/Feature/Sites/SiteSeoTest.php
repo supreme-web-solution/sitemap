@@ -36,12 +36,15 @@ test('each page has its own title and description', function () {
         ->and(mb_strlen($description))->toBeLessThanOrEqual(SiteSeo::DESCRIPTION_MAX + 1);
 });
 
-test('previews are kept out of search engines', function () {
+test('public previews are indexable with canonical and social tags', function () {
     $site = multiPageSite();
 
     $this->get(previewPage($site, 'about'))
-        ->assertSee('<meta name="robots" content="noindex, nofollow">', escape: false)
-        ->assertDontSee('rel="canonical"', escape: false);
+        ->assertOk()
+        ->assertSee('<meta name="robots" content="index, follow, max-image-preview:large">', escape: false)
+        ->assertSee('rel="canonical"', escape: false)
+        ->assertSee('<meta property="og:title"', escape: false)
+        ->assertHeaderMissing('X-Robots-Tag');
 });
 
 test('a published page is indexable with a canonical link and social tags', function () {

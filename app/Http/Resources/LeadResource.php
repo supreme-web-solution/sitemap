@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\SiteGenerationStatus;
 use App\Models\Lead;
 use App\Services\Preview\PreviewLink;
 use App\Services\Prospecting\OpportunityScorer;
@@ -50,8 +51,10 @@ class LeadResource extends JsonResource
             'nextFollowUpAt' => $this->next_follow_up_at?->toDateString(),
             'lastContactedAt' => $this->last_contacted_at?->toISOString(),
             'detailsConfirmed' => $this->details_confirmed_at !== null,
-            'siteGenerationStatus' => $this->site_generation_status->value,
-            'siteGenerationError' => $this->site_generation_error,
+            'siteGenerationStatus' => $this->hasGeneratedSite()
+                ? SiteGenerationStatus::Idle->value
+                : $this->site_generation_status->value,
+            'siteGenerationError' => $this->hasGeneratedSite() ? null : $this->site_generation_error,
             'site' => $this->whenLoaded('site', fn () => $this->site ? [
                 'id' => $this->site->id,
                 'previewUrl' => PreviewLink::page($this->site),
@@ -64,5 +67,17 @@ class LeadResource extends JsonResource
                 ])->values()->all(),
             ),
         ];
+    }
+
+    /**
+     * A failed regenerate must not keep showing "could not be generated" when a site exists.
+     */
+    protected function hasGeneratedSite(): bool
+    {
+        if ($this->relationLoaded('site')) {
+            return $this->site !== null;
+        }
+
+        return $this->site()->exists();
     }
 }

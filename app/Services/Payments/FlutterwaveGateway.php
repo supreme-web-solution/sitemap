@@ -17,7 +17,10 @@ class FlutterwaveGateway implements PaymentGateway
 {
     public const BASE_URL = 'https://api.flutterwave.com/v3';
 
-    public function __construct(protected MarkInvoicePaid $markPaid) {}
+    public function __construct(
+        protected MarkInvoicePaid $markPaid,
+        protected ExchangeRateConverter $exchangeRates,
+    ) {}
 
     public function verifyCredentials(array $credentials): string
     {
@@ -37,20 +40,33 @@ class FlutterwaveGateway implements PaymentGateway
     public function startPayment(Invoice $invoice, PaymentAccount $account, string $returnUrl, string $cancelUrl): string
     {
         $reference = 'inv-'.$invoice->id.'-'.Str::lower(Str::random(10));
+        $charge = $this->exchangeRates->chargeForInvoice(
+            $invoice->total_cents,
+            $invoice->currency,
+            ExchangeRateConverter::LOCAL_CURRENCY,
+        );
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'customers.local';
+        $email = trim((string) ($invoice->lead->email ?? ''));
+        $email = filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : 'invoice-'.$invoice->id.'@'.$host;
 
         $response = $this->send(fn () => $this->client($account->credential('secret_key'))->post('/payments', [
             'tx_ref' => $reference,
-            'amount' => number_format($invoice->total_cents / 100, 2, '.', ''),
-            'currency' => strtoupper($invoice->currency),
+            'amount' => $charge['major'],
+            'currency' => $charge['currency'],
             'redirect_url' => $returnUrl,
             'customer' => [
-                'email' => $invoice->lead->email ?: 'billing@'.$invoice->team->slug.'.invalid',
+                'email' => $email,
                 'name' => $invoice->lead->name,
             ],
             'customizations' => [
                 'title' => 'Invoice '.$invoice->number,
             ],
-            'meta' => ['invoice_id' => (string) $invoice->id],
+            'meta' => [
+                'invoice_id' => (string) $invoice->id,
+                'invoice_currency' => strtoupper($invoice->currency),
+                'invoice_total_cents' => $invoice->total_cents,
+                'fx_rate' => $charge['rate'],
+            ],
         ]));
 
         $url = $response->json('data.link');
@@ -59,7 +75,11 @@ class FlutterwaveGateway implements PaymentGateway
             throw new PaymentException(__('The payment page could not be opened. Please try again.'));
         }
 
-        $invoice->forceFill(['pending_reference' => $reference])->save();
+        $invoice->forceFill([
+            'pending_reference' => $reference,
+            'pending_amount_cents' => $charge['amount_cents'],
+            'pending_currency' => strtolower($charge['currency']),
+        ])->save();
 
         return $url;
     }
@@ -88,10 +108,12 @@ class FlutterwaveGateway implements PaymentGateway
     public function settle(Invoice $invoice, array $data): bool
     {
         $amountCents = (int) round(((float) ($data['amount'] ?? 0)) * 100);
+        $expectedAmount = (int) ($invoice->pending_amount_cents ?? $invoice->total_cents);
+        $expectedCurrency = strtolower((string) ($invoice->pending_currency ?: $invoice->currency));
 
         $isFullPayment = strtolower((string) ($data['status'] ?? '')) === 'successful'
-            && $amountCents === $invoice->total_cents
-            && strtolower((string) ($data['currency'] ?? '')) === $invoice->currency
+            && $amountCents === $expectedAmount
+            && strtolower((string) ($data['currency'] ?? '')) === $expectedCurrency
             && (string) ($data['meta']['invoice_id'] ?? $data['meta']['invoiceId'] ?? '') === (string) $invoice->id;
 
         if (! $isFullPayment) {

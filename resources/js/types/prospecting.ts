@@ -555,6 +555,15 @@ export type InvoiceDetail = {
     kindLabel: string;
 };
 
+export type PaymentLocalCheckout = {
+    from: string;
+    to: string;
+    rate: number;
+    formatted: string;
+    asOf: string | null;
+    note: string;
+};
+
 export type PaymentProviderSummary = {
     value: 'stripe' | 'paypal' | 'paystack' | 'flutterwave';
     label: string;
@@ -565,6 +574,7 @@ export type PaymentProviderSummary = {
     mode: string | null;
     hasWebhookSecret: boolean;
     webhookUrl: string | null;
+    localCheckout?: PaymentLocalCheckout | null;
 };
 
 export type RecurringSchedule = {

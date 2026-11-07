@@ -12,6 +12,7 @@ use App\Models\Package;
 use App\Models\Proposal;
 use App\Models\ProposalItem;
 use App\Models\Team;
+use App\Services\Proposals\ProposalCopyGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -187,6 +188,7 @@ class ProposalController extends Controller
                 ])->all(),
             'intervals' => collect(BillingInterval::cases())->map(fn (BillingInterval $interval) => ['value' => $interval->value, 'label' => $interval->label()])->values(),
             'today' => today()->toDateString(),
+            'canDraftWithAi' => app(ProposalCopyGenerator::class)->available(),
         ];
     }
 
