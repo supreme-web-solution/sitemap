@@ -22,7 +22,8 @@ class SiteImagePromptBuilder
             ?? 'classic';
 
         $placement = match ($variant) {
-            'overlay', 'photo-top' => 'wide cinematic hero background photograph (16:9 feel), room for dark gradient and white headline text overlaid on the left or center',
+            'overlay' => 'wide cinematic hero background photograph (16:9 feel), room for dark gradient and white headline text overlaid on the left or center',
+            'photo-top' => 'wide cinematic full-bleed hero photograph (16:9), subject framed mid-shot with breathing room at the bottom edge, no overlaid text needed',
             'split' => 'wide professional photograph suitable for a hero column beside text',
             default => 'wide professional hero banner photograph for a business website header',
         };

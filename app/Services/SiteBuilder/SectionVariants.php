@@ -35,7 +35,7 @@ class SectionVariants
                 'overlay' => 'Full photo with overlay',
                 'split' => 'Text and photo side by side',
                 'minimal' => 'Minimal, big type',
-                'photo-top' => 'Photo banner above the text',
+                'photo-top' => 'Full-bleed photo, text below',
                 'card' => 'Text card over the photo',
             ],
         ],

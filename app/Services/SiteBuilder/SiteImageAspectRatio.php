@@ -53,7 +53,7 @@ class SiteImageAspectRatio
         return match ($variant) {
             'split' => '3:4',
             'card' => '4:5',
-            'photo-top' => '21:9',
+            'photo-top' => '16:9',
             'overlay', 'centered', 'minimal', 'classic' => '16:9',
             default => '16:9',
         };

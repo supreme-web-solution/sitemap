@@ -36,10 +36,69 @@
     .hero-v-minimal .hero p { max-width: min(34rem, 100%); }
     .hero-v-minimal .hero-eyebrow { padding: 0; background: transparent; border-radius: 0; }
 
-    .hero-v-photo-top .hero { display: block; min-height: 0; }
-    .hero-v-photo-top .hero::after { display: none; }
-    .hero-v-photo-top .hero .hero-image { position: relative; inset: auto; display: block; width: min(1140px, calc(100% - 2.5rem)); height: clamp(220px, 34vw, 400px); margin: 1.5rem auto 0; clip-path: none; border-radius: var(--radius); box-shadow: none; opacity: 1; object-fit: cover; }
-    .hero-v-photo-top .hero .container { padding-top: 3rem; padding-bottom: 4rem; grid-template-columns: none; display: block; }
+    /* Full-bleed photo band, then copy — not an inset rounded strip. */
+    .hero-v-photo-top .hero {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+    .hero-v-photo-top .hero::after {
+        content: '';
+        display: block;
+        grid-column: 1;
+        grid-row: 1;
+        align-self: end;
+        justify-self: stretch;
+        height: clamp(3.5rem, 12vw, 6.5rem);
+        background: linear-gradient(to top, var(--bg, var(--cream, #fff)), transparent);
+        z-index: 1;
+        pointer-events: none;
+    }
+    .hero-v-photo-top .hero .hero-image {
+        grid-column: 1;
+        grid-row: 1;
+        position: relative;
+        inset: auto;
+        display: block;
+        width: 100%;
+        max-width: none;
+        height: clamp(300px, 52vw, 620px);
+        margin: 0;
+        clip-path: none;
+        border-radius: 0;
+        box-shadow: none;
+        opacity: 1;
+        object-fit: cover;
+        object-position: center 32%;
+    }
+    .hero-v-photo-top .hero .container {
+        grid-column: 1;
+        grid-row: 2;
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        max-width: 1140px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-top: 2.25rem;
+        padding-bottom: 4.75rem;
+        grid-template-columns: none;
+        display: block;
+    }
+    .hero-v-photo-top .hero h1 {
+        max-width: min(18ch, 100%);
+        letter-spacing: -.02em;
+    }
+    .hero-v-photo-top .hero p { max-width: min(36rem, 100%); }
+    .hero-v-photo-top .hero .hero-eyebrow { margin-bottom: .85rem; }
+    .hero-v-photo-top .hero .hero-actions { margin-top: .25rem; }
+    @media (max-width: 640px) {
+        .hero-v-photo-top .hero .hero-image { height: clamp(240px, 68vw, 360px); object-position: center 28%; }
+        .hero-v-photo-top .hero .container { padding-top: 1.75rem; padding-bottom: 3.5rem; }
+    }
 
     .hero-v-card .hero { min-height: 74vh; display: flex; align-items: center; padding: 3.5rem 0; }
     .hero-v-card .hero .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; opacity: 1; object-fit: cover; }

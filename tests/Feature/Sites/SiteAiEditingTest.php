@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Ai\Responses\Data\ToolCall;
 
 function fakeSiteEditTurnApply(): ToolCall
@@ -976,10 +977,46 @@ test('any flagged quality finding can be sent to fix with ai', function () {
         'copy_instruction' => null,
         'document_ops' => [
             ['op' => 'set', 'path' => 'headline', 'value' => 'Cleaning Pros in Austin'],
-            ['op' => 'set', 'path' => 'about', 'value' => 'We serve homes across Austin with reliable local cleaning.'],
+            ['op' => 'set', 'path' => 'about', 'value' => 'We clean homes across Austin with careful local service.'],
         ],
     ]));
 
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'city' => 'Austin',
+        'notes' => null,
+        'description' => null,
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+    $site->update([
+        'content' => [
+            ...$site->content,
+            'headline' => 'Licensed emergency cleaners in Austin',
+            'about' => 'Award-winning licensed team for emergency calls.',
+            'services' => [
+                ['title' => 'Home Cleaning', 'description' => 'Keep kitchens and bathrooms tidy.'],
+            ],
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('sites.chat.store', ['current_team' => $user->currentTeam->slug, 'site' => $site]), [
+            'fix' => 'claims',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assistant = SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_ASSISTANT)->first();
+    $content = $site->fresh()->content;
+    $copy = Str::lower($content['headline'].' '.$content['about']);
+
+    expect($assistant->status)->toBe(SiteChatMessage::STATUS_DONE, $assistant->body)
+        ->and($copy)->not->toContain('licensed')
+        ->and($copy)->not->toContain('emergency')
+        ->and($copy)->not->toContain('award-winning');
+});
+
+test('local search details cannot be fixed with ai when the lead address is missing', function () {
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create([
         'city' => 'Austin',
@@ -992,10 +1029,5 @@ test('any flagged quality finding can be sent to fix with ai', function () {
             'fix' => 'seo-local',
         ])
         ->assertRedirect()
-        ->assertSessionHasNoErrors();
-
-    $assistant = SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_ASSISTANT)->first();
-
-    expect($assistant->status)->toBe(SiteChatMessage::STATUS_DONE, $assistant->body)
-        ->and($site->fresh()->content['headline'])->toContain('Austin');
+        ->assertSessionHasErrors('fix');
 });

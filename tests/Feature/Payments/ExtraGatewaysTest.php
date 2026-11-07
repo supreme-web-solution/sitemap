@@ -64,6 +64,19 @@ test('starting a paystack payment redirects to the authorization url', function 
     expect($invoice->fresh()->pending_reference)->toStartWith('inv-'.$invoice->id.'-');
 });
 
+test('paystack currency rejection is explained on the invoice page', function () {
+    Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
+        'status' => false,
+        'message' => 'Currency not supported',
+    ], 400)]);
+    [$invoice] = extraGatewayInvoice('paystack');
+
+    $this->from(route('invoices.public', $invoice->public_token))
+        ->post(route('invoices.public.pay', ['invoice' => $invoice->public_token, 'provider' => 'paystack']))
+        ->assertRedirect(route('invoices.public', ['invoice' => $invoice->public_token, 'status' => 'error']))
+        ->assertSessionHas('payment_error', 'Paystack cannot charge this invoice in USD. Enable USD on the Paystack account, or pay with another provider.');
+});
+
 test('a signed paystack webhook marks the invoice paid and is safe to repeat', function () {
     [$invoice, $account] = extraGatewayInvoice('paystack');
     $payload = json_encode([

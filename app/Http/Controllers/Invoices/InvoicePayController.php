@@ -58,7 +58,8 @@ class InvoicePayController extends Controller
         } catch (PaymentException $exception) {
             Log::warning('Could not start an invoice payment.', ['invoice_id' => $invoice->id, 'provider' => $provider->value, 'message' => $exception->getMessage()]);
 
-            return to_route('invoices.public', ['invoice' => $invoice->public_token, 'status' => 'error']);
+            return to_route('invoices.public', ['invoice' => $invoice->public_token, 'status' => 'error'])
+                ->with('payment_error', $exception->getMessage());
         }
 
         return redirect()->away($url);

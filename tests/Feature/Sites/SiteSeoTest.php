@@ -138,7 +138,8 @@ test('the quality report flags thin service pages and missing local details', fu
         ->and($checks['seo-service-pages']['detail'])->toContain('2 of 2')
         ->and($checks['seo-service-pages']['fixable'])->toBeTrue()
         ->and($checks['seo-local']['status'])->toBe('warn')
-        ->and($checks['seo-local']['fixable'])->toBeTrue()
+        ->and($checks['seo-local']['fixable'])->toBeFalse()
+        ->and($checks['seo-local']['detail'])->toContain('lead profile')
         ->and($checks['speed']['fixable'])->toBeTrue()
         ->and($checks['seo-snippet']['status'])->toBe('pass');
 });

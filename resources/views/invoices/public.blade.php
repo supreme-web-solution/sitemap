@@ -51,7 +51,7 @@
     @elseif ($notice === 'cancelled')
         <div class="notice warn">Payment was cancelled. You have not been charged.</div>
     @elseif ($notice === 'error')
-        <div class="notice bad">We could not start the payment. Please try again or contact {{ $invoice->team->name }}.</div>
+        <div class="notice bad">{{ session('payment_error') ?: 'We could not start the payment. Please try again or contact '.$invoice->team->name.'.' }}</div>
     @endif
 
     <div class="card">

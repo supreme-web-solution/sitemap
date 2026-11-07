@@ -11,6 +11,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class PaystackGateway implements PaymentGateway
@@ -37,11 +38,12 @@ class PaystackGateway implements PaymentGateway
     public function startPayment(Invoice $invoice, PaymentAccount $account, string $returnUrl, string $cancelUrl): string
     {
         $reference = 'inv-'.$invoice->id.'-'.Str::lower(Str::random(10));
+        $currency = strtoupper($invoice->currency);
 
         $response = $this->send(fn () => $this->client($account->credential('secret_key'))->post('/transaction/initialize', [
-            'email' => $invoice->lead->email ?: 'billing@'.$invoice->team->slug.'.invalid',
+            'email' => $this->customerEmail($invoice),
             'amount' => $invoice->total_cents,
-            'currency' => strtoupper($invoice->currency),
+            'currency' => $currency,
             'reference' => $reference,
             'callback_url' => $returnUrl,
             'metadata' => ['invoice_id' => (string) $invoice->id, 'invoice_number' => $invoice->number],
@@ -50,7 +52,17 @@ class PaystackGateway implements PaymentGateway
         $url = $response->json('data.authorization_url');
 
         if ($response->failed() || blank($url)) {
-            throw new PaymentException(__('The payment page could not be opened. Please try again.'));
+            $paystackMessage = trim((string) ($response->json('message') ?? ''));
+
+            Log::warning('Paystack could not initialize a payment.', [
+                'invoice_id' => $invoice->id,
+                'status' => $response->status(),
+                'currency' => $currency,
+                'message' => $paystackMessage !== '' ? $paystackMessage : null,
+                'body' => $response->json(),
+            ]);
+
+            throw new PaymentException($this->initializeFailureMessage($paystackMessage, $currency));
         }
 
         $invoice->forceFill(['pending_reference' => $reference])->save();
@@ -112,6 +124,47 @@ class PaystackGateway implements PaymentGateway
             ->acceptJson()
             ->asJson()
             ->timeout(20);
+    }
+
+    /**
+     * Paystack requires a real email address on every checkout.
+     */
+    protected function customerEmail(Invoice $invoice): string
+    {
+        $email = trim((string) ($invoice->lead->email ?? ''));
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'customers.local';
+
+        return 'invoice-'.$invoice->id.'@'.$host;
+    }
+
+    protected function initializeFailureMessage(string $paystackMessage, string $currency): string
+    {
+        $lower = Str::lower($paystackMessage);
+
+        if ($lower !== '' && (str_contains($lower, 'currency') || str_contains($lower, 'not supported'))) {
+            return __('Paystack cannot charge this invoice in :currency. Enable :currency on the Paystack account, or pay with another provider.', [
+                'currency' => $currency,
+            ]);
+        }
+
+        if ($lower !== '' && str_contains($lower, 'email')) {
+            return __('Paystack needs a valid customer email on the lead before checkout can start.');
+        }
+
+        if ($lower !== '' && (str_contains($lower, 'invalid key') || str_contains($lower, 'authorization') || str_contains($lower, 'secret'))) {
+            return __('The connected Paystack secret key was rejected. Update the keys on the Payments page.');
+        }
+
+        if ($paystackMessage !== '') {
+            return __('Paystack could not start this payment: :message', ['message' => $paystackMessage]);
+        }
+
+        return __('The payment page could not be opened. Please try again.');
     }
 
     /**
