@@ -31,13 +31,13 @@ const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 <template>
     <Head title="Payments" />
 
-    <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 md:p-6">
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <Heading
             title="Payments"
             description="Connect Stripe, PayPal, Paystack or Flutterwave with your own keys. Money goes straight to you. Invoices are in US dollars."
         />
 
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid items-stretch gap-4 sm:grid-cols-2">
             <PaymentProviderCard
                 v-for="provider in providers"
                 :key="provider.value"

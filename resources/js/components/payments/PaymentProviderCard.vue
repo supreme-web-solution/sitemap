@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router, useForm } from '@inertiajs/vue3';
-import { Check, Copy, LoaderCircle } from '@lucide/vue';
+import { Check, ChevronDown, Copy, LoaderCircle } from '@lucide/vue';
 import { useClipboard } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
@@ -23,7 +23,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import PaymentProviderIcon from '@/components/payments/PaymentProviderIcon.vue';
 import { connect, disconnect, update as updatePayment } from '@/routes/payments';
 import type { PaymentProviderSummary } from '@/types';
 
@@ -131,11 +132,28 @@ const remove = () => {
     router.delete(disconnect.url(routeArgs.value), { preserveScroll: true });
 };
 
+const enabledLocal = ref(props.provider.enabled);
+const savingEnabled = ref(false);
+
+watch(
+    () => props.provider.enabled,
+    (enabled) => (enabledLocal.value = enabled),
+);
+
 const setEnabled = (enabled: boolean) => {
+    const previous = enabledLocal.value;
+
+    enabledLocal.value = enabled;
+    savingEnabled.value = true;
+
     router.patch(
         updatePayment.url(routeArgs.value),
         { enabled },
-        { preserveScroll: true },
+        {
+            preserveScroll: true,
+            onError: () => (enabledLocal.value = previous),
+            onFinish: () => (savingEnabled.value = false),
+        },
     );
 };
 
@@ -152,100 +170,102 @@ const credentialsError = computed(
 </script>
 
 <template>
-    <section class="panel p-5" :data-test="`provider-${provider.value}`">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
+    <section
+        class="panel flex h-full flex-col p-5"
+        :data-test="`provider-${provider.value}`"
+    >
+        <div class="flex items-start gap-3">
+            <PaymentProviderIcon :provider="provider.value" class="size-11" />
+            <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
-                    <h2 class="text-base font-semibold">{{ provider.label }}</h2>
+                    <h2 class="text-base leading-tight font-semibold">
+                        {{ provider.label }}
+                    </h2>
                     <span
                         v-if="provider.connected"
-                        class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                        class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
                     >
                         <Check class="size-3" /> Connected
                     </span>
                 </div>
-                <p class="mt-1 text-sm text-muted-foreground">{{ blurb }}</p>
-                <p v-if="provider.connected" class="mt-2 text-sm">
-                    <span class="font-medium">{{ provider.accountLabel }}</span>
-                    <span class="text-muted-foreground">
-                        · key {{ provider.hint
-                        }}<template v-if="provider.mode">
-                            · {{ provider.mode }} mode</template
-                        ></span
-                    >
-                </p>
+                <p class="mt-0.5 text-sm text-muted-foreground">{{ blurb }}</p>
             </div>
-
-            <div v-if="canManage" class="flex flex-wrap gap-2">
-                <Button
-                    type="button"
-                    size="sm"
-                    :variant="provider.connected ? 'outline' : 'default'"
-                    @click="openForm"
-                >
-                    {{ provider.connected ? 'Update keys' : 'Connect' }}
-                </Button>
-                <Button
-                    v-if="provider.connected"
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    class="text-destructive"
-                    @click="remove"
-                >
-                    Disconnect
-                </Button>
-            </div>
-            <p v-else class="text-sm text-muted-foreground">
-                Ask a team admin to connect {{ provider.label }}.
-            </p>
         </div>
 
-        <label
-            v-if="provider.connected && canManage"
-            class="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-3"
-            data-test="provider-enabled"
-        >
-            <Checkbox
-                class="mt-0.5"
-                :checked="provider.enabled"
-                @update:checked="(v: boolean | 'indeterminate') => setEnabled(v === true)"
-            />
-            <span class="min-w-0">
-                <span class="block text-sm font-medium">Offer on invoices</span>
-                <span class="block text-xs text-muted-foreground">
-                    When on, customers see this on the pay link. Connecting keys
-                    alone does not show it.
-                </span>
-            </span>
-        </label>
         <p
-            v-else-if="provider.connected && !provider.enabled"
-            class="mt-4 text-sm text-amber-700 dark:text-amber-300"
+            v-if="provider.connected"
+            class="mt-4 truncate text-sm text-muted-foreground"
         >
-            Connected, but hidden from invoices until an admin turns it on.
+            <span class="font-medium text-foreground">{{
+                provider.accountLabel
+            }}</span>
+            · key {{ provider.hint
+            }}<template v-if="provider.mode"> · {{ provider.mode }} mode</template>
         </p>
 
         <div
-            v-if="provider.connected && provider.webhookUrl"
-            class="mt-4 rounded-xl border bg-muted/40 p-3 text-sm"
+            v-if="provider.connected"
+            class="mt-3 flex items-center justify-between gap-4 rounded-xl border bg-muted/30 px-4 py-3"
+            data-test="provider-enabled"
         >
-            <p class="font-medium">
-                Webhook
-                <span
-                    :class="
-                        provider.hasWebhookSecret
-                            ? 'text-emerald-600'
-                            : 'text-amber-600'
-                    "
-                    >{{
-                        provider.hasWebhookSecret
-                            ? '· verified'
-                            : '· not set up yet'
-                    }}</span
-                >
-            </p>
-            <p v-if="isStripe" class="mt-1 text-xs text-muted-foreground">
+            <div class="min-w-0">
+                <p class="text-sm font-medium">Show on invoices</p>
+                <p class="text-xs text-muted-foreground">
+                    {{
+                        enabledLocal
+                            ? 'Customers can pay with this.'
+                            : 'Hidden from your pay links.'
+                    }}
+                </p>
+            </div>
+            <Switch
+                v-if="canManage"
+                :model-value="enabledLocal"
+                :disabled="savingEnabled"
+                :aria-label="`Show ${provider.label} on invoices`"
+                @update:model-value="(v: boolean) => setEnabled(v === true)"
+            />
+            <span
+                v-else
+                :class="[
+                    'rounded-full px-2 py-0.5 text-xs font-medium',
+                    enabledLocal
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                        : 'bg-muted text-muted-foreground',
+                ]"
+            >
+                {{ enabledLocal ? 'On' : 'Off' }}
+            </span>
+        </div>
+
+        <details
+            v-if="provider.connected && provider.webhookUrl"
+            class="group mt-3 rounded-xl border bg-muted/30 text-sm"
+        >
+            <summary
+                class="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 font-medium select-none [&::-webkit-details-marker]:hidden"
+            >
+                <span>
+                    Webhook
+                    <span
+                        :class="
+                            provider.hasWebhookSecret
+                                ? 'font-normal text-emerald-600'
+                                : 'font-normal text-amber-600'
+                        "
+                        >{{
+                            provider.hasWebhookSecret
+                                ? '· verified'
+                                : '· not set up yet'
+                        }}</span
+                    >
+                </span>
+                <ChevronDown
+                    class="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+                />
+            </summary>
+            <div class="border-t px-4 pt-3 pb-4">
+            <p v-if="isStripe" class="text-xs text-muted-foreground">
                 In Stripe, go to Developers → Webhooks → Add endpoint. Use this
                 URL and select
                 <code>checkout.session.completed</code>, then paste the signing
@@ -286,7 +306,33 @@ const credentialsError = computed(
                     <Copy />
                 </Button>
             </div>
+            </div>
+        </details>
+
+        <div v-if="canManage" class="mt-auto flex flex-wrap gap-2 pt-4">
+            <Button
+                type="button"
+                size="sm"
+                :variant="provider.connected ? 'outline' : 'default'"
+                :class="provider.connected ? '' : 'w-full'"
+                @click="openForm"
+            >
+                {{ provider.connected ? 'Update keys' : `Connect ${provider.label}` }}
+            </Button>
+            <Button
+                v-if="provider.connected"
+                type="button"
+                size="sm"
+                variant="ghost"
+                class="text-destructive"
+                @click="remove"
+            >
+                Disconnect
+            </Button>
         </div>
+        <p v-else class="mt-auto pt-4 text-sm text-muted-foreground">
+            Ask a team admin to connect {{ provider.label }}.
+        </p>
 
         <Dialog v-model:open="formOpen">
             <DialogScrollContent class="sm:max-w-md">

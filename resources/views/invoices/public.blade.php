@@ -34,7 +34,7 @@
         .pay.count-2,.pay.count-3,.pay.count-4{grid-template-columns:1fr 1fr}
         .pay form{margin:0}
         .pay .hint{margin:6px 2px 0;font-size:12px;color:#71717a;line-height:1.35}
-        button{width:100%;padding:13px 16px;border:0;border-radius:10px;font:600 15px system-ui;cursor:pointer;background:#18181b;color:#fff}
+        button{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 16px;border:0;border-radius:10px;font:600 15px system-ui;cursor:pointer;background:#18181b;color:#fff}
         button.alt{background:#0070ba}
         button:hover{opacity:.9}
         @media (max-width:520px){.pay.count-2,.pay.count-3,.pay.count-4{grid-template-columns:1fr}}
@@ -101,7 +101,10 @@
                 @foreach ($providers as $provider)
                     <form method="POST" action="{{ route('invoices.public.pay', ['invoice' => $invoice->public_token, 'provider' => $provider->value]) }}">
                         @csrf
-                        <button type="submit" class="{{ $provider->value === 'paypal' ? 'alt' : '' }}">{{ $provider->payLabel() }}</button>
+                        <button type="submit" class="{{ $provider->value === 'paypal' ? 'alt' : '' }}">
+                            @include('invoices.provider-icon', ['provider' => $provider, 'size' => 22])
+                            <span>{{ $provider->payLabel() }}</span>
+                        </button>
                         @if ($provider->payHint())
                             <p class="hint">{{ $provider->payHint() }}</p>
                         @endif
