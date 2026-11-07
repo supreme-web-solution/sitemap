@@ -38,6 +38,7 @@ class SiteEditApplier
         '#^copy\.[a-z_]+$#',
         '#^design\.(font|radius|spacing)$#',
         '#^section_styles\.[a-z]+$#',
+        '#^text_styles\.'.SiteTextStyles::PATH_PATTERN.'\.(color|size|weight)$#',
         '#^variants\.[a-z_]+$#',
         '#^section_css\.[a-z_]+$#',
         '#^custom_sections\.[a-z0-9-]+$#',
@@ -62,7 +63,7 @@ class SiteEditApplier
     /**
      * Paths where an empty value means "back to the default" rather than an empty string.
      */
-    protected const RESETTABLE = '#^(copy|design|section_styles|variants)\.#';
+    protected const RESETTABLE = '#^(copy|design|section_styles|variants|text_styles)\.#';
 
     /**
      * Build the editable document for a site: template plus content, with defaults filled in.

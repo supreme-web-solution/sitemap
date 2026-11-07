@@ -22,24 +22,30 @@ class RecordSiteContact
     public function handle(Site $site, array $input): bool
     {
         $data = Validator::make($input, [
-            'name' => ['nullable', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'contact' => ['required', 'string', 'max:150'],
             'message' => ['required', 'string', 'max:2000'],
             'company_url' => ['nullable', 'string', 'max:200'],
+            'website' => ['nullable', 'string', 'max:200'],
+        ], [
+            'name.required' => __('Please add your name.'),
+            'contact.required' => __('Please add your phone or email.'),
+            'message.required' => __('Please add a short message.'),
         ])->validate();
 
-        if (filled($data['company_url'] ?? null)) {
+        // Bots fill hidden honeypot fields; drop those submissions quietly.
+        if (filled($data['company_url'] ?? null) || filled($data['website'] ?? null)) {
             return false;
         }
 
         $lead = $site->lead;
-        $name = filled($data['name'] ?? null) ? $data['name'] : 'Someone';
+        $name = trim((string) $data['name']);
 
         $lead->recordActivity(
             LeadActivityType::PreviewInterest,
             __(':who sent a message from the website', ['who' => $name]),
             [
-                'name' => $data['name'] ?? null,
+                'name' => $name,
                 'contact' => $data['contact'],
                 'message' => $data['message'],
             ],

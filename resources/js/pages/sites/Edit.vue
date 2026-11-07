@@ -133,8 +133,19 @@ const regenerate = () => {
     );
 };
 
-const restore = (version: SiteVersion) => {
+const latestVersion = computed(() =>
+    props.versions.find((version) => version.isLatest) ?? props.versions[0] ?? null,
+);
+
+const viewingOlderVersion = computed(() =>
+    props.versions.some(
+        (version) => version.matchesLive && version.isLatest !== true,
+    ),
+);
+
+const restore = (version: SiteVersion, options?: { skipConfirm?: boolean }) => {
     if (
+        !options?.skipConfirm &&
         !confirm(
             'Restore this version? Your current edits are saved to history first.',
         )
@@ -153,6 +164,14 @@ const restore = (version: SiteVersion) => {
         {},
         { preserveScroll: true },
     );
+};
+
+const backToLatest = () => {
+    if (!latestVersion.value) {
+        return;
+    }
+
+    restore(latestVersion.value, { skipConfirm: true });
 };
 
 const isRegenerating = computed(() => props.site.generationStatus === 'queued');
@@ -687,11 +706,22 @@ const copyLink = async () => {
 
             <template #history>
                 <section class="panel p-5" data-test="version-history">
-                    <p class="text-sm text-muted-foreground">
-                        Every saved change is kept here. Pick any version to
-                        put the website, including its photos, back to that
-                        point. The current version is saved first.
-                    </p>
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <p class="text-sm text-muted-foreground">
+                            Every saved change is kept here. Pick any version to
+                            put the website, including its photos, back to that
+                            point. The current version is saved first.
+                        </p>
+                        <Button
+                            v-if="viewingOlderVersion && latestVersion"
+                            type="button"
+                            size="sm"
+                            data-test="back-to-latest"
+                            @click="backToLatest"
+                        >
+                            <History /> Back to latest
+                        </Button>
+                    </div>
                     <ul
                         v-if="versions.length"
                         class="mt-4 flex flex-col divide-y"
@@ -702,8 +732,24 @@ const copyLink = async () => {
                             class="flex items-center justify-between gap-3 py-3"
                         >
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-medium">
-                                    {{ version.label ?? version.headline }}
+                                <p
+                                    class="flex flex-wrap items-center gap-2 text-sm font-medium"
+                                >
+                                    <span class="truncate">{{
+                                        version.label ?? version.headline
+                                    }}</span>
+                                    <span
+                                        v-if="version.isLatest"
+                                        class="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-violet-700 uppercase dark:bg-violet-500/15 dark:text-violet-300"
+                                    >
+                                        Latest
+                                    </span>
+                                    <span
+                                        v-if="version.matchesLive"
+                                        class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-emerald-700 uppercase dark:bg-emerald-500/15 dark:text-emerald-300"
+                                    >
+                                        Viewing
+                                    </span>
                                 </p>
                                 <p class="text-xs text-muted-foreground">
                                     {{ formatRelativeTime(version.createdAt) }}
@@ -714,12 +760,18 @@ const copyLink = async () => {
                                 </p>
                             </div>
                             <Button
+                                v-if="!version.matchesLive"
                                 type="button"
                                 size="sm"
                                 variant="outline"
                                 @click="restore(version)"
                             >
-                                <History /> Restore
+                                <History />
+                                {{
+                                    version.isLatest
+                                        ? 'Back to latest'
+                                        : 'Restore'
+                                }}
                             </Button>
                         </li>
                     </ul>

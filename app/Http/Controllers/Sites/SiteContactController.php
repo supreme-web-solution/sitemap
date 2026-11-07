@@ -8,6 +8,7 @@ use App\Models\Site;
 use App\Services\Preview\PreviewLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class SiteContactController extends Controller
 {
@@ -16,7 +17,13 @@ class SiteContactController extends Controller
      */
     public function __invoke(Request $request, Site $site, RecordSiteContact $record): RedirectResponse
     {
-        $record->handle($site, $request->all());
+        try {
+            $record->handle($site, $request->all());
+        } catch (ValidationException $exception) {
+            return redirect(PreviewLink::page($site, 'contact', internal: $request->boolean('internal'), query: ['error' => 1]))
+                ->withErrors($exception->errors())
+                ->withInput();
+        }
 
         return redirect(PreviewLink::page($site, 'contact', internal: $request->boolean('internal'), query: ['thanks' => 1]));
     }

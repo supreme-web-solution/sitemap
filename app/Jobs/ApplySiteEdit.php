@@ -17,6 +17,7 @@ use App\Services\SiteBuilder\SiteEditProgress;
 use App\Services\SiteBuilder\SiteEditSummary;
 use App\Services\SiteBuilder\SiteEditTurnResolver;
 use App\Services\SiteBuilder\SiteHeroImageRegenerator;
+use App\Services\SiteBuilder\SiteQualityChecker;
 use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -41,6 +42,7 @@ class ApplySiteEdit implements ShouldBeUnique, ShouldQueue
         public SiteChatMessage $message,
         public ?string $designTarget = null,
         public array $previewEdits = [],
+        public bool $forceApply = false,
     ) {
         $this->onQueue(Queues::AI);
     }
@@ -108,20 +110,34 @@ class ApplySiteEdit implements ShouldBeUnique, ShouldQueue
 
         SiteEditAiContext::reset();
 
+        $forceApply = $this->forceApply || SiteQualityChecker::isQualityFixInstruction($instruction);
+
         SiteEditLog::info('turn resolve starting', [
             'site_id' => $site->id,
             'chat_message_id' => $message->id,
             'instruction' => Str::limit($instruction, 300),
+            'force_apply' => $forceApply,
         ]);
 
         $started = microtime(true);
-        $turn = app(SiteEditTurnResolver::class)->resolve($site, $instruction, $attachmentPaths);
+
+        // Quality "Fix with AI" must edit the site — never chat back asking for more facts.
+        $turn = $forceApply
+            ? new SiteEditTurnDecision(
+                message: '',
+                applyInstruction: $instruction,
+                generateHeroImage: false,
+                imageHint: null,
+                fromLlm: false,
+            )
+            : app(SiteEditTurnResolver::class)->resolve($site, $instruction, $attachmentPaths);
 
         SiteEditLog::info('turn resolve finished', [
             'site_id' => $site->id,
             'chat_message_id' => $message->id,
             'seconds' => round(microtime(true) - $started, 2),
             'reply_only' => $turn->isReplyOnly(),
+            'force_apply' => $forceApply,
         ]);
 
         if ($turn->isReplyOnly() && SiteEditAiContext::hadQuotaFailure()) {

@@ -26,7 +26,16 @@ class PaymentAccountFactory extends Factory
             'credentials' => ['secret_key' => 'sk_test_'.Str::random(24), 'webhook_secret' => 'whsec_'.Str::random(24)],
             'label' => 'Test account',
             'webhook_key' => Str::random(32),
+            'enabled' => true,
         ];
+    }
+
+    /**
+     * Connected but not offered on public invoices yet.
+     */
+    public function disabled(): static
+    {
+        return $this->state(fn () => ['enabled' => false]);
     }
 
     /**

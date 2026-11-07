@@ -30,10 +30,14 @@
         .notice.ok{background:#dcfce7;color:#166534}
         .notice.warn{background:#fef9c3;color:#854d0e}
         .notice.bad{background:#fee2e2;color:#991b1b}
-        .pay{display:grid;gap:10px;margin-top:24px}
+        .pay{display:grid;gap:10px;margin-top:24px;grid-template-columns:1fr}
+        .pay.count-2,.pay.count-3,.pay.count-4{grid-template-columns:1fr 1fr}
+        .pay form{margin:0}
+        .pay .hint{margin:6px 2px 0;font-size:12px;color:#71717a;line-height:1.35}
         button{width:100%;padding:13px 16px;border:0;border-radius:10px;font:600 15px system-ui;cursor:pointer;background:#18181b;color:#fff}
         button.alt{background:#0070ba}
         button:hover{opacity:.9}
+        @media (max-width:520px){.pay.count-2,.pay.count-3,.pay.count-4{grid-template-columns:1fr}}
         .notes{margin-top:20px;white-space:pre-line;font-size:14px}
         .foot{text-align:center;margin-top:20px;font-size:12px}
     </style>
@@ -93,11 +97,14 @@
         @if ($invoice->status === InvoiceStatus::Void)
             <div class="notice bad" style="margin-top:20px;margin-bottom:0">This invoice has been cancelled.</div>
         @elseif (count($providers) > 0)
-            <div class="pay">
+            <div class="pay count-{{ min(count($providers), 4) }}">
                 @foreach ($providers as $provider)
                     <form method="POST" action="{{ route('invoices.public.pay', ['invoice' => $invoice->public_token, 'provider' => $provider->value]) }}">
                         @csrf
                         <button type="submit" class="{{ $provider->value === 'paypal' ? 'alt' : '' }}">{{ $provider->payLabel() }}</button>
+                        @if ($provider->payHint())
+                            <p class="hint">{{ $provider->payHint() }}</p>
+                        @endif
                     </form>
                 @endforeach
             </div>

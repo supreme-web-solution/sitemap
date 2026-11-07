@@ -33,18 +33,25 @@ class SiteEditing
      */
     public function text(string $path, string $label, int $max = 200, bool $multiline = false, bool $reload = false): HtmlString
     {
-        if (! $this->enabled) {
-            return new HtmlString('');
+        $parts = [];
+        $inline = SiteTextStyles::inline($this->content, $path);
+
+        if ($inline !== '') {
+            $parts[] = 'style="'.e($inline).'"';
         }
 
-        return new HtmlString(sprintf(
-            ' data-edit="%s" data-edit-label="%s" data-edit-max="%d"%s%s',
-            e($path),
-            e($label),
-            $max,
-            $multiline ? ' data-edit-multiline="1"' : '',
-            $reload ? ' data-edit-reload="1"' : '',
-        ));
+        if ($this->enabled) {
+            $parts[] = sprintf(
+                'data-edit="%s" data-edit-label="%s" data-edit-max="%d"%s%s',
+                e($path),
+                e($label),
+                $max,
+                $multiline ? ' data-edit-multiline="1"' : '',
+                $reload ? ' data-edit-reload="1"' : '',
+            );
+        }
+
+        return new HtmlString($parts === [] ? '' : ' '.implode(' ', $parts));
     }
 
     /**

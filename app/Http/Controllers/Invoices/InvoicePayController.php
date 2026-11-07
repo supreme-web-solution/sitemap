@@ -28,7 +28,7 @@ class InvoicePayController extends Controller
             ->view('invoices.public', [
                 'invoice' => $invoice,
                 'providers' => $invoice->isPayable()
-                    ? $invoice->team->paymentAccounts()->get()->map(fn (PaymentAccount $account) => $account->provider)->all()
+                    ? $invoice->team->paymentAccounts()->offered()->get()->map(fn (PaymentAccount $account) => $account->provider)->all()
                     : [],
                 'notice' => $request->query('status'),
             ])
@@ -42,7 +42,7 @@ class InvoicePayController extends Controller
     {
         abort_unless($invoice->isPayable(), 404);
 
-        $account = $invoice->team->paymentAccounts()->where('provider', $provider)->first();
+        $account = $invoice->team->paymentAccounts()->offered()->where('provider', $provider)->first();
 
         abort_if($account === null, 404);
 

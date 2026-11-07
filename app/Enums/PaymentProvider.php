@@ -48,9 +48,22 @@ enum PaymentProvider: string
     {
         return match ($this) {
             self::Stripe => 'Pay by card',
-            self::PayPal => 'Pay with PayPal',
+            self::PayPal => 'Pay with PayPal or card',
             self::Paystack => 'Pay with Paystack',
             self::Flutterwave => 'Pay with Flutterwave',
+        };
+    }
+
+    /**
+     * Short hint under the public pay button.
+     */
+    public function payHint(): ?string
+    {
+        return match ($this) {
+            self::PayPal => 'PayPal account optional — card checkout is available there.',
+            self::Stripe => 'Card checkout via Stripe.',
+            self::Paystack => 'Card and local methods via Paystack.',
+            self::Flutterwave => 'Card and local methods via Flutterwave.',
         };
     }
 

@@ -132,10 +132,13 @@ class SectionVariants
         ],
         'contact' => [
             'label' => 'Contact',
-            'default' => 'split',
+            'default' => 'form-left',
             'variants' => [
+                'form-left' => 'Form on the left',
+                'form-right' => 'Form on the right',
+                'stacked' => 'Form above details',
+                'card' => 'Modern card form',
                 'split' => 'Intro left, details right',
-                'stacked' => 'Centered stack',
                 'cards' => 'Detail cards',
             ],
         ],

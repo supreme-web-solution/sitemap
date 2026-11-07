@@ -189,7 +189,12 @@ class InvoiceController extends Controller
      */
     protected function connectedProviders(Team $team): array
     {
-        return $team->paymentAccounts()->pluck('provider')->map(fn ($provider) => $provider->label())->values()->all();
+        return $team->paymentAccounts()
+            ->offered()
+            ->pluck('provider')
+            ->map(fn ($provider) => $provider->label())
+            ->values()
+            ->all();
     }
 
     protected function ensureDraft(Invoice $invoice, string $message): void

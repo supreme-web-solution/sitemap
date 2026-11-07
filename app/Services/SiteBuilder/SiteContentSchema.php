@@ -23,7 +23,7 @@ class SiteContentSchema
      *
      * @var list<string>
      */
-    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'section_css', 'variants', 'process', 'why', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels', 'custom_sections', 'hidden_sections', 'images'];
+    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'section_css', 'variants', 'process', 'why', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels', 'custom_sections', 'hidden_sections', 'images', 'text_styles'];
 
     /**
      * Validation rules for a site specification.
@@ -75,6 +75,8 @@ class SiteContentSchema
             'additional_services' => ['sometimes', 'array', 'max:8'],
             'additional_services.*' => ['string', 'max:60', 'distinct'],
             'services.*.image_path' => ['nullable', 'string', 'max:255'],
+            'images' => ['sometimes', 'nullable', 'array:'.implode(',', SiteImagePlacements::KEYS)],
+            'images.*' => ['nullable', 'string', 'max:255'],
             'pages' => ['sometimes', 'array'],
             'pages.*' => ['required', 'distinct', Rule::in(SitePages::OPTIONAL)],
             'faqs' => ['present', 'array', 'max:'.self::MAX_FAQS],
@@ -88,6 +90,7 @@ class SiteContentSchema
             'design.spacing' => ['nullable', Rule::in(SiteDesign::options()['spacing'])],
             'section_styles' => ['sometimes', 'nullable', 'array:'.implode(',', array_column(SiteSection::cases(), 'value'))],
             'section_styles.*' => ['nullable', Rule::in(SiteDesign::SECTION_STYLES)],
+            'text_styles' => ['sometimes', 'nullable', 'array'],
             'variants' => ['sometimes', 'nullable', 'array:'.implode(',', array_keys(SectionVariants::CATALOG))],
             'section_css' => ['sometimes', 'nullable', 'array:'.implode(',', SiteSectionCss::keys())],
             'section_css.*' => ['nullable', 'string', 'max:'.SiteSectionCss::MAX_LENGTH],
@@ -202,7 +205,7 @@ class SiteContentSchema
      * (used for freshly generated sites so every service gets a stable address).
      *
      * @param  array<string, mixed>  $validated
-     * @return array{accent: string, headline: string, tagline: string, cta_label: string, about: string, sections: list<string>, reviews_style?: string, pages?: list<string>, services: list<array{title: string, description: string, slug?: string, body?: string}>, faqs: list<array{question: string, answer: string}>}
+     * @return array{accent: string, headline: string, tagline: string, cta_label: string, about: string, sections: list<string>, reviews_style?: string, pages?: list<string>, services: list<array{title: string, description: string, slug?: string, body?: string, image_path?: string}>, faqs: list<array{question: string, answer: string}>, images?: array<string, string>}
      */
     public static function toContent(array $validated, bool $withDefaults = false): array
     {
@@ -220,6 +223,10 @@ class SiteContentSchema
 
             if (filled($service['body'] ?? null)) {
                 $entry['body'] = $service['body'];
+            }
+
+            if (filled($service['image_path'] ?? null)) {
+                $entry['image_path'] = $service['image_path'];
             }
 
             $services[] = $entry;
@@ -279,6 +286,14 @@ class SiteContentSchema
             $content['section_styles'] = $styles;
         }
 
+        if (is_array($validated['text_styles'] ?? null)) {
+            $textStyles = SiteTextStyles::clean($validated['text_styles']);
+
+            if ($textStyles !== null) {
+                $content['text_styles'] = $textStyles;
+            }
+        }
+
         if ($variants = SectionVariants::clean($validated['variants'] ?? null)) {
             $content['variants'] = $variants;
         }
@@ -318,6 +333,22 @@ class SiteContentSchema
                 ], fn ($value) => $value !== null && $value !== ''),
                 $validated['custom_pages'] ?? [],
             ));
+        }
+
+        if (is_array($validated['images'] ?? null)) {
+            $images = [];
+
+            foreach (SiteImagePlacements::KEYS as $key) {
+                $path = $validated['images'][$key] ?? null;
+
+                if (is_string($path) && $path !== '') {
+                    $images[$key] = $path;
+                }
+            }
+
+            if ($images !== []) {
+                $content['images'] = $images;
+            }
         }
 
         return SiteLocales::applyValidated($validated, $content);

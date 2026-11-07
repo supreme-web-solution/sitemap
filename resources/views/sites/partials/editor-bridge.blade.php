@@ -587,6 +587,35 @@
             if (image) {
                 event.preventDefault();
                 event.stopPropagation();
+
+                // Background hero photos cover the section. Keep the same panel as
+                // scroll-into-view: layout controls plus the hero photo tools.
+                const heroSection = image.closest?.('[data-section="hero"]');
+                const isHeroBackground = Boolean(
+                    heroSection
+                    && (
+                        image.classList.contains('hero-image')
+                        || image.classList.contains('edit-change-hero')
+                        || image.dataset.editImage === 'home_hero'
+                        || String(image.dataset.editImage || '').endsWith('_hero')
+                    )
+                );
+
+                if (isHeroBackground) {
+                    selectSection(heroSection);
+                    send('select', {
+                        kind: 'design',
+                        region: 'hero',
+                        label: heroSection.dataset.sectionLabel || 'Hero',
+                        selector: cssPath(target),
+                        tag: (target.tagName || 'div').toLowerCase(),
+                        text: '',
+                        href: '',
+                    });
+
+                    return;
+                }
+
                 markSelected(image);
                 send('select', {
                     kind: 'image',

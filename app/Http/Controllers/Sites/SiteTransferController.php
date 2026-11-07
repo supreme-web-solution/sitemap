@@ -21,9 +21,9 @@ class SiteTransferController extends Controller
             'email' => ['required', 'email', 'max:150'],
         ]);
 
-        TransferSiteOwnership::dispatch($site, $data['email']);
+        TransferSiteOwnership::dispatchSync($site, $data['email']);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Transfer queued. The client will get an email.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Transferred. The client has been emailed.')]);
 
         return back();
     }

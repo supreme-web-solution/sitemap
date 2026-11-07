@@ -37,12 +37,14 @@ const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
             description="Connect Stripe, PayPal, Paystack or Flutterwave with your own keys. Money goes straight to you. Invoices are in US dollars."
         />
 
-        <PaymentProviderCard
-            v-for="provider in providers"
-            :key="provider.value"
-            :provider="provider"
-            :team-slug="teamSlug"
-            :can-manage="canManage"
-        />
+        <div class="grid gap-4 sm:grid-cols-2">
+            <PaymentProviderCard
+                v-for="provider in providers"
+                :key="provider.value"
+                :provider="provider"
+                :team-slug="teamSlug"
+                :can-manage="canManage"
+            />
+        </div>
     </div>
 </template>

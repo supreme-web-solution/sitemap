@@ -13,12 +13,12 @@ use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteChatAttachment;
-use App\Services\SiteBuilder\SiteEditLog;
-use App\Support\Queues;
 use App\Services\SiteBuilder\SiteEditApplier;
+use App\Services\SiteBuilder\SiteEditLog;
 use App\Services\SiteBuilder\SitePendingChatEdit;
 use App\Services\SiteBuilder\SiteQualityChecker;
 use App\Services\SiteBuilder\SiteSectionCss;
+use App\Support\Queues;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -58,6 +58,16 @@ class SiteChatController extends Controller
             'attachments' => ['sometimes', 'array', 'max:'.SiteChatAttachment::MAX_ATTACHMENTS],
             'attachments.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:'.SiteChatAttachment::MAX_KILOBYTES],
         ]);
+
+        if (filled($data['fix'] ?? null)) {
+            $fixKey = (string) $data['fix'];
+
+            if (! SiteQualityChecker::isAiFixable($fixKey) || SiteQualityChecker::aiInstruction($fixKey) === null) {
+                throw ValidationException::withMessages([
+                    'fix' => __('That quality finding cannot be fixed with AI. Update the lead details or re-run the check.'),
+                ]);
+            }
+        }
 
         $previewEdits = array_values($data['preview_edits'] ?? []);
         $body = trim($this->instruction($data, $site));
@@ -120,6 +130,7 @@ class SiteChatController extends Controller
             $data['design_target'] ?? ($previewEdits[0]['region'] ?? null),
             $previewEdits,
             consumedUsage: true,
+            forceApply: filled($data['fix'] ?? null),
         );
     }
 
@@ -179,7 +190,11 @@ class SiteChatController extends Controller
             ]);
         }
 
-        return $this->queueEdit($site, $userMessageId, null, [], consumedUsage: false);
+        $userMessage = $site->chatMessages()->whereKey($userMessageId)->first();
+        $forceApply = $userMessage !== null
+            && SiteQualityChecker::isQualityFixInstruction((string) $userMessage->body);
+
+        return $this->queueEdit($site, $userMessageId, null, [], consumedUsage: false, forceApply: $forceApply);
     }
 
     /**
@@ -191,6 +206,7 @@ class SiteChatController extends Controller
         ?string $designTarget,
         array $previewEdits,
         bool $consumedUsage,
+        bool $forceApply = false,
     ): RedirectResponse {
         $assistant = $site->chatMessages()->create([
             'user_id' => auth()->id(),
@@ -206,9 +222,10 @@ class SiteChatController extends Controller
             'site_id' => $site->id,
             'chat_message_id' => $assistant->id,
             'queue' => Queues::AI,
+            'force_apply' => $forceApply,
         ]);
 
-        ApplySiteEdit::dispatch($assistant, $designTarget, $previewEdits);
+        ApplySiteEdit::dispatch($assistant, $designTarget, $previewEdits, $forceApply);
 
         Inertia::flash('toast', [
             'type' => 'success',

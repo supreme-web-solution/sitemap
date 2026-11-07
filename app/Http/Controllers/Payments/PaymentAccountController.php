@@ -35,6 +35,7 @@ class PaymentAccountController extends Controller
                     'value' => $provider->value,
                     'label' => $provider->label(),
                     'connected' => $account !== null,
+                    'enabled' => (bool) ($account?->enabled ?? false),
                     'accountLabel' => $account?->label,
                     'hint' => $account?->hint(),
                     'mode' => $account?->credential('mode'),
@@ -71,10 +72,45 @@ class PaymentAccountController extends Controller
 
         $currentTeam->paymentAccounts()->updateOrCreate(
             ['provider' => $provider],
-            ['credentials' => $credentials, 'label' => $label, 'webhook_key' => $existing?->webhook_key ?? Str::random(32)],
+            [
+                'credentials' => $credentials,
+                'label' => $label,
+                'webhook_key' => $existing?->webhook_key ?? Str::random(32),
+                // New connections stay off until the owner turns them on for invoices.
+                'enabled' => $existing?->enabled ?? false,
+            ],
         );
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':provider connected.', ['provider' => $provider->label()])]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $existing
+                ? __(':provider keys updated.', ['provider' => $provider->label()])
+                : __(':provider connected. Turn it on to offer it on invoices.', ['provider' => $provider->label()]),
+        ]);
+
+        return back();
+    }
+
+    /**
+     * Offer or hide a connected provider on public invoice pay links.
+     */
+    public function update(Request $request, Team $currentTeam, PaymentProvider $provider): RedirectResponse
+    {
+        Gate::authorize('update', $currentTeam);
+
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        $account = $currentTeam->paymentAccounts()->where('provider', $provider)->firstOrFail();
+        $account->forceFill(['enabled' => $data['enabled']])->save();
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $data['enabled']
+                ? __(':provider is on for invoices.', ['provider' => $provider->label()])
+                : __(':provider is hidden from invoices.', ['provider' => $provider->label()]),
+        ]);
 
         return back();
     }

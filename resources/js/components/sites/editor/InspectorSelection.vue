@@ -142,6 +142,38 @@ const setText = (value: string | number) => {
     );
 };
 
+const textStylePath = (property: 'color' | 'size' | 'weight') => {
+    const selection = textSelection.value;
+
+    return selection ? `text_styles.${selection.path}.${property}` : null;
+};
+
+const textStyleValue = (property: 'color' | 'size' | 'weight') => {
+    const path = textStylePath(property);
+
+    if (!path) {
+        return '';
+    }
+
+    const value = getPath(props.draft, path);
+
+    return typeof value === 'string' ? value : '';
+};
+
+const setTextStyle = (property: 'color' | 'size' | 'weight', value: string | null) => {
+    const path = textStylePath(property);
+
+    if (!path) {
+        return;
+    }
+
+    emit(
+        'commit',
+        [{ op: 'set', path, value: value === '' ? null : value }],
+        { reload: true, immediate: true },
+    );
+};
+
 const resetCopy = () => {
     const selection = textSelection.value;
 
@@ -435,6 +467,107 @@ const textareaClass =
                     {{ textValue.length }} / {{ textSelection.max }}
                 </p>
             </div>
+
+            <div
+                class="grid gap-3 rounded-lg border bg-muted/30 p-3"
+                data-test="text-style-controls"
+            >
+                <p class="text-xs font-medium text-foreground">Look</p>
+                <div class="grid gap-2 sm:grid-cols-[auto_1fr] sm:items-center">
+                    <Label for="selected-text-color" class="text-xs text-muted-foreground"
+                        >Colour</Label
+                    >
+                    <div class="flex items-center gap-2">
+                        <input
+                            id="selected-text-color"
+                            type="color"
+                            class="size-9 cursor-pointer rounded-md border bg-transparent p-1"
+                            :value="textStyleValue('color') || '#111827'"
+                            @change="
+                                setTextStyle(
+                                    'color',
+                                    ($event.target as HTMLInputElement).value,
+                                )
+                            "
+                        />
+                        <Button
+                            v-if="textStyleValue('color')"
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            class="h-8 px-2 text-xs"
+                            @click="setTextStyle('color', null)"
+                        >
+                            Clear
+                        </Button>
+                    </div>
+                </div>
+                <div class="grid gap-2">
+                    <Label class="text-xs text-muted-foreground">Size</Label>
+                    <div class="flex flex-wrap gap-1.5">
+                        <Button
+                            v-for="size in [
+                                { value: 'sm', label: 'Small' },
+                                { value: 'md', label: 'Default' },
+                                { value: 'lg', label: 'Large' },
+                            ]"
+                            :key="size.value"
+                            type="button"
+                            size="sm"
+                            :variant="
+                                (textStyleValue('size') || 'md') === size.value
+                                    ? 'secondary'
+                                    : 'outline'
+                            "
+                            class="h-8"
+                            @click="
+                                setTextStyle(
+                                    'size',
+                                    size.value === 'md' ? null : size.value,
+                                )
+                            "
+                        >
+                            {{ size.label }}
+                        </Button>
+                    </div>
+                </div>
+                <div class="grid gap-2">
+                    <Label class="text-xs text-muted-foreground">Weight</Label>
+                    <div class="flex flex-wrap gap-1.5">
+                        <Button
+                            type="button"
+                            size="sm"
+                            :variant="
+                                textStyleValue('weight') !== 'bold'
+                                    ? 'secondary'
+                                    : 'outline'
+                            "
+                            class="h-8"
+                            @click="setTextStyle('weight', null)"
+                        >
+                            Regular
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            :variant="
+                                textStyleValue('weight') === 'bold'
+                                    ? 'secondary'
+                                    : 'outline'
+                            "
+                            class="h-8 font-bold"
+                            @click="setTextStyle('weight', 'bold')"
+                        >
+                            Bold
+                        </Button>
+                    </div>
+                </div>
+                <p class="text-xs text-muted-foreground">
+                    Useful when a layout makes this line hard to read. Only this
+                    text changes.
+                </p>
+            </div>
+
             <Button
                 v-if="isCopyField && hasCopyOverride"
                 type="button"

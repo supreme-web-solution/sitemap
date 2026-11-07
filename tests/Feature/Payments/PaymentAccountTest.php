@@ -22,6 +22,7 @@ test('a stripe account is connected once its key is verified', function () {
 
     expect($account->provider)->toBe(PaymentProvider::Stripe)
         ->and($account->label)->toBe('Acme Agency')
+        ->and($account->enabled)->toBeFalse()
         ->and($account->webhook_key)->toHaveLength(32)
         ->and($account->credential('secret_key'))->toBe('sk_test_abc123XYZ');
 

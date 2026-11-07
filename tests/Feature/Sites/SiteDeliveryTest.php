@@ -3,7 +3,6 @@
 use App\Jobs\BackupPublishedSite;
 use App\Jobs\CheckSiteUptime;
 use App\Jobs\CrawlSiteLinks;
-use App\Jobs\TransferSiteOwnership;
 use App\Mail\SiteTransferEmail;
 use App\Models\Lead;
 use App\Models\Site;
@@ -11,7 +10,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\URL;
-use ZipArchive;
 
 test('health checks are queued for a site', function () {
     Queue::fake([CrawlSiteLinks::class, CheckSiteUptime::class]);
@@ -28,23 +26,7 @@ test('health checks are queued for a site', function () {
     Queue::assertPushed(CheckSiteUptime::class);
 });
 
-test('ownership transfer is queued', function () {
-    Queue::fake([TransferSiteOwnership::class]);
-
-    $user = User::factory()->create();
-    $lead = Lead::factory()->for($user->currentTeam)->create();
-    $site = Site::factory()->create(['lead_id' => $lead->id]);
-
-    $this->actingAs($user)
-        ->post(route('sites.transfer.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
-            'email' => 'client@example.com',
-        ])
-        ->assertRedirect();
-
-    Queue::assertPushed(TransferSiteOwnership::class, fn (TransferSiteOwnership $job) => $job->email === 'client@example.com');
-});
-
-test('a transferred website emails a public download link', function () {
+test('ownership transfer runs immediately and emails the client', function () {
     Mail::fake();
 
     $user = User::factory()->create();
@@ -54,7 +36,11 @@ test('a transferred website emails a public download link', function () {
         'published_at' => now(),
     ]);
 
-    (new TransferSiteOwnership($site, 'client@example.com'))->handle();
+    $this->actingAs($user)
+        ->post(route('sites.transfer.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'email' => 'client@example.com',
+        ])
+        ->assertRedirect();
 
     $site->refresh();
 
@@ -63,10 +49,10 @@ test('a transferred website emails a public download link', function () {
 
     $mail = null;
 
-    Mail::assertQueued(SiteTransferEmail::class, function (SiteTransferEmail $queued) use (&$mail) {
-        $mail = $queued;
+    Mail::assertSent(SiteTransferEmail::class, function (SiteTransferEmail $sent) use (&$mail) {
+        $mail = $sent;
 
-        return $queued->hasTo('client@example.com');
+        return $sent->hasTo('client@example.com');
     });
 
     expect($mail)->not->toBeNull()

@@ -920,3 +920,82 @@ test('design edit without api key fails clearly', function () {
     expect($assistant->status)->toBe(SiteChatMessage::STATUS_FAILED)
         ->and($assistant->body)->toContain('ANTHROPIC');
 });
+
+test('quality fix with ai applies even when the turn agent would only reply', function () {
+    config(['services.anthropic.key' => 'test-key']);
+
+    SiteEditTurnAgent::fake(fn () => new ToolCall(
+        'tool_edit_turn',
+        'SubmitSiteEditTurn',
+        ['turn_json' => json_encode([
+            'mode' => 'reply_only',
+            'message' => 'Could you share more local details first?',
+            'apply_instruction' => null,
+        ], JSON_THROW_ON_ERROR)],
+    ));
+
+    SiteEditPlanner::fake(fn () => fakeSiteEditPlanToolCall([
+        'copy_instruction' => null,
+        'document_ops' => [
+            ['op' => 'set', 'path' => 'services.0.body', 'value' => str_repeat('Detailed local service copy for ranking. ', 8)],
+        ],
+    ]));
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create(['city' => 'Austin']);
+    $site = Site::factory()->create([
+        'lead_id' => $lead->id,
+        'content' => array_merge(Site::factory()->make()->content, [
+            'services' => [[
+                'title' => 'Home cleaning',
+                'description' => 'Weekly cleans.',
+                'slug' => 'home-cleaning',
+                'body' => 'Short.',
+            ]],
+        ]),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('sites.chat.store', ['current_team' => $user->currentTeam->slug, 'site' => $site]), [
+            'fix' => 'seo-service-pages',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assistant = SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_ASSISTANT)->first();
+
+    expect($assistant->status)->toBe(SiteChatMessage::STATUS_DONE, $assistant->body)
+        ->and($assistant->body)->not->toContain('share more local details')
+        ->and($site->fresh()->content['services'][0]['body'])->toContain('Detailed local service copy');
+});
+
+test('any flagged quality finding can be sent to fix with ai', function () {
+    config(['services.anthropic.key' => 'test-key']);
+
+    SiteEditPlanner::fake(fn () => fakeSiteEditPlanToolCall([
+        'copy_instruction' => null,
+        'document_ops' => [
+            ['op' => 'set', 'path' => 'headline', 'value' => 'Cleaning Pros in Austin'],
+            ['op' => 'set', 'path' => 'about', 'value' => 'We serve homes across Austin with reliable local cleaning.'],
+        ],
+    ]));
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'city' => 'Austin',
+        'address' => null,
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->post(route('sites.chat.store', ['current_team' => $user->currentTeam->slug, 'site' => $site]), [
+            'fix' => 'seo-local',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assistant = SiteChatMessage::query()->where('role', SiteChatMessage::ROLE_ASSISTANT)->first();
+
+    expect($assistant->status)->toBe(SiteChatMessage::STATUS_DONE, $assistant->body)
+        ->and($site->fresh()->content['headline'])->toContain('Austin');
+});

@@ -102,6 +102,51 @@ test('a set operation can change one section layout without swapping the templat
         ->and($site->fresh()->content['variants']['about_page'])->toBe('portrait');
 });
 
+test('selected text can get a clearer colour size and weight', function () {
+    [$site, $user] = editorSite();
+
+    sendEdits($user, $site, [
+        ['op' => 'set', 'path' => 'text_styles.services.0.description.color', 'value' => '#0c0a09'],
+        ['op' => 'set', 'path' => 'text_styles.services.0.description.size', 'value' => 'lg'],
+        ['op' => 'set', 'path' => 'text_styles.services.0.description.weight', 'value' => 'bold'],
+    ])->assertOk();
+
+    $styles = $site->fresh()->content['text_styles']['services'][0]['description'];
+
+    expect($styles)->toMatchArray([
+        'color' => '#0c0a09',
+        'size' => 'lg',
+        'weight' => 'bold',
+    ]);
+
+    $html = app(SiteRenderer::class)->render($site->fresh(), true, '', null, true);
+
+    expect($html)->toContain('style="color:#0c0a09;font-size:1.2rem;font-weight:700"');
+});
+
+test('changing a section layout keeps uploaded photos and service card images', function () {
+    [$site, $user] = editorSite();
+    $content = $site->content;
+    $content['images'] = ['home_hero' => 'teams/1/leads/1/hero.jpg'];
+    $content['services'][0]['image_path'] = 'teams/1/leads/1/service-0.jpg';
+    $content['services'][0]['body'] = 'Long service copy that must stay.';
+    $site->update(['content' => $content]);
+
+    sendEdits($user, $site->fresh(), [
+        ['op' => 'set', 'path' => 'variants.hero', 'value' => 'centered'],
+        ['op' => 'set', 'path' => 'variants.services', 'value' => 'stage'],
+    ])->assertOk();
+
+    $fresh = $site->fresh()->content;
+
+    expect($fresh['variants']['hero'])->toBe('centered')
+        ->and($fresh['variants']['services'])->toBe('stage')
+        ->and($fresh['images']['home_hero'])->toBe('teams/1/leads/1/hero.jpg')
+        ->and($fresh['services'][0]['image_path'])->toBe('teams/1/leads/1/service-0.jpg')
+        ->and($fresh['services'][0]['body'])->toBe('Long service copy that must stay.')
+        ->and($fresh['headline'])->toBe($content['headline']);
+});
+
 test('each saved edit keeps the previous version', function () {
     [$site, $user] = editorSite();
     $original = $site->content['headline'];

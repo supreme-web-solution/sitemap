@@ -125,13 +125,21 @@ test('the sitemap lists every page and robots.txt points to it', function () {
 });
 
 test('the quality report flags thin service pages and missing local details', function () {
-    $site = multiPageSite(leadAttributes: ['address' => null]);
+    $site = multiPageSite([
+        'services' => [
+            ['title' => 'Drain Cleaning', 'description' => 'Clear drains.', 'slug' => 'drain-cleaning', 'body' => 'Too short.'],
+            ['title' => 'Repairs', 'description' => 'Fix leaks.', 'slug' => 'repairs', 'body' => 'Also thin.'],
+        ],
+    ], leadAttributes: ['address' => null]);
 
     $checks = collect(app(SiteQualityChecker::class)->check($site)['checks'])->keyBy('key');
 
     expect($checks['seo-service-pages']['status'])->toBe('warn')
         ->and($checks['seo-service-pages']['detail'])->toContain('2 of 2')
+        ->and($checks['seo-service-pages']['fixable'])->toBeTrue()
         ->and($checks['seo-local']['status'])->toBe('warn')
+        ->and($checks['seo-local']['fixable'])->toBeTrue()
+        ->and($checks['speed']['fixable'])->toBeTrue()
         ->and($checks['seo-snippet']['status'])->toBe('pass');
 });
 

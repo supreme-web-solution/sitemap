@@ -154,10 +154,13 @@
         .contact-grid { display: grid; gap: 2.5rem; align-items: start; }
         .contact-form { display: grid; gap: .85rem; min-width: 0; }
         .contact-form label { font-weight: 650; font-size: .92rem; color: var(--ink, inherit); }
+        .contact-form .required-mark { color: var(--accent); font-weight: 700; }
         .contact-form input, .contact-form textarea { width: 100%; max-width: 100%; padding: .8rem .9rem; border: 1px solid var(--line, #e7e5e4); border-radius: var(--radius, 12px); background: var(--surface, #fff); color: var(--ink, inherit); font: inherit; }
+        .contact-form input::placeholder, .contact-form textarea::placeholder { color: color-mix(in srgb, var(--ink, #0f172a) 42%, transparent); opacity: 1; }
         .contact-form textarea { min-height: 9rem; resize: vertical; }
         .contact-form .form-error { margin: 0; color: #b91c1c; font-size: .92rem; }
         .contact-form .contact-note { margin: 0; color: var(--muted, inherit); }
+        .contact-form .btn-primary { width: 100%; justify-content: center; }
         .contact-note { margin: 0 0 .5rem; }
         .contact-honeypot { position: absolute; left: -9999px; }
         .contact-aside { min-width: 0; padding: 1.5rem; border: 1px solid var(--line, #e7e5e4); border-radius: calc(var(--radius, 12px) * 1.2); background: var(--surface, #fff); color: var(--ink, inherit); }

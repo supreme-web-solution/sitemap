@@ -181,13 +181,17 @@ class SiteController extends Controller
                 ->latest('id')
                 ->limit(40)
                 ->get()
-                ->map(fn (SiteVersion $version) => [
+                ->values()
+                ->map(fn (SiteVersion $version, int $index) => [
                     'id' => $version->id,
                     'label' => $version->label,
                     'template' => $version->template->label(),
                     'headline' => $version->content['headline'] ?? '',
                     'author' => $version->user?->name,
                     'createdAt' => $version->created_at->toISOString(),
+                    'isLatest' => $index === 0,
+                    'matchesLive' => $version->template === $site->template
+                        && $version->content == $site->content,
                 ]),
             'templates' => SiteTemplate::options(),
             'palettes' => collect(SiteTemplate::cases())->mapWithKeys(fn (SiteTemplate $template) => [$template->value => $template->palette()]),

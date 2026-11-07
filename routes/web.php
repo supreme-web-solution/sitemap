@@ -89,7 +89,7 @@ use App\Http\Middleware\EnsureTeamMembership;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+Route::redirect('/', '/login')->name('home');
 
 Route::middleware(EnsureBrandedPreviewHost::class)->group(function () {
     Route::get('p/concept/{siteConcept}', ConceptPreviewController::class)->name('sites.concepts.preview');
@@ -335,6 +335,7 @@ Route::prefix('{current_team}')
 
         Route::get('payments', [PaymentAccountController::class, 'index'])->name('payments.index');
         Route::put('payments/{provider}', [PaymentAccountController::class, 'store'])->name('payments.connect');
+        Route::patch('payments/{provider}', [PaymentAccountController::class, 'update'])->name('payments.update');
         Route::delete('payments/{provider}', [PaymentAccountController::class, 'destroy'])->name('payments.disconnect');
         Route::get('messaging', [MessagingAccountController::class, 'index'])->name('messaging.index');
         Route::put('messaging', [MessagingAccountController::class, 'store'])->name('messaging.store');

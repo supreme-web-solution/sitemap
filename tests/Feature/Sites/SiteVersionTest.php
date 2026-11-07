@@ -90,6 +90,34 @@ test('an earlier version can be restored and the current state is kept as a vers
         ->and($site->versions()->count())->toBe(2);
 });
 
+test('version history marks the newest snapshot and the live restored version', function () {
+    [$site, $user] = editableSite();
+    $slug = $user->currentTeam->slug;
+    $original = $site->content['headline'];
+
+    $this->actingAs($user)
+        ->put(route('sites.update', ['current_team' => $slug, 'site' => $site->id]), sitePayload($site, 'Changed headline'))
+        ->assertRedirect();
+
+    $older = $site->versions()->sole();
+
+    $this->actingAs($user)
+        ->post(route('sites.versions.restore', ['current_team' => $slug, 'site' => $site->id, 'version' => $older->id]))
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->get(route('sites.edit', ['current_team' => $slug, 'site' => $site->id]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('sites/Edit')
+            ->has('versions', 2)
+            ->where('versions.0.isLatest', true)
+            ->where('versions.0.matchesLive', false)
+            ->where('versions.0.label', 'Before restoring an earlier version')
+            ->where('versions.1.matchesLive', true)
+            ->where('versions.1.isLatest', false)
+            ->where('site.content.headline', $original));
+});
+
 test('only the newest versions are kept', function () {
     [$site] = editableSite();
 
@@ -131,7 +159,9 @@ test('the editor shows a quality report and the version history', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('quality.checks')
             ->has('versions', 1)
-            ->where('versions.0.label', 'Initial'));
+            ->where('versions.0.label', 'Initial')
+            ->where('versions.0.isLatest', true)
+            ->where('versions.0.matchesLive', true));
 });
 
 test('the quality checker warns about claims the business never confirmed', function () {

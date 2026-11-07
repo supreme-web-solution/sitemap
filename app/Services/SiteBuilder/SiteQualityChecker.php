@@ -29,7 +29,7 @@ class SiteQualityChecker
     /**
      * Check a generated website before it is shared with the prospect.
      *
-     * @return array{checks: list<array{key: string, label: string, status: string, detail: string}>, passed: int, total: int}
+     * @return array{checks: list<array{key: string, label: string, status: string, detail: string, fixable: bool}>, passed: int, total: int}
      */
     public function check(Site $site): array
     {
@@ -84,7 +84,7 @@ class SiteQualityChecker
     }
 
     /**
-     * @return array{key: string, label: string, status: string, detail: string}
+     * @return array{key: string, label: string, status: string, detail: string, fixable: bool}
      */
     protected function reviews(Site $site): array
     {
@@ -110,7 +110,7 @@ class SiteQualityChecker
     /**
      * Measure the homepage we generate: how long it takes to build and how large the HTML is.
      *
-     * @return list<array{key: string, label: string, status: string, detail: string}>
+     * @return list<array{key: string, label: string, status: string, detail: string, fixable: bool}>
      */
     protected function performance(Site $site): array
     {
@@ -136,7 +136,7 @@ class SiteQualityChecker
     /**
      * Check the search-engine basics for the home page and the service pages.
      *
-     * @return list<array{key: string, label: string, status: string, detail: string}>
+     * @return list<array{key: string, label: string, status: string, detail: string, fixable: bool}>
      */
     protected function seoChecks(Site $site): array
     {
@@ -178,7 +178,7 @@ class SiteQualityChecker
     }
 
     /**
-     * @return array{key: string, label: string, status: string, detail: string}
+     * @return array{key: string, label: string, status: string, detail: string, fixable: bool}
      */
     protected function unverifiedClaims(Site $site): array
     {
@@ -209,11 +209,57 @@ class SiteQualityChecker
     }
 
     /**
-     * @return array{key: string, label: string, status: string, detail: string}
+     * @return array{key: string, label: string, status: string, detail: string, fixable: bool}
      */
     protected function result(string $key, string $label, string $status, string $detail): array
     {
-        return compact('key', 'label', 'status', 'detail');
+        return [
+            'key' => $key,
+            'label' => $label,
+            'status' => $status,
+            'detail' => $detail,
+            'fixable' => self::isAiFixable($key),
+        ];
+    }
+
+    /**
+     * Whether Fix with AI can attempt this finding (any check that has an instruction).
+     */
+    public static function isAiFixable(string $key): bool
+    {
+        return self::aiInstruction($key) !== null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function fixableKeys(): array
+    {
+        return [
+            'headline', 'contact', 'services', 'hours', 'gallery', 'reviews', 'claims',
+            'speed', 'weight', 'seo-snippet', 'seo-local', 'seo-service-pages',
+            'alt', 'lang', 'viewport', 'image-weight',
+        ];
+    }
+
+    /**
+     * True when this chat instruction came from a quality Fix with AI action.
+     */
+    public static function isQualityFixInstruction(string $instruction): bool
+    {
+        $trimmed = trim($instruction);
+
+        if ($trimmed === '') {
+            return false;
+        }
+
+        foreach (self::fixableKeys() as $key) {
+            if (self::aiInstruction($key) === $trimmed) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -222,20 +268,22 @@ class SiteQualityChecker
     public static function aiInstruction(string $key): ?string
     {
         return match ($key) {
-            'headline' => 'Shorten the headline to at most 90 characters while keeping the business name and city. Do not invent claims.',
-            'contact' => 'Do not invent a phone number or email. If contact details are missing, make the contact section ask the visitor to reach out without fake numbers.',
-            'services' => 'Write three specific services using only details already on the site. Do not invent licenses or guarantees.',
-            'hours' => 'Do not invent opening hours. If hours are missing, hide the hours section.',
-            'gallery' => 'Do not invent photos. If there are no photos, hide the gallery section.',
-            'reviews' => 'If customer reviews exist, keep the Customer reviews section on. If they do not, switch it off.',
-            'claims' => 'Remove unverified claims such as licensed, insured, 24/7, award-winning, or family-owned unless they already appear in the business notes.',
-            'seo-snippet' => 'Lengthen the tagline and about text so a search snippet can be at least 70 characters, without inventing facts.',
-            'seo-local' => 'Mention the known city in the headline and about text. Do not invent an address.',
-            'seo-service-pages' => 'Expand each service description with unique local detail already known. Do not invent credentials.',
-            'alt' => 'Write short, factual captions in the about or gallery copy that describe the photos. Do not invent what the photos show.',
-            'lang' => 'Do not change facts. Keep the copy in clear English.',
-            'viewport' => 'Keep the layout simple so it works on a phone. Do not add new claims.',
-            'image-weight' => 'Do not embed large images in the copy. Refer to existing photos only.',
+            'headline' => 'Apply this quality fix now using Site facts only. Shorten the headline to at most 90 characters while keeping the business name and city. Do not invent claims. Do not ask the user questions.',
+            'contact' => 'Apply this quality fix now using Site facts only. If a phone or email is listed in Site facts, make sure the contact section and CTA use it. If both are missing, rewrite the contact section so visitors can still reach out without inventing a phone number or email. Do not ask the user questions.',
+            'services' => 'Apply this quality fix now using Site facts only. Write three specific services from details already on the site. Do not invent licenses or guarantees. Do not ask the user questions.',
+            'hours' => 'Apply this quality fix now. Do not invent opening hours. If hours are missing, hide the hours section. Do not ask the user questions.',
+            'gallery' => 'Apply this quality fix now. Do not invent photos. If there are no photos, hide the gallery section. Do not ask the user questions.',
+            'reviews' => 'Apply this quality fix now. If customer reviews exist, keep the Customer reviews section on. If they do not, switch it off. Do not ask the user questions.',
+            'claims' => 'Apply this quality fix now. Remove unverified claims such as licensed, insured, 24/7, award-winning, or family-owned unless they already appear in the business notes. Do not ask the user questions.',
+            'speed' => 'Apply this quality fix now using Site facts only. Simplify the homepage so it builds faster: prefer a simpler hero layout, keep about and services concise, and avoid heavy custom CSS. Do not invent business facts. Do not ask the user questions.',
+            'weight' => 'Apply this quality fix now using Site facts only. Reduce homepage HTML weight: shorten long copy blocks, simplify layouts, and avoid large embedded media in the copy. Do not invent business facts. Do not ask the user questions.',
+            'seo-snippet' => 'Apply this quality fix now using Site facts only. Lengthen the tagline and about text so a search snippet can be at least 70 characters, without inventing facts. Do not ask the user questions.',
+            'seo-local' => 'Apply this quality fix now using Site facts only. Put the known city and address from Site facts into the headline and about text. If city or address is marked missing in Site facts, still improve local wording with whatever city is known and do not invent a street address. Do not ask the user questions.',
+            'seo-service-pages' => 'Apply this quality fix now using Site facts only. Expand every service page body to at least 200 characters. Use the business name, city, and each service title already on the site. Rephrase and add practical local detail from known facts. Do not invent licenses, certifications, years in business, or guarantees. Do not ask the user questions.',
+            'alt' => 'Apply this quality fix now. Write short, factual captions in the about or gallery copy that describe the photos. Do not invent what the photos show. Do not ask the user questions.',
+            'lang' => 'Apply this quality fix now. Do not change facts. Keep the copy in clear English. Do not ask the user questions.',
+            'viewport' => 'Apply this quality fix now. Keep the layout simple so it works on a phone. Do not add new claims. Do not ask the user questions.',
+            'image-weight' => 'Apply this quality fix now. Do not embed large images in the copy. Refer to existing photos only. Do not ask the user questions.',
             default => null,
         };
     }

@@ -11,7 +11,7 @@ export type EditOp =
     | { op: 'move'; path: string; from: number; to: number };
 
 /** Paths where an empty value means "back to the template default". */
-const RESETTABLE = /^(copy|design|section_styles)\./;
+const RESETTABLE = /^(copy|design|section_styles|text_styles)\./;
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 

@@ -59,6 +59,7 @@ export type CheckItem = {
     label: string;
     status: CheckStatus;
     detail: string;
+    fixable?: boolean;
 };
 
 export type ScoreComponent = {
@@ -180,6 +181,8 @@ export type SiteVersion = {
     headline: string;
     author: string | null;
     createdAt: string;
+    isLatest?: boolean;
+    matchesLive?: boolean;
 };
 
 export type QualityReport = {
@@ -310,6 +313,7 @@ export type SiteContent = {
     copy?: Record<string, string>;
     design?: { font?: string; radius?: string; spacing?: string };
     section_styles?: Record<string, string>;
+    text_styles?: Record<string, unknown>;
     variants?: Record<string, string>;
     process?: { title: string; description: string }[];
     why?: { title: string; description: string }[];
@@ -555,6 +559,7 @@ export type PaymentProviderSummary = {
     value: 'stripe' | 'paypal' | 'paystack' | 'flutterwave';
     label: string;
     connected: boolean;
+    enabled: boolean;
     accountLabel: string | null;
     hint: string | null;
     mode: string | null;

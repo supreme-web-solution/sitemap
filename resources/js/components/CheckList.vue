@@ -11,7 +11,13 @@ import { Button } from '@/components/ui/button';
 type Status = 'pass' | 'warn' | 'fail' | 'verified' | 'inferred' | 'missing';
 
 const props = defineProps<{
-    items: { key: string; label: string; status: Status; detail: string }[];
+    items: {
+        key: string;
+        label: string;
+        status: Status;
+        detail: string;
+        fixable?: boolean;
+    }[];
     onFix?: (key: string) => void;
     fixableKeys?: string[];
     busy?: boolean;
@@ -26,12 +32,20 @@ const tones: Record<Status, { icon: Component; classes: string }> = {
     missing: { icon: CircleDashed, classes: 'text-muted-foreground' },
 };
 
-const canFix = (item: { key: string; status: Status }) => {
+const canFix = (item: {
+    key: string;
+    status: Status;
+    fixable?: boolean;
+}) => {
     if (!props.onFix) {
         return false;
     }
 
     if (item.status !== 'warn' && item.status !== 'fail') {
+        return false;
+    }
+
+    if (item.fixable === false) {
         return false;
     }
 

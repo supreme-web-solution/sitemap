@@ -3,8 +3,11 @@
 use App\Models\Lead;
 use App\Models\LeadReview;
 use App\Models\Site;
+use App\Models\User;
+use App\Notifications\SiteContactNotification;
 use App\Services\SiteBuilder\RuleBasedCopywriter;
 use App\Services\SiteBuilder\SiteServiceCopy;
+use Illuminate\Support\Facades\Notification;
 
 test('a category label becomes four service pages with solid copy', function () {
     $lead = Lead::factory()->create([
@@ -141,6 +144,61 @@ test('the contact page puts the form left of the details with the map below', fu
         ->assertSee('name="name"', false)
         ->assertSee('name="contact"', false)
         ->assertSee('name="message"', false)
+        ->assertSee('placeholder="Jane Smith"', false)
+        ->assertSee('placeholder="(555) 123-4567 or you@email.com"', false)
+        ->assertSee('placeholder="What do you need help with?"', false)
         ->assertSee('+15125550123')
         ->assertSee('5211 Eilers Ave, Austin, TX');
+});
+
+test('the contact form can sit on the right with a modern card layout', function () {
+    $site = Site::factory()->create();
+    $content = $site->content;
+    $content['variants']['contact'] = 'form-right';
+    $site->update(['content' => $content]);
+
+    $this->get(route('sites.preview', ['site' => $site->slug, 'path' => 'contact', 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('contact-v-form-right', false)
+        ->assertSee('data-contact-layout="details-form"', false);
+
+    $content['variants']['contact'] = 'card';
+    $site->update(['content' => $content]);
+
+    $this->get(route('sites.preview', ['site' => $site->fresh()->slug, 'path' => 'contact', 'internal' => 1]))
+        ->assertOk()
+        ->assertSee('contact-v-card', false)
+        ->assertSee('data-contact-layout="stacked"', false);
+});
+
+test('the contact form requires a name phone or email and message', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create();
+    $team = $owner->currentTeam;
+    $lead = Lead::factory()->for($team)->create();
+    $site = Site::factory()->create(['lead_id' => $lead->id, 'team_id' => $team->id]);
+
+    $this->from(route('sites.preview', ['site' => $site->slug, 'path' => 'contact', 'internal' => 1]))
+        ->post(route('sites.preview.contact', $site), [
+            'name' => '',
+            'contact' => '',
+            'message' => '',
+            'internal' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors(['name', 'contact', 'message']);
+
+    $this->from(route('sites.preview', ['site' => $site->slug, 'path' => 'contact', 'internal' => 1]))
+        ->post(route('sites.preview.contact', $site), [
+            'name' => 'Jane Smith',
+            'contact' => 'jane@example.com',
+            'message' => 'Need a deep clean next week.',
+            'internal' => 1,
+        ])
+        ->assertRedirect();
+
+    expect($lead->activities()->count())->toBe(1);
+
+    Notification::assertSentTo($owner, SiteContactNotification::class);
 });

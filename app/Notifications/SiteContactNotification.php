@@ -29,11 +29,28 @@ class SiteContactNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $this->lead->loadMissing('team');
+
+        $mail = (new MailMessage)
             ->subject(__('Message from the :business website', ['business' => $this->lead->name]))
-            ->line(__(':who sent a message from the website.', ['who' => $this->name]))
-            ->line($this->contact)
+            ->greeting(__('New website message'))
+            ->line(__(':who sent a message from the :business website.', [
+                'who' => $this->name,
+                'business' => $this->lead->name,
+            ]))
+            ->line(__('From: :name', ['name' => $this->name]))
+            ->line(__('Reply to: :contact', ['contact' => $this->contact]))
+            ->line(__('Message:'))
             ->line($this->message)
-            ->action(__('Open the lead'), route('leads.edit', $this->lead));
+            ->action(__('Open the lead'), route('leads.edit', [
+                'current_team' => $this->lead->team->slug,
+                'lead' => $this->lead,
+            ]));
+
+        if (str_contains($this->contact, '@')) {
+            $mail->replyTo($this->contact, $this->name);
+        }
+
+        return $mail;
     }
 }

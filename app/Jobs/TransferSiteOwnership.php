@@ -4,24 +4,15 @@ namespace App\Jobs;
 
 use App\Mail\SiteTransferEmail;
 use App\Models\Site;
-use App\Support\Queues;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 
-class TransferSiteOwnership implements ShouldQueue
+class TransferSiteOwnership
 {
     use Queueable;
 
-    public int $tries = 2;
-
-    public int $timeout = 40;
-
-    public function __construct(public Site $site, public string $email)
-    {
-        $this->onQueue(Queues::DEFAULT);
-    }
+    public function __construct(public Site $site, public string $email) {}
 
     /**
      * Take the site off our hosting and email the client that they now own the files.
@@ -47,7 +38,7 @@ class TransferSiteOwnership implements ShouldQueue
 
         $expires = now()->addDays(30);
 
-        Mail::to($this->email)->queue(new SiteTransferEmail(
+        Mail::to($this->email)->send(new SiteTransferEmail(
             $site,
             URL::temporarySignedRoute('sites.handoff', $expires, ['site' => $site]),
             $expires->toFormattedDateString(),
