@@ -58,7 +58,6 @@ use App\Http\Controllers\Sites\ConceptPreviewController;
 use App\Http\Controllers\Sites\DomainAllowedController;
 use App\Http\Controllers\Sites\LeadSiteController;
 use App\Http\Controllers\Sites\PreviewCommentController;
-use App\Http\Controllers\Sites\PreviewPackageController;
 use App\Http\Controllers\Sites\PreviewSectionViewController;
 use App\Http\Controllers\Sites\PreviewUnlockController;
 use App\Http\Controllers\Sites\SiteChatController;
@@ -107,9 +106,6 @@ Route::middleware(EnsureBrandedPreviewHost::class)->group(function () {
     Route::post('p/{site:slug}/comments', [PreviewCommentController::class, 'store'])
         ->middleware('throttle:preview-interest')
         ->name('sites.preview.comments');
-    Route::post('p/{site:slug}/packages', [PreviewPackageController::class, 'store'])
-        ->middleware('throttle:preview-interest')
-        ->name('sites.preview.packages');
     Route::post('p/{site:slug}/sections/{section}', PreviewSectionViewController::class)
         ->middleware('throttle:preview-sections')
         ->name('sites.preview.sections');

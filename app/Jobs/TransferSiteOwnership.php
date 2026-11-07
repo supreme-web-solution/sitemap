@@ -2,13 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Actions\Sites\HandOffSiteFiles;
 use App\Mail\SiteTransferEmail;
 use App\Models\Site;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\URL;
 
-class TransferSiteOwnership
+class TransferSiteOwnership implements ShouldQueue
 {
     use Queueable;
 
@@ -17,7 +18,7 @@ class TransferSiteOwnership
     /**
      * Take the site off our hosting and email the client that they now own the files.
      */
-    public function handle(): void
+    public function handle(HandOffSiteFiles $handOffSiteFiles): void
     {
         $site = $this->site->fresh(['lead', 'team']);
 
@@ -25,23 +26,12 @@ class TransferSiteOwnership
             return;
         }
 
-        if ($site->isPublished()) {
-            $site->forceFill(['published_at' => null])->save();
-        }
-
-        BackupPublishedSite::dispatchSync($site);
-
-        $site->forceFill([
-            'transferred_at' => now(),
-            'transferred_to_email' => $this->email,
-        ])->save();
-
-        $expires = now()->addDays(30);
+        $handoff = $handOffSiteFiles->handle($site, $this->email);
 
         Mail::to($this->email)->send(new SiteTransferEmail(
-            $site,
-            URL::temporarySignedRoute('sites.handoff', $expires, ['site' => $site]),
-            $expires->toFormattedDateString(),
+            $site->fresh(['lead', 'team']),
+            $handoff['downloadUrl'],
+            $handoff['expiresOn'],
         ));
     }
 }

@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\LeadActivityType;
-use App\Enums\LeadStatus;
 use App\Enums\ProposalStatus;
 use App\Enums\TeamRole;
 use App\Models\Lead;
@@ -112,29 +111,6 @@ test('a preview comment emails the agency owner and is stored on the lead', func
     Notification::assertSentTo($owner, PreviewCommentNotification::class);
 });
 
-test('choosing a package from the preview creates a sent proposal', function () {
-    $site = Site::factory()->create();
-    $package = Package::factory()->for($site->team)->create(['name' => 'Starter site', 'is_active' => true]);
-
-    $this->post(route('sites.preview.packages', $site->slug), [
-        'package_id' => $package->id,
-    ])->assertRedirect();
-
-    $proposal = $site->team->proposals()->sole();
-
-    expect($proposal->status)->toBe(ProposalStatus::Sent)
-        ->and($proposal->items->sole()->description)->toBe('Starter site')
-        ->and($site->lead->fresh()->status)->toBe(LeadStatus::Interested);
-
-    $other = Package::factory()->for($site->team)->create(['name' => 'Care plan', 'is_active' => true]);
-
-    $this->post(route('sites.preview.packages', $site->slug), [
-        'package_id' => $other->id,
-    ])->assertRedirect();
-
-    expect($site->team->proposals()->count())->toBe(1);
-});
-
 test('a sent proposal shows a see pricing button on the preview', function () {
     $site = Site::factory()->create();
     $proposal = Proposal::factory()->withDefaultItems()->create([
@@ -149,7 +125,19 @@ test('a sent proposal shows a see pricing button on the preview', function () {
         ->assertOk()
         ->assertSee('See pricing')
         ->assertSee($proposal->publicUrl(), escape: false)
-        ->assertDontSee('Hidden package');
+        ->assertDontSee('Hidden package')
+        ->assertDontSee('$500.00');
+});
+
+test('packages never appear on the preview bar', function () {
+    $site = Site::factory()->create();
+    Package::factory()->for($site->team)->create(['name' => 'Starter site', 'unit_cents' => 50000, 'is_active' => true]);
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertDontSee('See pricing')
+        ->assertDontSee('Starter site')
+        ->assertDontSee('$500.00');
 });
 
 test('a draft proposal does not show pricing until it is published', function () {
@@ -165,7 +153,7 @@ test('a draft proposal does not show pricing until it is published', function ()
     $this->get(route('sites.preview', $site->slug))
         ->assertOk()
         ->assertDontSee('See pricing')
-        ->assertSee('Starter site');
+        ->assertDontSee('Starter site');
 });
 
 test('the agency can set preview expiry and a password', function () {

@@ -583,7 +583,7 @@ const textareaClass =
                         >
                             Create one
                         </Link>
-                        to reuse pricing here and on site previews.
+                        to reuse pricing on proposals.
                     </p>
                 </div>
 

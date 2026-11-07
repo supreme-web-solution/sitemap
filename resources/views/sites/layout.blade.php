@@ -239,7 +239,6 @@
         }
         .preview-bar__note { margin: 0; flex: 1 1 12rem; min-width: 0; text-align: center; }
         .preview-bar__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .4rem; }
-        .preview-bar__packages { display: flex; flex-wrap: wrap; gap: .35rem; }
         .preview-bar__btn {
             font: inherit; cursor: pointer; border-radius: 999px; font-weight: 600; font-size: .8125rem;
             padding: .5rem 1rem; border: 1px solid #e4e4e7; background: #fff; color: #18181b;
@@ -271,7 +270,6 @@
             .preview-bar__btn--pulse { animation: none; }
             .preview-bar__btn--pulse::after { animation: none; opacity: 0; }
         }
-        .preview-bar__btn--package { background: #faf5ff; border-color: #e9d5ff; color: #581c87; }
         .preview-bar__btn--pricing {
             background: #581c87;
             border-color: transparent;

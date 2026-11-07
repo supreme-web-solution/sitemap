@@ -124,11 +124,7 @@ class SiteRenderer
                     ->first()
                     ?->publicUrl()
                 : null,
-            'packages' => $asPreview
-                ? $site->team->packages()->where('is_active', true)->orderBy('id')->get()
-                : collect(),
             'commentAction' => $asPreview ? PreviewLink::action('sites.preview.comments', $site) : null,
-            'packageAction' => $asPreview ? PreviewLink::action('sites.preview.packages', $site) : null,
             'internalPreview' => request()->boolean('internal') || $editor,
             'sectionBeacons' => $asPreview && ! $editor && $site->exists && ! request()->boolean('internal')
                 ? collect(PreviewSectionViewController::KEYS)

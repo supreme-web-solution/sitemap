@@ -200,7 +200,7 @@ class AgencyWorkflowEngine
         }
 
         $tasks = [
-            ['title' => __('Email the client their portal link'), 'due_on' => today()],
+            ['title' => __('Confirm the client received payment and website emails'), 'due_on' => today()],
             ['title' => __('Confirm domain and publish plan'), 'due_on' => today()->addDay()],
             ['title' => __('Schedule kickoff or handoff call'), 'due_on' => today()->addDays(3)],
         ];

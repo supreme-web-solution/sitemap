@@ -20,24 +20,11 @@
         @endif
         @if ($proposalUrl ?? null)
             <a
-                class="preview-bar__btn preview-bar__btn--package preview-bar__btn--pricing"
+                class="preview-bar__btn preview-bar__btn--pricing"
                 href="{{ $proposalUrl }}"
             >
                 See pricing
             </a>
-        @elseif (($packages ?? collect())->isNotEmpty())
-            <div class="preview-bar__packages" role="group" aria-label="Choose a package">
-                @foreach ($packages as $package)
-                    <form method="POST" action="{{ $packageAction }}">
-                        @csrf
-                        <input type="hidden" name="package_id" value="{{ $package->id }}">
-                        <input type="text" name="company_url" class="claim-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-                        <button type="submit" class="preview-bar__btn preview-bar__btn--package">
-                            {{ $package->name }} · {{ \App\Models\Invoice::formatCents($package->unit_cents) }}
-                        </button>
-                    </form>
-                @endforeach
-            </div>
         @endif
         @if ($commentAction ?? null)
             <button type="button" class="preview-bar__btn" data-preview-modal-open="comment">
