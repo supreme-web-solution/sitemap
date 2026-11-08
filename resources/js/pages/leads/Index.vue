@@ -1377,6 +1377,7 @@ const onPickDesign = (lead: Lead) => {
             :lead-name="designPickerLead.name"
             :lead-category="designPickerLead.category"
             :generate-url="generateSiteUrl(designPickerLead)"
+            :reload-only="['leads']"
             @close="closeDesignPicker"
         />
     </div>

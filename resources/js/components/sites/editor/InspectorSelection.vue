@@ -76,13 +76,13 @@ const imageSelection = computed(() => {
         return props.selection;
     }
 
-    // Overlay heroes are hard to click — when the Hero section is selected, still offer photo tools.
+    // Overlay heroes are hard to click — when the Hero section is selected, still offer media tools.
     if (props.selection.kind === 'section' && props.selection.key === 'hero') {
-        return { kind: 'image' as const, slot: 'home_hero' as const, index: null, label: 'Home hero photo' };
+        return { kind: 'image' as const, slot: 'home_hero' as const, index: null, label: 'Home hero media' };
     }
 
     if (props.selection.kind === 'design' && props.selection.region === 'hero') {
-        return { kind: 'image' as const, slot: 'home_hero' as const, index: null, label: 'Home hero photo' };
+        return { kind: 'image' as const, slot: 'home_hero' as const, index: null, label: 'Home hero media' };
     }
 
     return null;
@@ -206,6 +206,26 @@ const currentImage = computed(() => {
     return props.media.photos[selection.index ?? 0] ?? null;
 });
 
+const isVideoUrl = (url: string | null | undefined): boolean => {
+    if (!url) {
+        return false;
+    }
+
+    const path = url.split('?')[0]?.toLowerCase() ?? '';
+
+    return path.endsWith('.mp4') || path.endsWith('.webm') || path.endsWith('.mov');
+};
+
+const currentIsVideo = computed(() => isVideoUrl(currentImage.value));
+
+const acceptsHomeHeroVideo = computed(() => imageSelection.value?.slot === 'home_hero');
+
+const mediaAccept = computed(() =>
+    acceptsHomeHeroVideo.value
+        ? 'image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime'
+        : 'image/png,image/jpeg,image/webp',
+);
+
 const isPagePhoto = computed(() => {
     const slot = imageSelection.value?.slot;
 
@@ -225,7 +245,8 @@ const canImproveAiImage = computed(() => {
         canUseAiImage.value &&
         selection !== null &&
         selection.slot !== 'logo' &&
-        Boolean(currentImage.value)
+        Boolean(currentImage.value) &&
+        !currentIsVideo.value
     );
 });
 
@@ -623,13 +644,24 @@ const textareaClass =
             <div class="grid gap-2" :class="heroPhotoFromSection ? 'mb-4 border-b border-border pb-4' : ''">
                 <Label>{{ imageSelection.label }}</Label>
                 <p v-if="heroPhotoFromSection" class="text-xs text-muted-foreground">
-                    Hover the photo to replace it, sharpen it, or create a new one.
+                    Hover the media to replace it
+                    {{ acceptsHomeHeroVideo ? ', or upload a short looping video (max 2 MB)' : '' }}.
+                    Photos can still be sharpened or created with AI.
                 </p>
                 <div
                     class="group relative flex aspect-video items-center justify-center overflow-hidden rounded-lg border bg-muted/40"
                 >
+                    <video
+                        v-if="currentImage && currentIsVideo"
+                        :src="currentImage"
+                        class="size-full object-cover"
+                        autoplay
+                        muted
+                        loop
+                        playsinline
+                    />
                     <img
-                        v-if="currentImage"
+                        v-else-if="currentImage"
                         :src="currentImage"
                         :alt="imageSelection.label"
                         :class="
@@ -643,7 +675,13 @@ const textareaClass =
                         class="flex flex-col items-center gap-2 px-4 text-center"
                     >
                         <span class="text-sm text-muted-foreground">
-                            {{ imageSelection.slot === 'logo' ? 'No logo yet' : 'No photo yet' }}
+                            {{
+                                imageSelection.slot === 'logo'
+                                    ? 'No logo yet'
+                                    : acceptsHomeHeroVideo
+                                      ? 'No photo or video yet'
+                                      : 'No photo yet'
+                            }}
                         </span>
                         <Button
                             type="button"
@@ -724,7 +762,7 @@ const textareaClass =
                     ref="fileInput"
                     type="file"
                     class="sr-only"
-                    accept="image/png,image/jpeg,image/webp"
+                    :accept="mediaAccept"
                     data-test="image-input"
                     @change="upload"
                 />
@@ -781,11 +819,17 @@ const textareaClass =
                     Each generated gallery photo is a different scene.
                 </p>
                 <p v-else-if="isPagePhoto" class="text-xs text-muted-foreground">
-                    Only this page uses this photo.
+                    Only this page uses this {{ acceptsHomeHeroVideo ? 'media' : 'photo' }}.
                 </p>
                 <p class="text-xs text-muted-foreground">
-                    JPG, PNG or WebP, up to {{ imageSelection.slot === 'logo' ? 2 : 5 }} MB.
-                    Undo reverts the last photo.
+                    <template v-if="acceptsHomeHeroVideo">
+                        JPG, PNG, WebP (up to 5 MB) or MP4/WebM video (up to 2 MB). Videos loop
+                        muted in the background.
+                    </template>
+                    <template v-else>
+                        JPG, PNG or WebP, up to {{ imageSelection.slot === 'logo' ? 2 : 5 }} MB.
+                    </template>
+                    Undo reverts the last change.
                 </p>
             </div>
         </template>

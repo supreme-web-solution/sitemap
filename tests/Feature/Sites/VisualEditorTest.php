@@ -5,6 +5,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\SiteBuilder\SiteEditApplier;
 use App\Services\SiteBuilder\SiteRenderer;
+use App\Services\SiteBuilder\SiteUrls;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -689,4 +690,56 @@ test('authenticated edit flow loads instrumented preview and round-trips saves w
         ->assertJsonPath('revision', 1);
 
     expect($site->fresh()->content['headline'])->toBe('Checklist headline');
+});
+
+test('the home hero accepts a short looping video under 2 MB', function () {
+    Storage::fake('public');
+    [$site, $user] = editorSite();
+
+    $this->actingAs($user)
+        ->post(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'slot' => 'home_hero',
+            'image' => UploadedFile::fake()->create('hero.mp4', 1500, 'video/mp4'),
+        ])
+        ->assertOk();
+
+    $path = $site->fresh()->content['images']['home_hero'] ?? null;
+
+    expect($path)->toBeString()
+        ->and($path)->toEndWith('.mp4');
+
+    $html = app(SiteRenderer::class)->render($site->fresh(), urls: SiteUrls::root('https://pros.example.com'));
+
+    expect($html)->toContain('<video class="hero-image"')
+        ->and($html)->toContain('autoplay')
+        ->and($html)->toContain('muted')
+        ->and($html)->toContain('loop')
+        ->and($html)->toContain('playsinline')
+        ->and($html)->not->toContain('<img class="hero-image"');
+});
+
+test('home hero videos larger than 2 MB are rejected', function () {
+    Storage::fake('public');
+    [$site, $user] = editorSite();
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'slot' => 'home_hero',
+            'image' => UploadedFile::fake()->create('hero.mp4', 2500, 'video/mp4'),
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('image');
+});
+
+test('other page heroes reject video uploads', function () {
+    Storage::fake('public');
+    [$site, $user] = editorSite();
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'slot' => 'about_hero',
+            'image' => UploadedFile::fake()->create('about.mp4', 500, 'video/mp4'),
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('image');
 });

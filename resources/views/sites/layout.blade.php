@@ -144,10 +144,13 @@
             .marquee-copy { display: none; }
             .reviews-spotlight.is-enhanced .spotlight-slide { animation: none; }
         }
-        .cta-band { padding: 4.5rem 0; text-align: center; background: var(--accent); color: var(--on-accent); }
+        .cta-band { position: relative; isolation: isolate; overflow: hidden; padding: 4.5rem 0; text-align: center; background: var(--accent); color: var(--on-accent); }
         .cta-band h2 { font-size: clamp(1.75rem, 3.5vw, 2.5rem); margin: 0 0 .75rem; }
         .cta-band p { margin: 0 auto 2rem; max-width: 36rem; opacity: .9; }
         .cta-band .btn { background: #fff; color: #111; }
+        .cta-band .container { position: relative; z-index: 1; }
+        .cta-band__media { display: none; }
+        .cta-band__add { margin: 0 auto 1.5rem; max-width: 18rem; }
         .location-card { margin: 1rem 0 1.25rem; padding: 1rem 1.1rem; border-radius: .85rem; border: 1px solid var(--line, #e7e5e4); background: color-mix(in srgb, var(--accent) 12%, var(--surface, #fff)); color: var(--ink, inherit); }
         .location-card__title { margin: 0; font-weight: 700; font-size: .95rem; color: var(--ink, inherit); }
         .location-card__address { margin: .35rem 0 0; font-size: .9rem; line-height: 1.45; color: var(--muted, inherit); }

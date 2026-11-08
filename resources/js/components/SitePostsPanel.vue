@@ -110,8 +110,8 @@ const remove = (post: SitePost) => {
         <h2 class="text-base font-semibold">Blog</h2>
         <p class="mt-1 text-sm text-muted-foreground">
             Turn on Blog under Pages in the menu, then write posts here (or click
-            Add a post on the Blog page in the editor). Ask the AI tab for draft
-            ideas, then paste and edit before publishing.
+            Add a post on the Blog page). In the AI tab you can also say
+            “generate 3 blog posts”, “write a post about…”, or “remove all blogs”.
         </p>
 
         <ul v-if="posts.length" class="mt-4 grid gap-2">

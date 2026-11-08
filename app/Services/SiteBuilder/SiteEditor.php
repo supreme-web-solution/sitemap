@@ -22,6 +22,8 @@ class SiteEditor
         protected SiteEditOrchestrator $orchestrator,
         protected SiteDocumentOpsApplier $documentOps,
         protected SiteServiceImageGenerator $serviceImages,
+        protected SiteBlogIntent $blogIntent,
+        protected SiteServicesIntent $servicesIntent,
     ) {}
 
     /**
@@ -237,6 +239,18 @@ class SiteEditor
         }
 
         $final = SiteEditHeroEnsurer::apply($final, $intentSource);
+
+        if ($this->servicesIntent->matches($intentSource)) {
+            $progress?->line(__('Updating services'));
+            $servicesResult = $this->servicesIntent->apply($site->lead, $final, $intentSource);
+            $final = $servicesResult['content'];
+        }
+
+        if ($this->blogIntent->matches($intentSource)) {
+            $progress?->line(__('Updating blog posts'));
+            $blogResult = $this->blogIntent->apply($site, $final, $intentSource);
+            $final = $blogResult['content'];
+        }
 
         if (SiteEditIntent::wantsServiceImages($intentSource)) {
             $progress?->line(__('Generating service photos'));

@@ -10,6 +10,8 @@ use App\Models\Lead;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class LeadSiteController extends Controller
@@ -17,8 +19,16 @@ class LeadSiteController extends Controller
     /**
      * Queue generation (or regeneration) of the website for a lead.
      */
-    public function store(Team $currentTeam, Lead $lead, DispatchSiteGeneration $dispatchSiteGeneration, UsageMeter $usage): RedirectResponse
+    public function store(Request $request, Team $currentTeam, Lead $lead, DispatchSiteGeneration $dispatchSiteGeneration, UsageMeter $usage): RedirectResponse
     {
+        $validated = $request->validate([
+            'design_template_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('site_design_templates', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
+        ]);
+
         if ($lead->site()->doesntExist()) {
             $usage->ensureWithin($currentTeam, UsageMetric::Sites);
         }
@@ -30,7 +40,11 @@ class LeadSiteController extends Controller
             'site_generation_error' => null,
         ]);
 
-        $dispatchSiteGeneration->handle($lead);
+        $designTemplateId = isset($validated['design_template_id'])
+            ? (int) $validated['design_template_id']
+            : null;
+
+        $dispatchSiteGeneration->handle($lead, $designTemplateId);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Building the website for :name.', ['name' => $lead->name])]);
 

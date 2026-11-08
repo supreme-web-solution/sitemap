@@ -6,62 +6,6 @@ use App\Models\SitePost;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * @param  array<string, mixed>  $content
- * @param  array<string, mixed>  $leadAttributes
- */
-function multiPageSite(array $content = [], array $leadAttributes = []): Site
-{
-    $lead = Lead::factory()->create([
-        'name' => 'Austin Pro Plumbing',
-        'category' => 'Plumber',
-        'city' => 'Austin',
-        'photo_url' => null,
-        'photo_paths' => null,
-        ...$leadAttributes,
-    ]);
-
-    return Site::factory()->create([
-        'lead_id' => $lead->id,
-        'content' => [
-            ...Site::factory()->make()->content,
-            'about' => "We fix pipes fast and keep the mess to a minimum.\n\nFamily run since day one, serving homes across Austin.",
-            'services' => [
-                [
-                    'title' => 'Emergency Repairs',
-                    'description' => 'Fast help when something goes wrong. The work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use. Get in touch if you want to check whether this is the right fit.',
-                    'slug' => 'emergency-repairs',
-                    'body' => "We answer leaks at any hour.\n\nFast help when something goes wrong. The work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use.\n\nYou say what you need, we look at the job, and we agree the next step before anything begins.",
-                ],
-                [
-                    'title' => 'Drain Cleaning',
-                    'description' => 'Clear drains, no mess. The work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use. Get in touch if you want to check whether this is the right fit.',
-                    'slug' => 'drain-cleaning',
-                    'body' => "Clear drains, no mess.\n\nThe work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use.\n\nYou say what you need, we look at the job, and we agree the next step before anything begins.",
-                ],
-                [
-                    'title' => 'Water Heaters',
-                    'description' => 'Repair and replacement for hot water. The work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use. Get in touch if you want to check whether this is the right fit.',
-                    'slug' => 'water-heaters',
-                    'body' => "Repair and replacement for hot water.\n\nThe work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use.\n\nYou say what you need, we look at the job, and we agree the next step before anything begins.",
-                ],
-                [
-                    'title' => 'Installations',
-                    'description' => 'New fixtures fitted properly. The work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use. Get in touch if you want to check whether this is the right fit.',
-                    'slug' => 'installations',
-                    'body' => "New fixtures fitted properly.\n\nThe work is talked through before it starts, so you know what will be done in Austin. When the job is finished, the space is left tidy and ready to use.\n\nYou say what you need, we look at the job, and we agree the next step before anything begins.",
-                ],
-            ],
-            ...$content,
-        ],
-    ]);
-}
-
-function previewPage(Site $site, string $path = ''): string
-{
-    return route('sites.preview', array_filter(['site' => $site->slug, 'path' => $path ?: null, 'internal' => 1]));
-}
-
 test('the menu lists the pages the site has and links each one', function () {
     $site = multiPageSite();
 

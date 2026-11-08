@@ -33,6 +33,7 @@ import DeleteLeadDialog from '@/components/leads/DeleteLeadDialog.vue';
 import RedesignWorkflowCard from '@/components/leads/RedesignWorkflowCard.vue';
 import WebsiteAuditCard from '@/components/leads/WebsiteAuditCard.vue';
 import WebsiteBrandCard from '@/components/leads/WebsiteBrandCard.vue';
+import SiteDesignTemplatePicker from '@/components/sites/SiteDesignTemplatePicker.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +41,7 @@ import { create as createInvoice } from '@/routes/invoices';
 import { create as createProposal, edit as editProposal } from '@/routes/proposals';
 import { edit as reviewLead, index as leadsIndex } from '@/routes/leads';
 import { update as updateProfile } from '@/routes/leads/profile';
+import { store as generateSite } from '@/routes/leads/site';
 import { edit as editSite } from '@/routes/sites';
 import type {
     EmailTemplate,
@@ -110,6 +112,7 @@ defineOptions({
 const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 const previewRefreshKey = ref(0);
+const designPickerOpen = ref(false);
 
 const vibeDescriptions: Record<string, string> = {
     modern: 'Clean, bright and professional.',
@@ -609,7 +612,7 @@ const textareaClass =
                         <Heading
                             variant="small"
                             title="Style"
-                            description="Sets the template. Colours come from a palette approved for it."
+                            description="Quick vibe sets the colour family. Browse all designs to pick a full catalog template (hero, services, CTA layout, and more)."
                         />
                         <div class="mt-4 grid gap-3 sm:grid-cols-3">
                             <button
@@ -632,6 +635,21 @@ const textareaClass =
                             </button>
                         </div>
                         <InputError :message="form.errors.vibe" />
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                data-test="browse-design-templates"
+                                @click="designPickerOpen = true"
+                            >
+                                Browse all designs
+                            </Button>
+                            <p class="text-xs text-muted-foreground">
+                                Opens the full catalog used on the leads list —
+                                search by industry and pick a specific layout.
+                            </p>
+                        </div>
                     </section>
 
                     <div
@@ -716,5 +734,20 @@ const textareaClass =
                 <ActivityTimeline :lead-id="lead.id" :activities="activities" />
             </aside>
         </div>
+
+        <SiteDesignTemplatePicker
+            :open="designPickerOpen"
+            :team-slug="teamSlug"
+            :lead-id="lead.id"
+            :lead-name="lead.name"
+            :lead-category="lead.category"
+            :generate-url="
+                generateSite.url({
+                    current_team: teamSlug,
+                    lead: lead.id,
+                })
+            "
+            @close="designPickerOpen = false"
+        />
     </div>
 </template>

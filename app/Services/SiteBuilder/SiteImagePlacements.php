@@ -8,6 +8,18 @@ namespace App\Services\SiteBuilder;
 class SiteImagePlacements
 {
     /**
+     * Home hero is the only slot that may store a short looping background video.
+     */
+    public const VIDEO_SLOT = 'home_hero';
+
+    public const VIDEO_MAX_KB = 2048;
+
+    /**
+     * @var list<string>
+     */
+    public const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov'];
+
+    /**
      * @var list<string>
      */
     public const KEYS = [
@@ -22,6 +34,7 @@ class SiteImagePlacements
         'post_hero',
         'landing_hero',
         'location_hero',
+        'cta_band',
     ];
 
     public static function is(string $slot): bool
@@ -34,5 +47,22 @@ class SiteImagePlacements
         $key = $type === 'home' ? 'home_hero' : $type.'_hero';
 
         return self::is($key) ? $key : 'home_hero';
+    }
+
+    public static function allowsVideo(string $slot): bool
+    {
+        return $slot === self::VIDEO_SLOT;
+    }
+
+    public static function isVideoPath(?string $path): bool
+    {
+        if ($path === null || $path === '') {
+            return false;
+        }
+
+        $path = parse_url($path, PHP_URL_PATH) ?: $path;
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return in_array($extension, self::VIDEO_EXTENSIONS, true);
     }
 }

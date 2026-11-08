@@ -29,7 +29,10 @@ class SiteSeo
 
     public const DESCRIPTION_MAX = 155;
 
-    public function __construct(protected SitePages $pages) {}
+    public function __construct(
+        protected SitePages $pages,
+        protected SiteBrandAssets $brandAssets,
+    ) {}
 
     /**
      * Build the metadata for one page.
@@ -41,7 +44,9 @@ class SiteSeo
     {
         $lead = $site->lead;
         $content ??= $site->content;
-        $image = $lead->photoUrls()[0] ?? $lead->logoUrl();
+        $image = $this->brandAssets->urls($content)['og_image']
+            ?? $this->brandAssets->absoluteUrl($lead->logoUrl())
+            ?? $this->brandAssets->absoluteUrl($lead->photoUrls()[0] ?? null);
         $indexable = ! $asStaging && ! $blockIndexing;
 
         $breadcrumbs = $this->breadcrumbs($page, $urls);

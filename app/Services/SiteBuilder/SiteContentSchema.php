@@ -23,7 +23,7 @@ class SiteContentSchema
      *
      * @var list<string>
      */
-    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'section_css', 'variants', 'process', 'why', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels', 'custom_sections', 'hidden_sections', 'images', 'text_styles'];
+    public const EDITOR_FIELDS = ['copy', 'design', 'section_styles', 'section_css', 'variants', 'process', 'why', 'default_locale', 'locales', 'translations', 'custom_pages', 'page_labels', 'custom_sections', 'hidden_sections', 'images', 'text_styles', 'brand'];
 
     /**
      * Validation rules for a site specification.

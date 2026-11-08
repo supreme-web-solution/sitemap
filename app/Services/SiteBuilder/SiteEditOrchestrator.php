@@ -84,6 +84,10 @@ class SiteEditOrchestrator
             return ! $heuristic->wantsCopyRevise();
         }
 
+        if (app(SiteBlogIntent::class)->matches($instruction) || app(SiteServicesIntent::class)->matches($instruction)) {
+            return ! $heuristic->wantsCopyRevise() && ! $heuristic->wantsDesignCss();
+        }
+
         return $heuristic->documentOps !== [] && ! $heuristic->wantsCopyRevise() && ! $heuristic->wantsDesignCss();
     }
 

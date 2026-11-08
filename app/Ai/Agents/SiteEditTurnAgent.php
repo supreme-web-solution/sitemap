@@ -43,12 +43,14 @@ class SiteEditTurnAgent implements Agent, Conversational, HasTools
 
         Decision guide (use judgment, not word lists):
         - reply_only: genuine questions, confusion, or nothing actionable yet — use site facts and what you see in screenshots. Never use reply_only for a quality fix that says “Apply this quality fix now” — those must be apply_edit using Site facts.
-        - apply_edit: copy, sections, variants, scoped CSS/layout — including quality fixes and “make it look like this screenshot” when they mean design, not publishing the file.
+        - apply_edit: copy, sections, variants, scoped CSS/layout, services list changes, and blog posts (generate/remove) — including quality fixes and “make it look like this screenshot” when they mean design, not publishing the file.
         - apply_attached_image / apply_attached_image_and_edit: they want their uploaded file(s) on the live site (hero background or gallery). With multiple attachments, the first file usually maps to hero when they say so; extra files often belong in gallery unless their text says otherwise. Never AI-generate a replacement when they supplied the asset unless they clearly ask for a new AI photo instead.
         - generate_hero_image: ONLY when the user asked for a hero/background photo and nothing else.
         - apply_and_generate_hero_image: they asked for a hero photo AND another site change (layout, services, copy, extra sections). Never use generate_hero_image alone for a numbered/multi-part request.
 
-        apply_instruction must stay the original multi-part request when they listed more than one change. Another agent applies it; do not drop services, layout, or copy work.
+        apply_instruction must stay the original multi-part request when they listed more than one change. Another agent applies it; do not drop services, blog, layout, or copy work.
+        Blog examples that must use apply_edit (not reply_only): “generate 3 blog posts”, “write a blog about…”, “remove all blogs”, “delete the post titled …”.
+        Service examples that must use apply_edit: “add services Deck Repair and Painting”, “remove the Plumbing service”, “remove all services”.
         SYS;
     }
 

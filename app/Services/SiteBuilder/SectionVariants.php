@@ -184,6 +184,18 @@ class SectionVariants
                 'band' => 'Brand colour band',
             ],
         ],
+        'cta' => [
+            'label' => 'Call-to-action banner',
+            'default' => 'solid',
+            'variants' => [
+                'solid' => 'Brand colour band',
+                'photo' => 'Full-width photo background',
+                'split' => 'Text left, colour panel right',
+                'minimal' => 'Compact slim band',
+                'outline' => 'Light band with border',
+                'dark' => 'Near-black premium band',
+            ],
+        ],
         'services_page' => [
             'label' => 'Services page',
             'default' => 'zigzag',
@@ -234,6 +246,12 @@ class SectionVariants
                 'centered', 'quote' => 'centered',
                 'highlight' => 'band',
                 default => 'split',
+            },
+            'cta' => match ($hero) {
+                'overlay', 'card', 'photo-top' => 'photo',
+                'split' => 'split',
+                'minimal', 'centered' => 'minimal',
+                default => 'solid',
             },
         ];
     }

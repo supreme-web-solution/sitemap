@@ -26,7 +26,11 @@ class SiteRenderer
      */
     public const MIN_GALLERY_PHOTOS = 2;
 
-    public function __construct(protected SitePages $pages, protected SiteSeo $seo) {}
+    public function __construct(
+        protected SitePages $pages,
+        protected SiteSeo $seo,
+        protected SiteBrandAssets $brandAssets,
+    ) {}
 
     /**
      * Render one page of the site as a self-contained HTML document, or null when the site has no such page.
@@ -70,6 +74,22 @@ class SiteRenderer
         $mapEmbedUrl = $this->mapEmbedUrl($lead->name, $lead->address);
         $reviews = $lead->testimonials();
         $reviewsStyle = $this->reviewsStyle($content, $reviews->count());
+        if (! $this->brandAssets->present($site->content ?? []) && $site->exists) {
+            $site = $this->brandAssets->ensure($site->fresh(['lead']));
+            $content = SiteLocales::merge($site->content, $locale);
+
+            if (! $editing) {
+                $content = (new SiteServiceCopy)->ensureReady(
+                    $lead,
+                    $content,
+                    app(RuleBasedCopywriter::class)->serviceFillers($lead->category),
+                );
+            }
+
+            $renderSite = clone $site;
+            $renderSite->content = $content;
+        }
+
         $seo = $this->seo->for(
             $renderSite,
             $page,
@@ -79,6 +99,7 @@ class SiteRenderer
             $content,
             blockIndexing: $blockIndexing || $editing,
         );
+        $brand = $this->brandAssets->urls($site->content ?? []);
         $variants = SectionVariants::merge($content['variants'] ?? null, $site->designTemplate?->variants);
         $layoutVariant = $site->designTemplate?->layout_variant ?? SiteLayoutVariant::Standard;
         $layoutClass = trim($layoutVariant->bodyClass().' '.SectionVariants::bodyClasses($variants));
@@ -93,6 +114,7 @@ class SiteRenderer
             'urls' => $urls,
             'seo' => $seo,
             'seoBuilder' => $this->seo,
+            'brand' => $brand,
             'breadcrumbs' => $seo['breadcrumbs'],
             'nav' => $this->navigation($renderSite, $urls, $content),
             'services' => $services,
@@ -136,6 +158,11 @@ class SiteRenderer
             'logoUrl' => $lead->logoUrl(),
             ...$this->heroContext($content, $page, $photos, $services),
             'aboutPortrait' => $this->placedImage($content, 'about_portrait', $photos[1] ?? $photos[0] ?? null),
+            'ctaBandImage' => $this->placedImage(
+                $content,
+                'cta_band',
+                (($variants['cta'] ?? 'solid') === 'photo') ? ($photos[0] ?? null) : null,
+            ),
             'galleryPhotos' => $photos,
             'hours' => $hours,
             'phoneHref' => $lead->phone ? 'tel:'.preg_replace('/[^\d+]/', '', $lead->phone) : null,
@@ -353,7 +380,7 @@ class SiteRenderer
      * @param  array<string, mixed>  $page
      * @param  list<string>  $photos
      * @param  list<array{title: string, description: string, body: string, slug: string, image_url: string}>  $services
-     * @return array{heroImage: ?string, heroSlot: string, heroIndex: ?int}
+     * @return array{heroImage: ?string, heroVideo: ?string, heroSlot: string, heroIndex: ?int}
      */
     protected function heroContext(array $content, array $page, array $photos, array $services): array
     {
@@ -366,6 +393,7 @@ class SiteRenderer
             if (filled($serviceUrl) && ! str_starts_with($serviceUrl, 'data:')) {
                 return [
                     'heroImage' => $serviceUrl,
+                    'heroVideo' => null,
                     'heroSlot' => 'service',
                     'heroIndex' => $index,
                 ];
@@ -373,15 +401,27 @@ class SiteRenderer
 
             return [
                 'heroImage' => $this->placedImage($content, 'service_hero', $photos[0] ?? null),
+                'heroVideo' => null,
                 'heroSlot' => $index !== null ? 'service' : 'service_hero',
                 'heroIndex' => $index,
             ];
         }
 
         $slot = SiteImagePlacements::forPageType((string) ($page['type'] ?? 'home'));
+        $stored = is_string($content['images'][$slot] ?? null) ? $content['images'][$slot] : null;
+
+        if (($page['type'] ?? '') === 'home' && SiteImagePlacements::allowsVideo($slot) && SiteImagePlacements::isVideoPath($stored)) {
+            return [
+                'heroImage' => null,
+                'heroVideo' => app(SiteImageStorage::class)->url($stored),
+                'heroSlot' => $slot,
+                'heroIndex' => null,
+            ];
+        }
 
         return [
             'heroImage' => $this->placedImage($content, $slot, $photos[0] ?? null),
+            'heroVideo' => null,
             'heroSlot' => $slot,
             'heroIndex' => null,
         ];

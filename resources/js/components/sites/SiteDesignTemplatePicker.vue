@@ -29,14 +29,21 @@ export type DesignTemplateOption = {
     layoutSummary?: string;
 };
 
-const props = defineProps<{
-    teamSlug: string;
-    leadId: number;
-    leadName: string;
-    leadCategory: string | null;
-    generateUrl: string;
-    open: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        teamSlug: string;
+        leadId: number;
+        leadName: string;
+        leadCategory: string | null;
+        generateUrl: string;
+        open: boolean;
+        /** Inertia partial reload keys. Omit on pages that do not have a `leads` prop. */
+        reloadOnly?: string[];
+    }>(),
+    {
+        reloadOnly: undefined,
+    },
+);
 
 const emit = defineEmits<{ close: [] }>();
 
@@ -120,7 +127,7 @@ const generate = () => {
         { design_template_id: selectedId.value },
         {
             preserveScroll: true,
-            only: ['leads'],
+            ...(props.reloadOnly ? { only: props.reloadOnly } : {}),
             onFinish: () => {
                 generating.value = false;
                 emit('close');

@@ -73,7 +73,7 @@ test('pages describe the business with structured data', function () {
 });
 
 test('secondary pages add breadcrumb, service and article markup', function () {
-    $site = multiPageSite();
+    $site = multiPageSite(['pages' => ['about', 'services', 'blog']]);
     SitePost::factory()->for($site)->create(['title' => 'Winter pipe tips', 'slug' => 'winter-pipe-tips']);
     $urls = SiteUrls::root('https://pros.example.com');
     $renderer = app(SiteRenderer::class);
@@ -112,7 +112,7 @@ test('structured data cannot break out of its script tag', function () {
 });
 
 test('the sitemap lists every page and robots.txt points to it', function () {
-    $site = multiPageSite();
+    $site = multiPageSite(['pages' => ['about', 'services', 'blog']]);
     SitePost::factory()->for($site)->create(['slug' => 'winter-pipe-tips']);
     SitePost::factory()->for($site)->draft()->create(['slug' => 'secret-draft']);
     $urls = SiteUrls::root('https://pros.example.com');

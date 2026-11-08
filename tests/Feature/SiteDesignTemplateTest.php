@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\FetchLeadReviews;
 use App\Jobs\GenerateLeadSite;
 use App\Models\Lead;
 use App\Models\Site;
@@ -8,6 +9,7 @@ use App\Models\User;
 use App\Services\SiteBuilder\EnsureDesignTemplateCatalog;
 use App\Services\SiteBuilder\SectionVariants;
 use Database\Seeders\SiteDesignTemplateSeeder;
+use Illuminate\Support\Facades\Queue;
 
 test('the design catalog is seeded once and can be filtered by industry and style', function () {
     (new SiteDesignTemplateSeeder)->run();
@@ -116,4 +118,25 @@ test('site generation accepts a catalog template and applies its accent', functi
         ->and($site->design_template_id)->toBe($template->id)
         ->and($site->template->value)->toBe('editorial-dark')
         ->and($site->content['accent'])->toBe('#f59e0b');
+});
+
+test('building a site from the lead route can pass a design template id', function () {
+    app(EnsureDesignTemplateCatalog::class)->ensure();
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create();
+    $template = SiteDesignTemplate::query()->where('slug', 'modern-clean-pro')->firstOrFail();
+
+    Queue::fake([GenerateLeadSite::class, FetchLeadReviews::class]);
+
+    $this->actingAs($user)
+        ->post(route('leads.site.store', [
+            'current_team' => $user->currentTeam->slug,
+            'lead' => $lead->id,
+        ]), ['design_template_id' => $template->id])
+        ->assertRedirect();
+
+    Queue::assertPushed(GenerateLeadSite::class, function (GenerateLeadSite $job) use ($lead, $template) {
+        return $job->lead->is($lead) && $job->designTemplateId === $template->id;
+    });
 });

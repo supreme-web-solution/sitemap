@@ -17,7 +17,7 @@ export const requestHeaders = (): Record<string, string> => ({
     'X-XSRF-TOKEN': xsrfToken(),
 });
 
-export type MediaSlotName = 'logo' | 'photo' | 'service' | 'home_hero' | 'about_hero' | 'about_portrait' | 'services_hero' | 'service_hero' | 'gallery_hero' | 'contact_hero' | 'blog_hero' | 'post_hero' | 'landing_hero' | 'location_hero';
+export type MediaSlotName = 'logo' | 'photo' | 'service' | 'home_hero' | 'about_hero' | 'about_portrait' | 'services_hero' | 'service_hero' | 'gallery_hero' | 'contact_hero' | 'blog_hero' | 'post_hero' | 'landing_hero' | 'location_hero' | 'cta_band';
 
 export type MediaSlot = { slot: MediaSlotName; index: number | null };
 

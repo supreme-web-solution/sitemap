@@ -88,6 +88,10 @@ class SiteEditIntent
                 || preg_match('/(?:headline|tagline|button).*[\'\"].+[\'\"]/i', $instruction) === 1;
         }
 
+        if (app(SiteBlogIntent::class)->matches($instruction) || app(SiteServicesIntent::class)->matches($instruction)) {
+            return true;
+        }
+
         return false;
     }
 

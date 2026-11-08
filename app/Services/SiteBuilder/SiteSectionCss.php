@@ -53,6 +53,10 @@ class SiteSectionCss
             'label' => 'Our mission',
             'scope' => ['#mission', '.mission-block', '.mission-grid', '.mission-body'],
         ],
+        'cta' => [
+            'label' => 'Call-to-action banner',
+            'scope' => ['.cta-band', '.cta-band .container', '.cta-band h2', '.cta-band p', '.cta-band .btn', '.cta-band__media'],
+        ],
         'services_page' => [
             'label' => 'Services page',
             'scope' => ['.services-page-block', '.service-features', '.service-feature'],

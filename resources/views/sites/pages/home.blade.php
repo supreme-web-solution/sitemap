@@ -2,13 +2,20 @@
 
 @section('main')
     <section id="hero" class="hero"{!! $e->section('hero', 'Hero') !!}>
-        @if ($heroImage)
+        @if ($heroVideo ?? null)
+            <video class="hero-image" autoplay muted loop playsinline preload="metadata"{!! $e->image('home_hero', null, 'Home hero media') !!}>
+                <source src="{{ $heroVideo }}" type="{{ str_ends_with(strtolower(parse_url($heroVideo, PHP_URL_PATH) ?: ''), '.webm') ? 'video/webm' : 'video/mp4' }}">
+            </video>
+            @if ($editing)
+                <button type="button" class="edit-change-hero"{!! $e->image('home_hero', null, 'Home hero media') !!}>Change media</button>
+            @endif
+        @elseif ($heroImage)
             <img class="hero-image" src="{{ $heroImage }}" alt="{{ $lead->name }}" loading="eager" fetchpriority="high" decoding="async"{!! $e->image('home_hero', null, 'Home hero photo') !!}>
             @if ($editing)
                 <button type="button" class="edit-change-hero"{!! $e->image('home_hero', null, 'Home hero photo') !!}>Change photo</button>
             @endif
         @elseif ($editing)
-            <button type="button" class="edit-add-image"{!! $e->image('home_hero', null, 'Home hero photo') !!}>Add a hero photo</button>
+            <button type="button" class="edit-add-image"{!! $e->image('home_hero', null, 'Home hero media') !!}>Add a hero photo or video</button>
         @endif
         <div class="container">
             <span class="hero-eyebrow"{!! $e->label('hero_kicker') !!}>{{ $e->copy('hero_kicker', trim(($lead->category ?? '').($lead->city ? ' · '.$lead->city : ''))) }}</span>

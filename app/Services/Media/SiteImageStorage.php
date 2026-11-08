@@ -43,8 +43,21 @@ class SiteImageStorage
      */
     public function storeUploadedFile(UploadedFile $file, int $teamId, int $leadId): array
     {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: '');
+        $mime = (string) $file->getMimeType();
+
+        // Short hero videos stay on the public disk so we never force image transforms on them.
+        if (str_starts_with($mime, 'video/') || in_array($extension, ['mp4', 'webm', 'mov'], true)) {
+            $path = $file->store($this->localDirectory($teamId, $leadId), 'public');
+
+            return [
+                'path' => $path,
+                'url' => Storage::disk('public')->url($path),
+            ];
+        }
+
         if ($this->configured()) {
-            return $this->uploadToCloudinary($file->getRealPath(), $teamId, $leadId, $file->getClientOriginalExtension() ?: 'jpg');
+            return $this->uploadToCloudinary($file->getRealPath(), $teamId, $leadId, $extension !== '' ? $extension : 'jpg');
         }
 
         $path = $file->store($this->localDirectory($teamId, $leadId), 'public');

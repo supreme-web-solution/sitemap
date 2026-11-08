@@ -108,6 +108,10 @@ class SiteEditSummary
             $lines[] = __('• Removed :section from the homepage', ['section' => $label]);
         }
 
+        foreach (SiteEditExtras::lines() as $extra) {
+            $lines[] = $extra;
+        }
+
         if ($lines === []) {
             if (SiteStructuralIntent::wantsAddSection((string) $userInstruction)) {
                 foreach (SiteChatInstruction::mentionedSections((string) $userInstruction) as $section) {

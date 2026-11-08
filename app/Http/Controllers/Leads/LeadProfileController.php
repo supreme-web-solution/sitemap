@@ -26,6 +26,7 @@ use App\Services\Prospecting\OpportunityScorer;
 use App\Services\Prospecting\ProfileVerifier;
 use App\Services\Prospecting\SalesAssistant;
 use App\Services\SiteBuilder\SectionVariants;
+use App\Services\SiteBuilder\SiteBrandAssets;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -245,6 +246,8 @@ class LeadProfileController extends Controller
 
         if ($request->boolean('generate')) {
             $dispatchSiteGeneration->handle($lead);
+        } elseif (($request->hasFile('logo') || $request->boolean('remove_logo')) && $lead->site) {
+            app(SiteBrandAssets::class)->refresh($lead->site->fresh(['lead']));
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $request->boolean('generate')

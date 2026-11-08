@@ -10,6 +10,7 @@ use App\Services\Ai\AiProviderErrors;
 use App\Services\SiteBuilder\LeadPhotoGenerator;
 use App\Services\SiteBuilder\SiteAttachedImagePlacer;
 use App\Services\SiteBuilder\SiteEditAiContext;
+use App\Services\SiteBuilder\SiteEditExtras;
 use App\Services\SiteBuilder\SiteEditIntent;
 use App\Services\SiteBuilder\SiteEditLog;
 use App\Services\SiteBuilder\SiteEditor;
@@ -109,6 +110,7 @@ class ApplySiteEdit implements ShouldBeUnique, ShouldQueue
         $progress->line(__('Reading your request'));
 
         SiteEditAiContext::reset();
+        SiteEditExtras::reset();
 
         $forceApply = $this->forceApply || SiteQualityChecker::isQualityFixInstruction($instruction);
 

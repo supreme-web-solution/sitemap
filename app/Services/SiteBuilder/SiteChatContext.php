@@ -75,6 +75,16 @@ class SiteChatContext
             'Customer reviews in plan: '.($reviewsInPlan ? 'yes' : 'no'),
             'Customer reviews visible on preview: '.($reviewsVisible ? 'yes' : 'no'),
             'Google reviews loaded for this lead: '.$reviews->count().' visible (rating '.($lead->rating ?? 'n/a').', count '.($lead->reviews_count ?? 0).')',
+            'Menu pages enabled: '.implode(', ', array_values($content['pages'] ?? SitePages::DEFAULT)),
+            'Services on site: '.collect($content['services'] ?? [])
+                ->map(fn ($service) => is_array($service) ? (string) ($service['title'] ?? '') : '')
+                ->filter()
+                ->implode(', ') ?: '(none)',
+            'Blog posts: '.$site->posts()->count().' total ('
+                .$site->posts()->published()->count().' published)'
+                .($site->posts()->exists()
+                    ? ' — titles: '.$site->posts()->orderByDesc('id')->limit(8)->pluck('title')->implode('; ')
+                    : ''),
         ];
 
         if ($reviewsInPlan && ! $reviewsVisible && $reviews->count() < Lead::MIN_TESTIMONIALS) {

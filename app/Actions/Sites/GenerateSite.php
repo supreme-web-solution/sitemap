@@ -10,6 +10,7 @@ use App\Models\Lead;
 use App\Models\Site;
 use App\Models\SiteDesignTemplate;
 use App\Services\SiteBuilder\SectionVariants;
+use App\Services\SiteBuilder\SiteBrandAssets;
 use App\Services\SiteBuilder\SiteContentSchema;
 use App\Services\SiteBuilder\SiteCopywriter;
 use Illuminate\Support\Facades\DB;
@@ -17,10 +18,10 @@ use Illuminate\Support\Str;
 
 class GenerateSite
 {
-    public function __construct(protected SiteCopywriter $copywriter)
-    {
-        //
-    }
+    public function __construct(
+        protected SiteCopywriter $copywriter,
+        protected SiteBrandAssets $brandAssets,
+    ) {}
 
     /**
      * Generate (or regenerate) the website for the given lead.
@@ -70,7 +71,7 @@ class GenerateSite
 
             $lead->save();
 
-            return $site;
+            return $this->brandAssets->refresh($site->fresh(['lead']));
         });
     }
 

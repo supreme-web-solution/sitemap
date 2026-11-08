@@ -17,7 +17,7 @@ export type TextSelection = {
 
 export type ImageSelection = {
     kind: 'image';
-    slot: 'logo' | 'photo' | 'service' | 'home_hero' | 'about_hero' | 'about_portrait' | 'services_hero' | 'service_hero' | 'gallery_hero' | 'contact_hero' | 'blog_hero' | 'post_hero' | 'landing_hero' | 'location_hero';
+    slot: 'logo' | 'photo' | 'service' | 'home_hero' | 'about_hero' | 'about_portrait' | 'services_hero' | 'service_hero' | 'gallery_hero' | 'contact_hero' | 'blog_hero' | 'post_hero' | 'landing_hero' | 'location_hero' | 'cta_band';
     index: number | null;
     label: string;
 };

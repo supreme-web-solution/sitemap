@@ -308,6 +308,25 @@ class SiteServiceCopy
     }
 
     /**
+     * Draft one service entry for AI or editor inserts.
+     *
+     * @param  list<string>  $takenSlugs
+     * @return array{title: string, description: string, body: string, slug: string}
+     */
+    public function forTitle(Lead $lead, string $title, array $takenSlugs = []): array
+    {
+        $written = $this->write($lead, $title, '', '');
+        $slug = SitePages::uniqueSlug('', $title, $takenSlugs);
+
+        return [
+            'title' => Str::limit($title, 60, ''),
+            'description' => $written['description'],
+            'body' => $written['body'],
+            'slug' => $slug,
+        ];
+    }
+
+    /**
      * @return array{description: string, body: string}
      */
     protected function write(Lead $lead, string $title, string $summary, string $body): array

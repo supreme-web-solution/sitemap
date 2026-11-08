@@ -12,6 +12,7 @@ use App\Services\Audit\SafeHttpFetcher;
 use App\Services\Audit\UnsafeUrlException;
 use App\Services\Media\SiteImageStorage;
 use App\Services\SiteBuilder\LeadPhotoGenerator;
+use App\Services\SiteBuilder\SiteBrandAssets;
 use App\Services\SiteBuilder\SiteImageGenerationPlanner;
 use App\Services\SiteBuilder\SiteImagePlacements;
 use App\Services\SiteBuilder\SiteImagePromptBuilder;
@@ -20,6 +21,7 @@ use App\Services\SiteBuilder\SitePages;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -45,17 +47,21 @@ class SiteMediaController extends Controller
             return $this->generated($request, $currentTeam, $site, $images, $imagePlanner, $mediaUndo, $imageStorage);
         }
 
+        $slot = (string) $request->input('slot');
         $data = $request->validate([
             'slot' => ['required', Rule::in($this->slots())],
-            'index' => ['nullable', 'integer', 'min:0', 'max:'.$this->maxIndexForSlot((string) $request->input('slot'))],
-            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.($request->input('slot') === 'logo' ? 2048 : 5120)],
+            'index' => ['nullable', 'integer', 'min:0', 'max:'.$this->maxIndexForSlot($slot)],
+            'image' => $this->uploadRules($slot),
         ]);
+
+        $file = $request->file('image');
+        $this->assertHomeHeroVideoAllowed($slot, $file);
 
         $lead = $site->lead;
         $mediaUndo->remember($site, $lead);
 
         try {
-            $stored = $imageStorage->storeUploadedFile($request->file('image'), $currentTeam->id, $lead->id)['path'];
+            $stored = $imageStorage->storeUploadedFile($file, $currentTeam->id, $lead->id)['path'];
         } catch (\RuntimeException $exception) {
             throw ValidationException::withMessages(['image' => $exception->getMessage()]);
         }
@@ -65,6 +71,7 @@ class SiteMediaController extends Controller
             $imageStorage->forgetReplaced($lead->logo_path);
             $lead->logo_path = $stored;
             $lead->save();
+            $this->refreshBrandAssets($site);
 
             return $this->media($site, $lead);
         }
@@ -133,6 +140,7 @@ class SiteMediaController extends Controller
             $imageStorage->forgetReplaced($lead->logo_path);
             $lead->logo_path = null;
             $lead->save();
+            $this->refreshBrandAssets($site);
 
             return $this->media($site, $lead);
         }
@@ -290,6 +298,10 @@ class SiteMediaController extends Controller
             }
 
             if (SiteImagePlacements::is($data['slot'])) {
+                if ($improve && SiteImagePlacements::isVideoPath($site->content['images'][$data['slot']] ?? null)) {
+                    throw ValidationException::withMessages(['prompt' => __('Replace the video with a photo before sharpening.')]);
+                }
+
                 return $this->generatedPlacement($site, $lead, $currentTeam, $images, $data['slot'], $prompt, $improve, $imageStorage);
             }
 
@@ -452,6 +464,7 @@ class SiteMediaController extends Controller
         $imageStorage->forgetReplaced($lead->logo_path);
         $lead->logo_path = $generated['path'];
         $lead->save();
+        $this->refreshBrandAssets($site);
 
         return $this->media($site, $lead);
     }
@@ -734,6 +747,61 @@ class SiteMediaController extends Controller
         }
 
         return filled($lead->photo_url) ? [$lead->photo_url] : [];
+    }
+
+    protected function refreshBrandAssets(Site $site): void
+    {
+        app(SiteBrandAssets::class)->refresh($site->fresh(['lead']));
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    protected function uploadRules(string $slot): array
+    {
+        if (SiteImagePlacements::allowsVideo($slot)) {
+            return [
+                'required',
+                'file',
+                'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime',
+                'max:5120',
+            ];
+        }
+
+        return [
+            'required',
+            'image',
+            'mimes:jpg,jpeg,png,webp',
+            'max:'.($slot === 'logo' ? 2048 : 5120),
+        ];
+    }
+
+    protected function assertHomeHeroVideoAllowed(string $slot, ?UploadedFile $file): void
+    {
+        if ($file === null) {
+            return;
+        }
+
+        $mime = (string) $file->getMimeType();
+        $isVideo = str_starts_with($mime, 'video/');
+
+        if (! $isVideo) {
+            return;
+        }
+
+        if (! SiteImagePlacements::allowsVideo($slot)) {
+            throw ValidationException::withMessages([
+                'image' => __('Only the home hero can use a background video.'),
+            ]);
+        }
+
+        $maxBytes = SiteImagePlacements::VIDEO_MAX_KB * 1024;
+
+        if ((int) $file->getSize() > $maxBytes) {
+            throw ValidationException::withMessages([
+                'image' => __('Hero videos must be :max MB or smaller.', ['max' => 2]),
+            ]);
+        }
     }
 
     protected function keepHistory(Site $site, string $label): void
