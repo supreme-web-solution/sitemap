@@ -582,6 +582,16 @@
                 return;
             }
 
+            const panel = target.closest?.('[data-edit-panel]');
+
+            if (panel) {
+                event.preventDefault();
+                event.stopPropagation();
+                send('panel', { name: panel.dataset.editPanel || 'posts' });
+
+                return;
+            }
+
             const image = target.closest?.('[data-edit-image]');
 
             if (image) {

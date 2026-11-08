@@ -271,6 +271,15 @@ class SiteContentSchema
 
         if (array_key_exists('pages', $validated)) {
             $content['pages'] = array_values($validated['pages'] ?? []);
+
+            if (in_array('gallery', $content['pages'], true)) {
+                $sections = array_values(array_filter(
+                    $content['sections'] ?? SiteSection::defaultOrder(),
+                    'is_string',
+                ));
+                $content['sections'] = SiteStructuralIntent::insertSection($sections, SiteSection::Gallery->value);
+                $content = self::showSection($content, SiteSection::Gallery->value);
+            }
         } elseif ($withDefaults) {
             $content['pages'] = SitePages::DEFAULT;
         }

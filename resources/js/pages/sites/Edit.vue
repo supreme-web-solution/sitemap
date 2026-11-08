@@ -330,6 +330,7 @@ const copyLink = async () => {
             @quality="liveQuality = $event"
             @improve="improve"
             @pull-brand="pullBrand"
+            @panel="openSettings"
         >
             <template #start>
                 <Button

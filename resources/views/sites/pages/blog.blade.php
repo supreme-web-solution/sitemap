@@ -19,8 +19,20 @@
                         <span class="more-link">Read more &rarr;</span>
                     </a>
                 @empty
-                    <p class="section-link">Posts from {{ $lead->name }} will show here soon.</p>
+                    @unless (! empty($editing))
+                        <p class="section-link">Posts from {{ $lead->name }} will show here soon.</p>
+                    @endunless
                 @endforelse
+                @if (! empty($editing))
+                    <button
+                        type="button"
+                        class="edit-add-image is-gallery"
+                        data-edit-panel="posts"
+                        data-test="add-blog-post"
+                    >
+                        Add a post
+                    </button>
+                @endif
             </div>
         </div>
     </section>

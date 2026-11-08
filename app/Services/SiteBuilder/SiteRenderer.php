@@ -97,7 +97,7 @@ class SiteRenderer
             'nav' => $this->navigation($renderSite, $urls, $content),
             'services' => $services,
             'posts' => $page['type'] === 'blog' ? $this->pages->posts($site) : collect(),
-            'sections' => $this->visibleSections($content, $photos, $hours, $mapEmbedUrl, $reviews->count(), count(SiteProofPoints::areas($lead))),
+            'sections' => $this->visibleSections($content, $photos, $hours, $mapEmbedUrl, $reviews->count(), count(SiteProofPoints::areas($lead)), $editing),
             'reviews' => $reviews,
             'reviewsStyle' => $reviewsStyle->value,
             'reviewsUrl' => $lead->reviewsUrl(),
@@ -197,7 +197,7 @@ class SiteRenderer
      * @param  array<string, string>  $hours
      * @return list<string>
      */
-    public function visibleSections(array $content, array $photos, array $hours, ?string $mapEmbedUrl, int $reviewCount = 0, int $areaCount = 0): array
+    public function visibleSections(array $content, array $photos, array $hours, ?string $mapEmbedUrl, int $reviewCount = 0, int $areaCount = 0, bool $editing = false): array
     {
         $planned = array_values(array_filter(
             $content['sections'] ?? SiteSection::defaultOrder(),
@@ -211,6 +211,14 @@ class SiteRenderer
             && ! in_array(SiteSection::Reviews->value, $hidden, true)
         ) {
             $planned = SiteStructuralIntent::insertSection($planned, SiteSection::Reviews->value);
+        }
+
+        if (
+            $this->pages->isEnabled($content, 'gallery')
+            && ! in_array(SiteSection::Gallery->value, $planned, true)
+            && ! in_array(SiteSection::Gallery->value, $hidden, true)
+        ) {
+            $planned = SiteStructuralIntent::insertSection($planned, SiteSection::Gallery->value);
         }
 
         $visible = [];
@@ -228,7 +236,7 @@ class SiteRenderer
                 continue;
             }
 
-            if ($this->sectionIsAvailable($section, $content, $photos, $hours, $mapEmbedUrl, $reviewCount, $areaCount, $planned)) {
+            if ($this->sectionIsAvailable($section, $content, $photos, $hours, $mapEmbedUrl, $reviewCount, $areaCount, $planned, $editing)) {
                 $visible[] = $section->value;
             }
         }
@@ -248,6 +256,7 @@ class SiteRenderer
         int $reviewCount,
         int $areaCount,
         array $planned,
+        bool $editing = false,
     ): bool {
         return match ($section) {
             SiteSection::Services => ! empty($content['services']),
@@ -255,7 +264,9 @@ class SiteRenderer
             SiteSection::Process => true,
             SiteSection::Why => true,
             SiteSection::Reviews => $reviewCount >= Lead::MIN_TESTIMONIALS,
-            SiteSection::Gallery => count($photos) >= self::MIN_GALLERY_PHOTOS,
+            SiteSection::Gallery => $this->pages->isEnabled($content, 'gallery')
+                ? ($editing || count($photos) >= 1)
+                : count($photos) >= self::MIN_GALLERY_PHOTOS,
             SiteSection::Areas => $areaCount > 0,
             SiteSection::Hours => $hours !== [] || $mapEmbedUrl !== null,
             SiteSection::Faq => ! empty($content['faqs']),

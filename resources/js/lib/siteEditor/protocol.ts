@@ -72,7 +72,8 @@ export type FrameMessage =
     | { type: 'image'; slot: ImageSelection['slot']; index: number | null; label: string }
     | { type: 'section'; action: 'up' | 'down' | 'hide' | 'improve'; key: string }
     | { type: 'inview'; key: string; label: string }
-    | { type: 'shortcut'; name: 'undo' | 'redo' | 'save' };
+    | { type: 'shortcut'; name: 'undo' | 'redo' | 'save' }
+    | { type: 'panel'; name: 'posts' };
 
 export type HostMessage =
     | { type: 'mode'; mode: 'edit' | 'preview' }

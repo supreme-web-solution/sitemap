@@ -109,8 +109,9 @@ const remove = (post: SitePost) => {
     <section class="panel p-5" data-test="posts-panel">
         <h2 class="text-base font-semibold">Blog</h2>
         <p class="mt-1 text-sm text-muted-foreground">
-            Publish helpful articles to give the site fresh pages for Google.
-            Turn on Blog under Pages in the menu, then publish posts here.
+            Turn on Blog under Pages in the menu, then write posts here (or click
+            Add a post on the Blog page in the editor). Ask the AI tab for draft
+            ideas, then paste and edit before publishing.
         </p>
 
         <ul v-if="posts.length" class="mt-4 grid gap-2">

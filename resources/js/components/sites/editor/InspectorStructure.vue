@@ -38,18 +38,23 @@ const hidden = computed(() =>
     props.sectionOptions.filter((section) => !props.draft.sections.includes(section.value)),
 );
 
-const togglePage = (page: string, enabled: boolean) =>
-    emit(
-        'commit',
-        [
-            {
-                op: 'set',
-                path: 'pages',
-                value: enabled ? [...pages.value, page] : pages.value.filter((value) => value !== page),
-            },
-        ],
-        { immediate: true, reload: true },
-    );
+const togglePage = (page: string, enabled: boolean) => {
+    const nextPages = enabled
+        ? [...pages.value, page]
+        : pages.value.filter((value) => value !== page);
+    const ops: EditOp[] = [{ op: 'set', path: 'pages', value: nextPages }];
+
+    if (page === 'gallery' && enabled && !props.draft.sections.includes('gallery')) {
+        ops.push({
+            op: 'insert',
+            path: 'sections',
+            index: props.draft.sections.length,
+            value: 'gallery',
+        });
+    }
+
+    emit('commit', ops, { immediate: true, reload: true });
+};
 
 const moveSection = (from: number, offset: -1 | 1) => {
     const to = from + offset;
@@ -75,10 +80,10 @@ const showSection = (value: string) =>
         <div class="grid gap-2" data-test="pages-setting">
             <Label>Pages in the menu</Label>
             <p class="text-xs text-muted-foreground">
-                Home and Contact are always on. About, Services, Gallery, and Blog
-                appear in the header when checked. Campaign and location pages are
-                separate — turn on Show in menu on each page below if you want them
-                in the nav too.
+                Home and Contact are always on. Checking Gallery also adds the
+                gallery block on the home page (same photos as the Gallery page).
+                Blog adds a Blog menu link — write posts with Add a post on that
+                page, or under Settings → Blog posts.
             </p>
             <label
                 v-for="option in pageOptions"

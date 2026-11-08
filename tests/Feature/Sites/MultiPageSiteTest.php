@@ -141,6 +141,24 @@ test('an enabled gallery page shows even before photos are added', function () {
     $this->get(previewPage($site))->assertSee("/p/{$site->slug}/gallery", escape: false);
 });
 
+test('enabling the gallery page also shows the home gallery section once photos exist', function () {
+    Storage::fake('public');
+
+    $site = multiPageSite(
+        [
+            'pages' => ['about', 'services', 'gallery'],
+            'sections' => ['services', 'about', 'contact'],
+        ],
+        ['photo_paths' => ['teams/1/leads/1/one.jpg']],
+    );
+
+    $this->get(previewPage($site))
+        ->assertOk()
+        ->assertSee('id="gallery"', false)
+        ->assertSee(Storage::disk('public')->url('teams/1/leads/1/one.jpg'), escape: false)
+        ->assertSee("/p/{$site->slug}/gallery", escape: false);
+});
+
 test('the gallery page shows photos when the page is enabled', function () {
     Storage::fake('public');
 
@@ -154,6 +172,28 @@ test('the gallery page shows photos when the page is enabled', function () {
         ->assertSee(Storage::disk('public')->url('teams/1/leads/1/two.jpg'), escape: false);
 
     $this->get(previewPage($site))->assertSee("/p/{$site->slug}/gallery", escape: false);
+});
+
+test('the blog page shows an add post control while editing', function () {
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'name' => 'Austin Pro Plumbing',
+        'category' => 'Plumber',
+        'city' => 'Austin',
+    ]);
+    $site = Site::factory()->create([
+        'lead_id' => $lead->id,
+        'content' => [
+            ...Site::factory()->make()->content,
+            'pages' => ['about', 'services', 'blog'],
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('sites.preview', ['site' => $site->slug, 'path' => 'blog', 'internal' => 1, 'editor' => 1]))
+        ->assertOk()
+        ->assertSee('data-edit-panel="posts"', false)
+        ->assertSee('Add a post');
 });
 
 test('a service detail page uses that service card image in the hero', function () {

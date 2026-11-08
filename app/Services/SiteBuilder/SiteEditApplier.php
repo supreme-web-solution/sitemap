@@ -46,7 +46,7 @@ class SiteEditApplier
         '#^process\.\d+\.(title|description)$#',
         '#^why\.\d+\.(title|description)$#',
         '#^page_labels\.[a-z_]+$#',
-        '#^custom_pages\.\d+\.(title|headline|intro|body|cta_label|city|slug)$#',
+        '#^custom_pages\.\d+\.(title|headline|intro|body|cta_label|city|slug|in_menu)$#',
         '#^translations\.[a-z]{2}\.(headline|tagline|cta_label|about)$#',
         '#^translations\.[a-z]{2}\.services\.\d+\.(title|description|body)$#',
         '#^translations\.[a-z]{2}\.faqs\.\d+\.(question|answer)$#',

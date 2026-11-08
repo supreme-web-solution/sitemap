@@ -7,9 +7,13 @@
         <span class="section-label"{!! $e->label('gallery_label') !!}>{{ $e->copy('gallery_label', 'Gallery') }}</span>
         <h2 class="section-title"{!! $e->label('gallery_title') !!}>{{ $e->copy('gallery_title', 'Take a Look') }}</h2>
         <div class="gallery">
-            @foreach (array_slice($galleryPhotos, 0, 6) as $index => $photo)
+            @forelse (array_slice($galleryPhotos, 0, 6) as $index => $photo)
                 @include('sites.partials.gallery-item', ['photo' => $photo, 'index' => $index])
-            @endforeach
+            @empty
+                @unless (! empty($editing))
+                    <p class="section-link">Photos for {{ $lead->name }} will show here soon.</p>
+                @endunless
+            @endforelse
             @if (! empty($editing) && $galleryCount < $galleryMax)
                 <button
                     type="button"

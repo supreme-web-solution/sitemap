@@ -61,6 +61,7 @@ const emit = defineEmits<{
         preview_edits?: PreviewEdit[];
     }];
     'pull-brand': [];
+    panel: [name: 'posts'];
 }>();
 
 export type SiteEditorAiContext = {
@@ -308,6 +309,12 @@ const onFrameMessage = (message: FrameMessage) => {
                 editor.redo();
             } else {
                 void editor.flush();
+            }
+
+            break;
+        case 'panel':
+            if (message.name === 'posts') {
+                emit('panel', 'posts');
             }
 
             break;
