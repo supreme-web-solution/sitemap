@@ -278,7 +278,7 @@ const showGuide = useLocalStorage('board-show-guide', true);
     <Head title="Pipeline" />
 
     <div
-        class="flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] flex-col gap-4 overflow-hidden p-4 md:px-6 md:pt-6 md:pb-4"
+        class="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4 md:px-6 md:pt-6 md:pb-4"
     >
         <div class="flex shrink-0 flex-wrap items-center justify-between gap-3">
             <Heading
