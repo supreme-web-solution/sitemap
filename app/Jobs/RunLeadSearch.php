@@ -3,8 +3,10 @@
 namespace App\Jobs;
 
 use App\Actions\Leads\StoreLeadsFromListings;
+use App\Data\LeadFinderResult;
 use App\Enums\LeadSearchStatus;
 use App\Models\LeadSearch;
+use App\Services\CommandCenter\CommandCenterNotifier;
 use App\Services\LeadFinder\LeadFinder;
 use App\Support\Queues;
 use DateTimeInterface;
@@ -93,19 +95,29 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
         }
 
         match ($result->status) {
-            LeadSearchStatus::Completed => DB::transaction(function () use ($search, $result, $storeLeads) {
-                $storeLeads->handle($search, $result->listings);
-
-                $search->update([
-                    'status' => LeadSearchStatus::Completed,
-                    'provider_job_id' => $result->providerJobId,
-                    'results_count' => count($result->listings),
-                    'completed_at' => now(),
-                ]);
-            }),
+            LeadSearchStatus::Completed => $this->complete($search, $result, $storeLeads),
             LeadSearchStatus::Failed => $search->markAsFailed($result->error ?? 'The search could not be completed.'),
             default => $this->waitForProvider($result->providerJobId),
         };
+    }
+
+    /**
+     * Store the listings, mark the search completed, and tell the Command Center user.
+     */
+    protected function complete(LeadSearch $search, LeadFinderResult $result, StoreLeadsFromListings $storeLeads): void
+    {
+        DB::transaction(function () use ($search, $result, $storeLeads) {
+            $storeLeads->handle($search, $result->listings);
+
+            $search->update([
+                'status' => LeadSearchStatus::Completed,
+                'provider_job_id' => $result->providerJobId,
+                'results_count' => count($result->listings),
+                'completed_at' => now(),
+            ]);
+        });
+
+        app(CommandCenterNotifier::class)->leadSearchFinished($search);
     }
 
     /**

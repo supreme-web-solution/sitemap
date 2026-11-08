@@ -18,7 +18,7 @@ class DeleteLead implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Permanently delete one lead. Always requires user approval via the sidebar.';
+        return 'Permanently delete one lead. Always requires user approval above the message box.';
     }
 
     public function handle(Request $request): Stringable|string

@@ -75,6 +75,7 @@ class CommandCenterActionExecutor
             'minimum_rating' => isset($data['minimum_rating']) ? (float) $data['minimum_rating'] : null,
             'max_results' => (int) ($data['max_results'] ?? 20),
             'user_id' => $user->id,
+            'notify_command_center' => true,
             'status' => LeadSearchStatus::Pending,
         ]);
 

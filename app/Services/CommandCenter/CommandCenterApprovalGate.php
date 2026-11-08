@@ -71,7 +71,7 @@ class CommandCenterApprovalGate
         if ($this->needsApproval($context, $action)) {
             $pending = $this->propose($context, $action, $payload, $summary);
 
-            return __('Approval #:id queued: :summary. Ask the user to tap Approve in the sidebar.', [
+            return __('Approval #:id queued: :summary. Ask the user to tap Approve above the message box in the Command Center. Once approved, the app posts a completion update in this chat (and on WhatsApp) automatically.', [
                 'id' => $pending->id,
                 'summary' => $summary,
             ]);

@@ -10,11 +10,18 @@ import {
 } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ChatMarkdown from '@/components/command-center/ChatMarkdown.vue';
+import PendingActionsBar, {
+    type PendingActionItem,
+} from '@/components/command-center/PendingActionsBar.vue';
 import { formatMessageClockTime } from '@/lib/format';
 import { requestHeaders } from '@/lib/siteEditor/http';
 import { index as commandCenterIndex } from '@/routes/command-center';
 import { destroy as resetConversation } from '@/routes/command-center/conversation';
 import { history as messageHistory, store as sendMessage } from '@/routes/command-center/messages';
+import {
+    approve as approvePendingAction,
+    dismiss as dismissPendingAction,
+} from '@/routes/command-center/pending';
 
 type ChatMessage = {
     id: string;
@@ -35,10 +42,13 @@ const open = useLocalStorage('cc-widget-open', false);
 const savedPos = useLocalStorage<WidgetPos | null>('cc-widget-pos-v2', null);
 
 const messages = ref<ChatMessage[]>([]);
+const pendingActions = ref<PendingActionItem[]>([]);
 const draft = ref('');
 const chatProcessing = ref(false);
+const awaitingUpdates = ref(false);
 const aiAvailable = ref(shared.value?.aiAvailable ?? false);
 const sending = ref(false);
+const actionBusy = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const scrollEl = ref<HTMLElement | null>(null);
@@ -251,14 +261,22 @@ const refreshThread = async () => {
             messages: ChatMessage[];
             chatProcessing: boolean;
             aiAvailable: boolean;
+            pendingActions?: PendingActionItem[];
+            awaitingUpdates?: boolean;
         };
 
         messages.value = data.messages ?? [];
+        pendingActions.value = data.pendingActions ?? [];
         chatProcessing.value = Boolean(data.chatProcessing);
+        awaitingUpdates.value = Boolean(data.awaitingUpdates);
         aiAvailable.value = Boolean(data.aiAvailable);
         await scrollToBottom();
 
-        if (chatProcessing.value) {
+        if (
+            chatProcessing.value ||
+            awaitingUpdates.value ||
+            pendingActions.value.length > 0
+        ) {
             startPoll();
         } else {
             stopPoll();
@@ -370,6 +388,77 @@ const clearChat = async () => {
     });
 
     await refreshThread();
+};
+
+const approvePending = async (id: number) => {
+    if (!teamSlug.value || actionBusy.value) {
+        return;
+    }
+
+    actionBusy.value = true;
+    error.value = null;
+
+    try {
+        const response = await fetch(
+            approvePendingAction({
+                current_team: teamSlug.value,
+                pendingAction: id,
+            }).url,
+            {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: requestHeaders(),
+            },
+        );
+
+        if (!response.ok) {
+            const payload = (await response.json().catch(() => null)) as {
+                message?: string;
+            } | null;
+            error.value = payload?.message ?? 'Could not approve that action.';
+            return;
+        }
+
+        await refreshThread();
+        startPoll();
+    } finally {
+        actionBusy.value = false;
+    }
+};
+
+const dismissPending = async (id: number) => {
+    if (!teamSlug.value || actionBusy.value) {
+        return;
+    }
+
+    actionBusy.value = true;
+    error.value = null;
+
+    try {
+        const response = await fetch(
+            dismissPendingAction({
+                current_team: teamSlug.value,
+                pendingAction: id,
+            }).url,
+            {
+                method: 'DELETE',
+                credentials: 'same-origin',
+                headers: requestHeaders(),
+            },
+        );
+
+        if (!response.ok) {
+            const payload = (await response.json().catch(() => null)) as {
+                message?: string;
+            } | null;
+            error.value = payload?.message ?? 'Could not dismiss that action.';
+            return;
+        }
+
+        await refreshThread();
+    } finally {
+        actionBusy.value = false;
+    }
 };
 
 const fullPageUrl = computed(() =>
@@ -516,10 +605,16 @@ const fullPageUrl = computed(() =>
                     </div>
                 </div>
 
-                <form
-                    class="shrink-0 border-t border-border/70 bg-card p-2.5"
-                    @submit.prevent="send"
-                >
+                <div class="shrink-0 border-t border-border/70 bg-card">
+                    <PendingActionsBar
+                        :items="pendingActions"
+                        compact
+                        :busy="actionBusy"
+                        @approve="approvePending"
+                        @dismiss="dismissPending"
+                    />
+
+                    <form class="p-2.5" @submit.prevent="send">
                     <div
                         class="flex items-end gap-2 rounded-xl border border-border bg-muted/40 p-1.5"
                     >
@@ -557,7 +652,8 @@ const fullPageUrl = computed(() =>
                     >
                         Set OPENAI_API_KEY to chat with {{ employee.name }}.
                     </p>
-                </form>
+                    </form>
+                </div>
             </div>
 
             <div

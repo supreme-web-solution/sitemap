@@ -48,7 +48,7 @@ class CommandCenterAgent implements Agent, Conversational, HasTools
 
         $modeRules = $this->context->mode === CommandCenterMode::Autopilot
             ? <<<'AUTO'
-            Autopilot: execute read/write tools when intent is clear. Deletions ALWAYS queue for sidebar approval — never assume deletes are done until the user approves.
+            Autopilot: execute read/write tools when intent is clear. Deletions ALWAYS queue for approval above the message box — never assume deletes are done until the user approves.
             AUTO
             : <<<'ASSIST'
             Assist: use read-only tools anytime. For searches, pipeline changes, enrollments, automations, and updates, call the tool — the app will queue an Approve button unless the user already said to proceed. Confirm destructive plans in chat first.
@@ -64,7 +64,7 @@ class CommandCenterAgent implements Agent, Conversational, HasTools
         Tool discipline:
         - Never guess lead IDs — use list_leads first.
         - Pipeline stages: new, site_generated, contacted, interested, won, lost (lost needs lost_reason when available).
-        - When a tool returns “Approval #… queued”, tell the user to use Approve in the sidebar (Attention).
+        - When a tool returns “Approval #… queued”, tell the user to tap Approve above the message box in the Command Center, and that you will update them here (and on WhatsApp) when it is done — the app posts completion updates automatically, so do not claim results before then.
         - Background automations (Automations page) vs one-off playbooks: describe_workflow_automation vs run_lead_automation.
 
         You can prospect, summarize pipeline, list/update/delete leads (with approval rules), enroll sequences, and queue audits/sites/proposals.

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\LeadSearchStatus;
 use App\Enums\WebsiteFilter;
+use App\Services\CommandCenter\CommandCenterNotifier;
 use Database\Factories\LeadSearchFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -27,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $provider_job_id
  * @property int $results_count
  * @property string|null $error
+ * @property bool $notify_command_center
  * @property Carbon|null $completed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -46,6 +48,7 @@ use Illuminate\Support\Carbon;
     'provider_job_id',
     'results_count',
     'error',
+    'notify_command_center',
     'completed_at',
 ])]
 class LeadSearch extends Model
@@ -93,6 +96,8 @@ class LeadSearch extends Model
             'error' => $error,
             'completed_at' => now(),
         ]);
+
+        app(CommandCenterNotifier::class)->leadSearchFinished($this);
     }
 
     /**
@@ -105,6 +110,7 @@ class LeadSearch extends Model
         return [
             'website_filter' => WebsiteFilter::class,
             'minimum_rating' => 'float',
+            'notify_command_center' => 'boolean',
             'status' => LeadSearchStatus::class,
             'completed_at' => 'datetime',
         ];

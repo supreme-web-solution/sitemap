@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import {
-    AlertCircle,
     ChevronDown,
     ChevronUp,
     Battery,
@@ -15,6 +14,7 @@ import {
 } from '@lucide/vue';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import ChatMarkdown from '@/components/command-center/ChatMarkdown.vue';
+import PendingActionsBar from '@/components/command-center/PendingActionsBar.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -60,6 +60,7 @@ const props = defineProps<{
     messages: ChatMessage[];
     hasOlderMessages: boolean;
     chatProcessing: boolean;
+    awaitingUpdates: boolean;
     whatsapp: WhatsAppSetup;
     mode: string;
     modeOptions: { value: string; label: string }[];
@@ -260,12 +261,12 @@ watch(
 
 const { start: startPoll, stop: stopPoll } = usePoll(
     1500,
-    { only: ['messages', 'chatProcessing', 'pendingActions', 'whatsapp'] },
+    { only: ['messages', 'chatProcessing', 'awaitingUpdates', 'pendingActions', 'whatsapp'] },
     { autoStart: false },
 );
 
 watch(
-    () => props.chatProcessing,
+    () => props.chatProcessing || props.awaitingUpdates,
     (busy) => (busy ? startPoll() : stopPoll()),
     { immediate: true },
 );
@@ -540,38 +541,45 @@ const copyText = async (text: string) => {
                 </div>
             </div>
 
-            <form class="border-t border-border/70 bg-card px-6 py-5" @submit.prevent="send">
-                <div
-                    class="flex items-end gap-3 rounded-2xl border border-border bg-[#f7f5f2] p-2.5 dark:bg-background"
-                >
-                    <textarea
-                        v-model="chatForm.message"
-                        rows="1"
-                        placeholder="What do you want to accomplish?"
-                        :disabled="!aiAvailable || chatProcessing"
-                        class="max-h-36 min-h-14 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-[15px] leading-6 outline-none ring-0 placeholder:text-muted-foreground focus-visible:ring-0"
-                        @keydown.enter.exact.prevent="send"
-                    />
-                    <button
-                        type="submit"
-                        class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-stone-100 dark:text-stone-900"
-                        :disabled="
-                            !aiAvailable ||
-                            chatProcessing ||
-                            isSending ||
-                            !chatForm.message.trim()
-                        "
+            <div class="sticky bottom-0 z-10 shrink-0 border-t border-border/70 bg-card">
+                <PendingActionsBar
+                    :items="pendingActions"
+                    @approve="approveAction"
+                    @dismiss="dismissAction"
+                />
+                <form class="px-6 py-5" @submit.prevent="send">
+                    <div
+                        class="flex items-end gap-3 rounded-2xl border border-border bg-[#f7f5f2] p-2.5 dark:bg-background"
                     >
-                        <Send class="size-4" />
-                    </button>
-                </div>
-                <InputError class="mt-2" :message="chatForm.errors.message" />
-                <p v-if="!aiAvailable" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                    Set OPENAI_API_KEY for {{ employee.name }}. Run
-                    <code class="rounded bg-muted px-1">composer run queue:dev</code>
-                    so the webhooks worker processes replies.
-                </p>
-            </form>
+                        <textarea
+                            v-model="chatForm.message"
+                            rows="1"
+                            placeholder="What do you want to accomplish?"
+                            :disabled="!aiAvailable || chatProcessing"
+                            class="max-h-36 min-h-14 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-[15px] leading-6 outline-none ring-0 placeholder:text-muted-foreground focus-visible:ring-0"
+                            @keydown.enter.exact.prevent="send"
+                        />
+                        <button
+                            type="submit"
+                            class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-stone-100 dark:text-stone-900"
+                            :disabled="
+                                !aiAvailable ||
+                                chatProcessing ||
+                                isSending ||
+                                !chatForm.message.trim()
+                            "
+                        >
+                            <Send class="size-4" />
+                        </button>
+                    </div>
+                    <InputError class="mt-2" :message="chatForm.errors.message" />
+                    <p v-if="!aiAvailable" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                        Set OPENAI_API_KEY for {{ employee.name }}. Run
+                        <code class="rounded bg-muted px-1">composer run queue:dev</code>
+                        so the webhooks worker processes replies.
+                    </p>
+                </form>
+            </div>
         </section>
 
         <aside class="flex w-full shrink-0 flex-col gap-4 lg:w-80">
@@ -593,42 +601,9 @@ const copyText = async (text: string) => {
                     </SelectContent>
                 </Select>
                 <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    Autopilot runs allowlisted actions. Deletes always need Approve in Attention.
+                    Autopilot runs allowlisted actions. Approvals appear in the chat above the
+                    message box.
                 </p>
-            </div>
-
-            <div
-                v-if="pendingActions.length"
-                class="rounded-xl border border-amber-500/35 bg-amber-500/5 p-4 shadow-sm"
-            >
-                <div
-                    class="flex items-center gap-2 text-sm font-semibold text-amber-950 dark:text-amber-100"
-                >
-                    <AlertCircle class="size-4" />
-                    Attention
-                </div>
-                <ul class="mt-3 space-y-3">
-                    <li
-                        v-for="item in pendingActions"
-                        :key="item.id"
-                        class="rounded-lg border border-border/70 bg-card p-3 text-xs shadow-sm"
-                    >
-                        <p class="font-medium text-foreground">{{ item.summary }}</p>
-                        <div class="mt-2 flex gap-2">
-                            <Button size="sm" class="h-8 flex-1" @click="approveAction(item.id)">
-                                Approve
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                class="h-8"
-                                @click="dismissAction(item.id)"
-                            >
-                                Dismiss
-                            </Button>
-                        </div>
-                    </li>
-                </ul>
             </div>
 
             <div

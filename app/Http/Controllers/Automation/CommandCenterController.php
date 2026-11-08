@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Ai\AiAvailability;
 use App\Services\CommandCenter\CommandCenterActionExecutor;
 use App\Services\CommandCenter\CommandCenterChatLog;
+use App\Services\CommandCenter\CommandCenterNotifier;
 use App\Services\CommandCenter\CommandCenterSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +25,7 @@ use Inertia\Response;
 
 class CommandCenterController extends Controller
 {
-    public function index(Team $currentTeam, CommandCenterSession $session, Request $request): Response
+    public function index(Team $currentTeam, CommandCenterSession $session, Request $request, CommandCenterNotifier $notifier): Response
     {
         $user = $request->user();
         $mode = $session->mode($currentTeam, $user);
@@ -56,6 +57,7 @@ class CommandCenterController extends Controller
             'messages' => $messages,
             'hasOlderMessages' => $hasOlderMessages,
             'chatProcessing' => $session->isProcessing($currentTeam, $user),
+            'awaitingUpdates' => $notifier->hasWorkInProgress($currentTeam, $user),
             'whatsapp' => $session->whatsAppSetup($currentTeam, $user),
             'mode' => $mode->value,
             'modeOptions' => CommandCenterMode::options(),
@@ -98,7 +100,7 @@ class CommandCenterController extends Controller
         return back();
     }
 
-    public function history(Request $request, Team $currentTeam, CommandCenterSession $session): JsonResponse
+    public function history(Request $request, Team $currentTeam, CommandCenterSession $session, CommandCenterNotifier $notifier): JsonResponse
     {
         $data = $request->validate([
             'before' => ['nullable', 'integer', 'min:1'],
@@ -121,10 +123,14 @@ class CommandCenterController extends Controller
             $page['hasOlder'] = false;
         }
 
+        $user = $request->user();
+
         return response()->json([
             ...$page,
-            'chatProcessing' => $session->isProcessing($currentTeam, $request->user()),
+            'chatProcessing' => $session->isProcessing($currentTeam, $user),
             'aiAvailable' => AiAvailability::openaiConfigured(),
+            'pendingActions' => $this->pendingActions($currentTeam, $user),
+            'awaitingUpdates' => $notifier->hasWorkInProgress($currentTeam, $user),
             'employee' => [
                 'name' => $employeeName,
                 'title' => config('command_center.employee_title'),
@@ -183,7 +189,8 @@ class CommandCenterController extends Controller
         Team $currentTeam,
         CommandCenterPendingAction $pendingAction,
         CommandCenterActionExecutor $executor,
-    ): RedirectResponse {
+        CommandCenterNotifier $notifier,
+    ): RedirectResponse|JsonResponse {
         $this->authorizePending($currentTeam, $request->user()->id, $pendingAction);
 
         $result = $executor->run(
@@ -198,6 +205,16 @@ class CommandCenterController extends Controller
             'resolved_at' => now(),
         ])->save();
 
+        $notifier->actionApproved($currentTeam, $request->user(), $result);
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'ok' => true,
+                'message' => $result,
+                'pendingActions' => $this->pendingActions($currentTeam, $request->user()),
+            ]);
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => $result]);
 
         return back();
@@ -207,13 +224,20 @@ class CommandCenterController extends Controller
         Request $request,
         Team $currentTeam,
         CommandCenterPendingAction $pendingAction,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
         $this->authorizePending($currentTeam, $request->user()->id, $pendingAction);
 
         $pendingAction->forceFill([
             'status' => CommandCenterPendingActionStatus::Dismissed,
             'resolved_at' => now(),
         ])->save();
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'ok' => true,
+                'pendingActions' => $this->pendingActions($currentTeam, $request->user()),
+            ]);
+        }
 
         return back();
     }
