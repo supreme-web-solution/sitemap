@@ -2,6 +2,7 @@
 import { ExternalLink, MapPin, Megaphone, Plus, Trash2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { CommitOptions } from '@/composables/useSiteEditor';
@@ -52,18 +53,21 @@ const previewLink = (page: SiteCustomPage): string => {
 const setField = (
     index: number,
     field: keyof SiteCustomPage,
-    value: string,
+    value: string | boolean,
 ) => {
-    let next = value;
+    let next: string | boolean = value;
 
-    if (field === 'slug') {
+    if (field === 'slug' && typeof value === 'string') {
         next = slugify(value);
     }
 
     emit(
         'commit',
         [{ op: 'set', path: customPagePath(index, field), value: next }],
-        field === 'slug' || field === 'title' || field === 'headline'
+        field === 'slug' ||
+            field === 'title' ||
+            field === 'headline' ||
+            field === 'in_menu'
             ? { immediate: true, reload: true }
             : { coalesceKey: `custom:${index}:${field}` },
     );
@@ -134,8 +138,11 @@ const textareaClass =
         <div class="grid gap-1">
             <Label>Campaign &amp; location pages</Label>
             <p class="text-xs text-muted-foreground">
-                Extra URLs for ads and local SEO. Each page gets its own address
-                (for example <code class="text-[0.7rem]">/landing/spring-offer</code>).
+                Extra pages with their own URLs for ads and local SEO (for example
+                <code class="text-[0.7rem]">/landing/spring-offer</code>).
+                They stay out of the header menu unless you turn
+                <span class="font-medium text-foreground">Show in menu</span> on.
+                Use Preview to open the page anytime.
             </p>
         </div>
 
@@ -193,7 +200,21 @@ const textareaClass =
                             maxlength="120"
                             @update:model-value="setField(index, 'title', String($event ?? ''))"
                         />
+                        <p class="text-xs text-muted-foreground">
+                            Label used if this page is shown in the header menu.
+                        </p>
                     </div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            :model-value="page.in_menu === true"
+                            data-test="custom-page-in-menu"
+                            @update:model-value="
+                                setField(index, 'in_menu', $event === true)
+                            "
+                        />
+                        Show in menu
+                    </label>
 
                     <div class="grid gap-2">
                         <Label :for="`cp-slug-${index}`">URL slug</Label>

@@ -71,6 +71,7 @@ export function newLandingPage(
             : `Local ${categoryLabel} you can trust.`,
         body: `Tell us what you need and we will follow up with clear next steps. ${businessName} keeps things straightforward from the first conversation.`,
         cta_label: 'Contact us',
+        in_menu: false,
     };
 }
 
@@ -92,5 +93,6 @@ export function newLocationPage(
         body: `${businessName} helps customers in ${place} with dependable ${categoryLabel}. Call or message us to talk through what you need.`,
         city: city ?? '',
         cta_label: 'Call now',
+        in_menu: false,
     };
 }

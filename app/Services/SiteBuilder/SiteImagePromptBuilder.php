@@ -11,6 +11,33 @@ use Illuminate\Support\Str;
  */
 class SiteImagePromptBuilder
 {
+    /**
+     * A simple square brand mark for the site header when the business has no logo.
+     */
+    public static function forLogo(Lead $lead, ?string $userHint = null): string
+    {
+        $hint = trim((string) $userHint);
+        $category = trim((string) ($lead->category ?? 'local service business'));
+        $city = trim((string) ($lead->city ?? ''));
+        $name = trim((string) $lead->name);
+        $initials = self::logoInitials($name);
+
+        $prompt = implode(' ', array_filter([
+            'Flat vector-style business logo mark for a website header, square 1:1 canvas.',
+            "Business name: {$name}.",
+            "Industry: {$category}.",
+            $city !== '' ? "Local market: {$city}." : null,
+            $initials !== '' ? "May use the initials {$initials} as a simple monogram." : null,
+            'Clean professional brand mark: simple geometric icon or monogram, bold shapes, high contrast.',
+            'Solid or soft gradient background, centered, generous padding, looks crisp at small sizes.',
+            'No photograph, no 3D render, no mockup, no phone screen, no watermark, no busy collage.',
+            'Do not invent a long slogan. Short wordmark or initials only if needed.',
+            $hint !== '' ? 'User request: '.Str::limit($hint, 300, '') : null,
+        ]));
+
+        return Str::limit($prompt, 900, '');
+    }
+
     public static function forHero(Lead $lead, Site $site, ?string $userHint = null): string
     {
         $hint = trim((string) $userHint);
@@ -103,6 +130,28 @@ class SiteImagePromptBuilder
             'Do not add text, logos, watermarks, or new objects.',
             $hint !== '' ? 'Also: '.Str::limit($hint, 200, '') : null,
         ])), 900, '');
+    }
+
+    protected static function logoInitials(string $name): string
+    {
+        $words = preg_split('/\s+/', trim($name)) ?: [];
+        $letters = [];
+
+        foreach ($words as $word) {
+            $clean = preg_replace('/[^A-Za-z0-9]/', '', $word) ?? '';
+
+            if ($clean === '') {
+                continue;
+            }
+
+            $letters[] = Str::upper(Str::substr($clean, 0, 1));
+
+            if (count($letters) >= 3) {
+                break;
+            }
+        }
+
+        return implode('', $letters);
     }
 
     protected static function subjectForCategory(string $category): string

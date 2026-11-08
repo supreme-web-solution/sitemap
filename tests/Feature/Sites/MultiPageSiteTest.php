@@ -121,7 +121,7 @@ test('unknown pages and services return not found', function (string $path) {
     $site = multiPageSite();
 
     $this->get(previewPage($site, $path))->assertNotFound();
-})->with(['unknown page' => 'pricing', 'unknown service' => 'services/nope', 'too deep' => 'services/a/b', 'gallery without photos' => 'gallery', 'blog without posts' => 'blog']);
+})->with(['unknown page' => 'pricing', 'unknown service' => 'services/nope', 'too deep' => 'services/a/b', 'gallery when off' => 'gallery', 'blog when off' => 'blog']);
 
 test('pages can be switched off', function () {
     $site = multiPageSite(['pages' => ['services']]);
@@ -131,10 +131,23 @@ test('pages can be switched off', function () {
     $this->get(previewPage($site, 'contact'))->assertOk();
 });
 
-test('the gallery page appears once the business has enough photos', function () {
+test('an enabled gallery page shows even before photos are added', function () {
+    $site = multiPageSite(['pages' => ['about', 'services', 'gallery']]);
+
+    $this->get(previewPage($site, 'gallery'))
+        ->assertOk()
+        ->assertSee('Photos for Austin Pro Plumbing will show here soon.');
+
+    $this->get(previewPage($site))->assertSee("/p/{$site->slug}/gallery", escape: false);
+});
+
+test('the gallery page shows photos when the page is enabled', function () {
     Storage::fake('public');
 
-    $site = multiPageSite(leadAttributes: ['photo_paths' => ['teams/1/leads/1/one.jpg', 'teams/1/leads/1/two.jpg']]);
+    $site = multiPageSite(
+        ['pages' => ['about', 'services', 'gallery']],
+        ['photo_paths' => ['teams/1/leads/1/one.jpg', 'teams/1/leads/1/two.jpg']],
+    );
 
     $this->get(previewPage($site, 'gallery'))
         ->assertOk()
@@ -143,8 +156,30 @@ test('the gallery page appears once the business has enough photos', function ()
     $this->get(previewPage($site))->assertSee("/p/{$site->slug}/gallery", escape: false);
 });
 
+test('a service detail page uses that service card image in the hero', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('teams/1/leads/1/repairs.jpg', 'service-photo');
+
+    $site = multiPageSite([
+        'services' => [[
+            'title' => 'Emergency Repairs',
+            'description' => 'Fast help when something goes wrong.',
+            'slug' => 'emergency-repairs',
+            'body' => 'We answer leaks at any hour.',
+            'image_path' => 'teams/1/leads/1/repairs.jpg',
+        ]],
+    ]);
+
+    $url = Storage::disk('public')->url('teams/1/leads/1/repairs.jpg');
+
+    $this->get(previewPage($site, 'services/emergency-repairs'))
+        ->assertOk()
+        ->assertSee($url, escape: false)
+        ->assertSee('class="hero-image"', escape: false);
+});
+
 test('the blog only shows published posts', function () {
-    $site = multiPageSite();
+    $site = multiPageSite(['pages' => ['about', 'services', 'blog']]);
     SitePost::factory()->for($site)->create(['title' => 'Winter pipe tips', 'slug' => 'winter-pipe-tips', 'body' => "Lag your pipes.\n\nTurn off outdoor taps."]);
     SitePost::factory()->for($site)->draft()->create(['title' => 'Secret draft', 'slug' => 'secret-draft']);
     SitePost::factory()->for($site)->create(['title' => 'Scheduled later', 'slug' => 'scheduled-later', 'published_at' => now()->addWeek()]);
@@ -165,7 +200,7 @@ test('the blog only shows published posts', function () {
 });
 
 test('blog post text is escaped', function () {
-    $site = multiPageSite();
+    $site = multiPageSite(['pages' => ['about', 'services', 'blog']]);
     SitePost::factory()->for($site)->create(['slug' => 'xss', 'body' => '<script>alert(1)</script>']);
 
     $this->get(previewPage($site, 'blog/xss'))
@@ -190,7 +225,7 @@ test('internal previews keep the internal flag on every link', function () {
 });
 
 test('the export contains a folder for every page', function () {
-    $site = multiPageSite();
+    $site = multiPageSite(['pages' => ['about', 'services', 'blog']]);
     SitePost::factory()->for($site)->create(['slug' => 'winter-pipe-tips']);
     $user = User::factory()->create();
     $site->forceFill(['team_id' => $user->currentTeam->id])->save();

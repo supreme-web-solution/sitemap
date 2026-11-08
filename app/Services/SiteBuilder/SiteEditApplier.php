@@ -84,7 +84,7 @@ class SiteEditApplier
             'template' => $site->template->value,
             ...$content,
             'sections' => $content['sections'] ?? SiteSection::defaultOrder(),
-            'pages' => $content['pages'] ?? SitePages::OPTIONAL,
+            'pages' => $content['pages'] ?? SitePages::DEFAULT,
             'custom_pages' => array_values($content['custom_pages'] ?? []),
         ];
     }

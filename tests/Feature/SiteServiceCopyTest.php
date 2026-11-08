@@ -127,6 +127,55 @@ test('the service page shows the reviews carousel when reviews are stored', func
         ->assertSee('data-reviews-carousel', false);
 });
 
+test('the service page includes other services and a full-width map when available', function () {
+    $lead = Lead::factory()->create([
+        'name' => 'Handyman Mike',
+        'category' => 'Handyman',
+        'city' => 'Austin',
+        'address' => '5211 Eilers Ave, Austin, TX 78751',
+    ]);
+    $site = Site::factory()->create([
+        'lead_id' => $lead->id,
+        'content' => [
+            ...Site::factory()->make()->content,
+            'services' => [
+                [
+                    'title' => 'General Repairs',
+                    'description' => 'Everyday fixes around the house.',
+                    'slug' => 'general-repairs',
+                    'body' => str_repeat('Solid repair copy. ', 30),
+                ],
+                [
+                    'title' => 'Furniture Assembly',
+                    'description' => 'Put together tables, chairs, and shelves.',
+                    'slug' => 'furniture-assembly',
+                    'body' => str_repeat('Assembly done carefully. ', 20),
+                ],
+                [
+                    'title' => 'Minor Plumbing',
+                    'description' => 'Small plumbing jobs done right.',
+                    'slug' => 'minor-plumbing',
+                    'body' => str_repeat('Plumbing help nearby. ', 20),
+                ],
+            ],
+        ],
+    ]);
+
+    $this->get(route('sites.preview', [
+        'site' => $site->slug,
+        'path' => 'services/general-repairs',
+        'internal' => 1,
+    ]))
+        ->assertOk()
+        ->assertSee('Other services')
+        ->assertSee('Furniture Assembly')
+        ->assertSee('Minor Plumbing')
+        ->assertSee('/services/furniture-assembly', false)
+        ->assertSee('service-map', false)
+        ->assertSee('maps.google.com/maps', false)
+        ->assertSee('Find us in Austin');
+});
+
 test('the contact page puts the form left of the details with the map below', function () {
     $lead = Lead::factory()->create([
         'name' => 'Handyman Mike',

@@ -257,10 +257,7 @@ class SiteMediaController extends Controller
         SiteImageStorage $imageStorage,
     ): JsonResponse {
         $data = $request->validate([
-            'slot' => ['required', Rule::in(array_values(array_filter(
-                $this->slots(),
-                fn (string $slot) => $slot !== 'logo',
-            )))],
+            'slot' => ['required', Rule::in($this->slots())],
             'index' => ['nullable', 'integer', 'min:0', 'max:'.$this->maxIndexForSlot((string) $request->input('slot'))],
             'prompt' => ['nullable', 'string', 'max:500'],
             'improve' => ['sometimes', 'boolean'],
@@ -276,10 +273,18 @@ class SiteMediaController extends Controller
             throw ValidationException::withMessages(['prompt' => __('Describe the photo you want.')]);
         }
 
+        if ($improve && $data['slot'] === 'logo') {
+            throw ValidationException::withMessages(['prompt' => __('Generate a new logo instead of sharpening this one.')]);
+        }
+
         $lead = $site->lead;
         $mediaUndo->remember($site, $lead);
 
         try {
+            if ($data['slot'] === 'logo') {
+                return $this->generatedLogo($site, $lead, $currentTeam, $images, $prompt, $imageStorage);
+            }
+
             if ($data['slot'] === 'service') {
                 return $this->generatedService($site, $lead, $currentTeam, $images, $data['index'] ?? null, $prompt, $improve, $imageStorage);
             }
@@ -424,6 +429,31 @@ class SiteMediaController extends Controller
         $content['services'] = $services;
         $site->content = $content;
         $site->save();
+    }
+
+    protected function generatedLogo(
+        Site $site,
+        Lead $lead,
+        Team $currentTeam,
+        LeadPhotoGenerator $images,
+        string $prompt,
+        SiteImageStorage $imageStorage,
+    ): JsonResponse {
+        $plan = new SiteImageGenerationPlan(
+            prompt: SiteImagePromptBuilder::forLogo($lead, $prompt !== '' ? $prompt : null),
+            aspectRatio: '1:1',
+            placement: 'logo',
+            reasoning: 'Generate a simple square brand mark for the website header.',
+            fromLlm: false,
+        );
+
+        $generated = $images->generate($plan, $currentTeam->id, $lead->id);
+        $this->keepHistory($site, __('Before generating a logo'));
+        $imageStorage->forgetReplaced($lead->logo_path);
+        $lead->logo_path = $generated['path'];
+        $lead->save();
+
+        return $this->media($site, $lead);
     }
 
     protected function generatedService(

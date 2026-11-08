@@ -215,7 +215,18 @@ const isPagePhoto = computed(() => {
 const canUseAiImage = computed(() => {
     const selection = imageSelection.value;
 
-    return selection !== null && selection.slot !== 'logo' && props.aiAvailable;
+    return selection !== null && props.aiAvailable;
+});
+
+const canImproveAiImage = computed(() => {
+    const selection = imageSelection.value;
+
+    return (
+        canUseAiImage.value &&
+        selection !== null &&
+        selection.slot !== 'logo' &&
+        Boolean(currentImage.value)
+    );
 });
 
 const canGenerateWithoutPrompt = computed(() => {
@@ -225,7 +236,7 @@ const canGenerateWithoutPrompt = computed(() => {
         return false;
     }
 
-    if (selection.slot === 'service' || isPagePhoto.value) {
+    if (selection.slot === 'logo' || selection.slot === 'service' || isPagePhoto.value) {
         return true;
     }
 
@@ -293,7 +304,7 @@ const startAddPhoto = () => {
 const generateImage = async () => {
     const selection = imageSelection.value;
 
-    if (!selection || (selection.slot === 'logo')) {
+    if (!selection) {
         return;
     }
 
@@ -310,7 +321,7 @@ const generateImage = async () => {
             'media-changed',
             await generateSiteImage(props.teamSlug, props.siteId, { slot: selection.slot, index: selection.index }, prompt),
         );
-        toast.success('Image generated');
+        toast.success(selection.slot === 'logo' ? 'Logo generated' : 'Image generated');
         askingForNewPhoto.value = false;
         imagePrompt.value = '';
     } catch (error) {
@@ -621,13 +632,19 @@ const textareaClass =
                         v-if="currentImage"
                         :src="currentImage"
                         :alt="imageSelection.label"
-                        class="size-full object-cover"
+                        :class="
+                            imageSelection.slot === 'logo'
+                                ? 'size-full object-contain p-4'
+                                : 'size-full object-cover'
+                        "
                     />
                     <div
                         v-else
                         class="flex flex-col items-center gap-2 px-4 text-center"
                     >
-                        <span class="text-sm text-muted-foreground">No photo yet</span>
+                        <span class="text-sm text-muted-foreground">
+                            {{ imageSelection.slot === 'logo' ? 'No logo yet' : 'No photo yet' }}
+                        </span>
                         <Button
                             type="button"
                             size="sm"
@@ -646,7 +663,7 @@ const textareaClass =
                             :disabled="uploading"
                             @click="askingForNewPhoto = true"
                         >
-                            or generate one
+                            {{ imageSelection.slot === 'logo' ? 'or generate a logo' : 'or generate one' }}
                         </button>
                     </div>
                     <div
@@ -682,7 +699,7 @@ const textareaClass =
                             Replace
                         </button>
                         <button
-                            v-if="canUseAiImage"
+                            v-if="canImproveAiImage"
                             type="button"
                             class="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-900 shadow-sm hover:bg-white"
                             :disabled="uploading"
@@ -699,7 +716,7 @@ const textareaClass =
                             @click="askingForNewPhoto = !askingForNewPhoto"
                         >
                             <Sparkles class="size-3.5" />
-                            New with AI
+                            {{ imageSelection.slot === 'logo' ? 'New logo with AI' : 'New with AI' }}
                         </button>
                     </div>
                 </div>
@@ -728,9 +745,11 @@ const textareaClass =
                         id="image-prompt"
                         v-model="imagePrompt"
                         :placeholder="
-                            canGenerateWithoutPrompt
-                                ? 'Optional description'
-                                : 'Describe the photo'
+                            imageSelection.slot === 'logo'
+                                ? 'Optional: e.g. blue wrench monogram'
+                                : canGenerateWithoutPrompt
+                                  ? 'Optional description'
+                                  : 'Describe the photo'
                         "
                         maxlength="500"
                         autofocus
@@ -744,7 +763,7 @@ const textareaClass =
                         "
                     >
                         <Sparkles class="size-3.5" />
-                        Create with AI
+                        {{ imageSelection.slot === 'logo' ? 'Generate logo' : 'Create with AI' }}
                     </Button>
                 </form>
                 <button

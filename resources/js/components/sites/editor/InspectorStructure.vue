@@ -75,8 +75,10 @@ const showSection = (value: string) =>
         <div class="grid gap-2" data-test="pages-setting">
             <Label>Pages in the menu</Label>
             <p class="text-xs text-muted-foreground">
-                Home and Contact are always on. A page is left out
-                automatically until it has something to show.
+                Home and Contact are always on. About, Services, Gallery, and Blog
+                appear in the header when checked. Campaign and location pages are
+                separate — turn on Show in menu on each page below if you want them
+                in the nav too.
             </p>
             <label
                 v-for="option in pageOptions"
@@ -173,8 +175,8 @@ const showSection = (value: string) =>
                 </Button>
             </div>
             <p class="text-xs text-muted-foreground">
-                Sections without content (e.g. a gallery with no photos) are
-                left out automatically.
+                Home sections without content (e.g. a gallery with no photos) are
+                left out of the homepage automatically. That does not hide menu pages.
             </p>
         </div>
 

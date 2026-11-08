@@ -99,6 +99,51 @@ test('custom landing and location pages render on published domains', function (
         ->assertSee('Plumber in Austin');
 });
 
+test('custom pages only appear in the header menu when show in menu is on', function () {
+    $lead = Lead::factory()->create(['city' => 'Austin', 'name' => 'Handyman Mike']);
+    $site = Site::factory()->create([
+        'lead_id' => $lead->id,
+        'content' => [
+            ...Site::factory()->make()->content,
+            'pages' => ['about', 'services'],
+            'custom_pages' => [
+                [
+                    'kind' => 'location',
+                    'slug' => 'austin',
+                    'title' => 'Handyman Mike in Austin',
+                    'headline' => 'Handyman in Austin',
+                    'body' => 'We serve Austin.',
+                    'city' => 'Austin',
+                    'in_menu' => false,
+                ],
+                [
+                    'kind' => 'landing',
+                    'slug' => 'spring-offer',
+                    'title' => 'Spring offer',
+                    'headline' => 'Spring tune-up',
+                    'body' => 'Book this month.',
+                    'in_menu' => true,
+                ],
+            ],
+        ],
+    ]);
+
+    $html = app(SiteRenderer::class)->render($site, asPreview: true);
+
+    expect($html)->toContain('Spring offer')
+        ->and($html)->toContain('/landing/spring-offer')
+        ->and($html)->not->toContain('Handyman Mike in Austin');
+
+    $content = $site->content;
+    $content['custom_pages'][0]['in_menu'] = true;
+    $site->forceFill(['content' => $content])->save();
+
+    $withBoth = app(SiteRenderer::class)->render($site->fresh(), asPreview: true);
+
+    expect($withBoth)->toContain('Handyman Mike in Austin')
+        ->and($withBoth)->toContain('/locations/austin');
+});
+
 test('industry catalog templates can apply distinct layout variants', function () {
     $template = SiteDesignTemplate::query()->create([
         'slug' => 'test-split-hero',

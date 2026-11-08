@@ -146,6 +146,49 @@ test('the visual editor can generate and attach an ai photo', function () {
     expect($lead->fresh()->photo_paths)->toHaveCount(1);
 });
 
+test('the visual editor can generate a logo without a typed prompt', function () {
+    Storage::fake('public');
+
+    config([
+        'sites.image_driver' => 'openrouter',
+        'services.openrouter.key' => 'test-key',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'openrouter.ai/api/v1/images')) {
+            return Http::response([
+                'data' => [['b64_json' => base64_encode('fake-logo-bytes'), 'media_type' => 'image/png']],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create([
+        'name' => 'Handyman Ram',
+        'category' => 'Handyman',
+        'city' => 'Austin',
+        'logo_path' => null,
+    ]);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('sites.media.store', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]), [
+            'generate' => true,
+            'slot' => 'logo',
+        ])
+        ->assertOk()
+        ->assertJsonPath('logo', fn (?string $url) => is_string($url) && $url !== '');
+
+    expect($lead->fresh()->logo_path)->not->toBeEmpty();
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'openrouter.ai/api/v1/images')
+        && str_contains($request->body(), 'business logo mark')
+        && str_contains($request->body(), 'Handyman Ram')
+        && str_contains($request->body(), '"aspect_ratio":"1:1"'));
+});
+
 test('the visual editor can generate a service card image without a prompt', function () {
     Storage::fake('public');
 

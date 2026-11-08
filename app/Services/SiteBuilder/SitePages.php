@@ -31,6 +31,13 @@ class SitePages
      */
     public const OPTIONAL = ['about', 'services', 'gallery', 'blog'];
 
+    /**
+     * Pages turned on for a newly built site. Gallery and Blog stay off until enabled.
+     *
+     * @var list<string>
+     */
+    public const DEFAULT = ['about', 'services'];
+
     public const PAGE_LABELS = [
         'about' => 'About',
         'services' => 'Services',
@@ -50,29 +57,21 @@ class SitePages
             return true;
         }
 
-        return in_array($page, $content['pages'] ?? self::OPTIONAL, true);
+        return in_array($page, $content['pages'] ?? self::DEFAULT, true);
     }
 
     /**
      * Get the pages that exist for the site, in navigation order.
      *
+     * Enabled pages appear even when they still need photos or posts — the agency can set those up.
+     *
      * @return list<string>
      */
     public function available(Site $site): array
     {
-        $content = $site->content;
-
-        $exists = fn (string $page): bool => match ($page) {
-            'about' => filled($content['about'] ?? null),
-            'services' => ! empty($content['services']),
-            'gallery' => count($site->lead->photoUrls()) >= SiteRenderer::MIN_GALLERY_PHOTOS,
-            'blog' => $this->posts($site)->isNotEmpty(),
-            'contact' => true,
-        };
-
         return array_values(array_filter(
             self::PAGES,
-            fn (string $page) => $this->isEnabled($content, $page) && $exists($page),
+            fn (string $page) => $this->isEnabled($site->content, $page),
         ));
     }
 

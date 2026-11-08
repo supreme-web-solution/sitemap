@@ -83,6 +83,8 @@ class SiteRenderer
         $layoutVariant = $site->designTemplate?->layout_variant ?? SiteLayoutVariant::Standard;
         $layoutClass = trim($layoutVariant->bodyClass().' '.SectionVariants::bodyClasses($variants));
 
+        $services = $this->pages->services($content);
+
         return view('sites.pages.'.$page['type'], [
             'site' => $renderSite,
             'lead' => $lead,
@@ -93,7 +95,7 @@ class SiteRenderer
             'seoBuilder' => $this->seo,
             'breadcrumbs' => $seo['breadcrumbs'],
             'nav' => $this->navigation($renderSite, $urls, $content),
-            'services' => $this->pages->services($content),
+            'services' => $services,
             'posts' => $page['type'] === 'blog' ? $this->pages->posts($site) : collect(),
             'sections' => $this->visibleSections($content, $photos, $hours, $mapEmbedUrl, $reviews->count(), count(SiteProofPoints::areas($lead))),
             'reviews' => $reviews,
@@ -132,8 +134,7 @@ class SiteRenderer
                     ->all()
                 : [],
             'logoUrl' => $lead->logoUrl(),
-            'heroImage' => $this->placedImage($content, SiteImagePlacements::forPageType($page['type']), $photos[0] ?? null),
-            'heroSlot' => SiteImagePlacements::forPageType($page['type']),
+            ...$this->heroContext($content, $page, $photos, $services),
             'aboutPortrait' => $this->placedImage($content, 'about_portrait', $photos[1] ?? $photos[0] ?? null),
             'galleryPhotos' => $photos,
             'hours' => $hours,
@@ -163,6 +164,25 @@ class SiteRenderer
                 'key' => $page,
                 'label' => SiteLocales::pageLabel($content, $page),
                 'url' => $urls->to($page),
+            ];
+        }
+
+        foreach ($this->pages->customPages($content) as $custom) {
+            if (! ($custom['in_menu'] ?? false)) {
+                continue;
+            }
+
+            $prefix = ($custom['kind'] ?? '') === 'landing' ? 'landing' : 'locations';
+            $slug = (string) ($custom['slug'] ?? '');
+
+            if ($slug === '') {
+                continue;
+            }
+
+            $items[] = [
+                'key' => $prefix.'/'.$slug,
+                'label' => (string) ($custom['title'] ?? $slug),
+                'url' => $urls->to($prefix.'/'.$slug),
             ];
         }
 
@@ -313,6 +333,47 @@ class SiteRenderer
         }
 
         return $ordered + $hours;
+    }
+
+    /**
+     * Hero image and editor slot for this page. Service detail pages reuse that service's card photo.
+     *
+     * @param  array<string, mixed>  $content
+     * @param  array<string, mixed>  $page
+     * @param  list<string>  $photos
+     * @param  list<array{title: string, description: string, body: string, slug: string, image_url: string}>  $services
+     * @return array{heroImage: ?string, heroSlot: string, heroIndex: ?int}
+     */
+    protected function heroContext(array $content, array $page, array $photos, array $services): array
+    {
+        if (($page['type'] ?? '') === 'service') {
+            $slug = $page['service']['slug'] ?? null;
+            $index = collect($services)->search(fn (array $service) => $service['slug'] === $slug);
+            $index = $index === false ? null : (int) $index;
+            $serviceUrl = is_string($page['service']['image_url'] ?? null) ? $page['service']['image_url'] : null;
+
+            if (filled($serviceUrl) && ! str_starts_with($serviceUrl, 'data:')) {
+                return [
+                    'heroImage' => $serviceUrl,
+                    'heroSlot' => 'service',
+                    'heroIndex' => $index,
+                ];
+            }
+
+            return [
+                'heroImage' => $this->placedImage($content, 'service_hero', $photos[0] ?? null),
+                'heroSlot' => $index !== null ? 'service' : 'service_hero',
+                'heroIndex' => $index,
+            ];
+        }
+
+        $slot = SiteImagePlacements::forPageType((string) ($page['type'] ?? 'home'));
+
+        return [
+            'heroImage' => $this->placedImage($content, $slot, $photos[0] ?? null),
+            'heroSlot' => $slot,
+            'heroIndex' => null,
+        ];
     }
 
     /**

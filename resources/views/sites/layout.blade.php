@@ -95,6 +95,9 @@
         .hours td { padding: .65rem 0; }
         .hours td:last-child { text-align: right; font-weight: 600; }
         .map { width: 100%; height: 340px; border: 0; border-radius: var(--radius); }
+        .service-map { margin-top: 1.5rem; }
+        .service-map .map--bleed { display: block; height: clamp(280px, 42vw, 460px); border-radius: 0; }
+        .service-map__address { margin: .35rem 0 0; opacity: .78; }
         .faq { margin-top: 2rem; display: grid; gap: .75rem; }
         .faq details { padding: 1.1rem 1.35rem; border-radius: var(--radius); }
         .faq summary { cursor: pointer; font-weight: 600; }
@@ -517,7 +520,7 @@
                             <a href="{{ $item['url'] }}" @if (($locale ?? 'en') === $item['code']) aria-current="page" @endif>{{ $item['label'] }}</a>
                         @endforeach
                     </nav>
-                @endif
+            @endif
                 <a class="btn btn-primary header-cta" href="{{ collect($nav)->contains('key', 'contact') ? $urls->to('contact') : ($phoneHref ?? '#contact') }}"><span>{{ $content['cta_label'] }}</span></a>
                 <details class="mobile-menu">
                     <summary aria-label="Menu"><span></span><span></span><span></span></summary>
@@ -588,7 +591,7 @@
                 });
             })();
         </script>
-    @endif
+            @endif
 
     <script>
         (() => {
@@ -702,13 +705,13 @@
     @endif
 
     @if ($asPreview)
-        @if (request()->boolean('thanks'))
+            @if (request()->boolean('thanks'))
             <div class="preview-bar" role="status">
                 <p class="preview-bar__note">Thank you! We have your details and will be in touch shortly.</p>
             </div>
-        @else
+            @else
             @include('sites.partials.preview-claim-bar')
-        @endif
+            @endif
     @endif
 </body>
 </html>

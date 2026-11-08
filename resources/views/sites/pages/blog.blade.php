@@ -11,14 +11,16 @@
     <section class="block">
         <div class="container">
             <div class="services">
-                @foreach ($posts as $post)
+                @forelse ($posts as $post)
                     <a class="service" href="{{ $urls->to('blog/'.$post->slug) }}">
                         <p class="post-meta"><time datetime="{{ $post->published_at->toDateString() }}">{{ $post->published_at->format('F j, Y') }}</time></p>
                         <h2 class="service-title">{{ $post->title }}</h2>
                         <p>{{ $seoBuilder->postSummary($post) }}</p>
                         <span class="more-link">Read more &rarr;</span>
                     </a>
-                @endforeach
+                @empty
+                    <p class="section-link">Posts from {{ $lead->name }} will show here soon.</p>
+                @endforelse
             </div>
         </div>
     </section>

@@ -297,6 +297,8 @@ export type SiteCustomPage = {
     body: string;
     cta_label?: string;
     city?: string;
+    /** When true, the page title appears in the site header menu. */
+    in_menu?: boolean;
 };
 
 export type SiteContent = {

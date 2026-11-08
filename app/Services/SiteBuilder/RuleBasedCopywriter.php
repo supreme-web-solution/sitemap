@@ -235,7 +235,7 @@ class RuleBasedCopywriter implements SiteCopywriter
                 'about' => $this->about($lead, $category, $preset['noun'] ?? $this->lower($category)),
                 'sections' => SiteSection::defaultOrder(),
                 'reviews_style' => ReviewsStyle::Carousel->value,
-                'pages' => SitePages::OPTIONAL,
+                'pages' => SitePages::DEFAULT,
                 'services' => $shaped['services'],
                 'additional_services' => $shaped['additional_services'],
                 'faqs' => $this->faqs($lead),

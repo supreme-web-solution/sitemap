@@ -84,7 +84,7 @@ class SiteController extends Controller
                 'content' => [
                     ...$site->content,
                     'sections' => $site->content['sections'] ?? SiteSection::defaultOrder(),
-                    'pages' => $site->content['pages'] ?? SitePages::OPTIONAL,
+                    'pages' => $site->content['pages'] ?? SitePages::DEFAULT,
                 ],
                 'previewUrl' => PreviewLink::page($site),
                 'editorUrl' => route('sites.preview', $site->slug, false).'?internal=1&editor=1',

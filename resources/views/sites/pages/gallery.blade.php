@@ -16,9 +16,13 @@
     <section class="block gallery-block">
         <div class="container">
             <div class="gallery">
-                @foreach ($galleryPhotos as $index => $photo)
+                @forelse ($galleryPhotos as $index => $photo)
                     @include('sites.partials.gallery-item', ['photo' => $photo, 'index' => $index])
-                @endforeach
+                @empty
+                    @unless (! empty($editing))
+                        <p class="section-link">Photos for {{ $lead->name }} will show here soon.</p>
+                    @endunless
+                @endforelse
                 @if (! empty($editing) && $galleryCount < $galleryMax)
                     <button
                         type="button"

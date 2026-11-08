@@ -110,7 +110,7 @@ const remove = (post: SitePost) => {
         <h2 class="text-base font-semibold">Blog</h2>
         <p class="mt-1 text-sm text-muted-foreground">
             Publish helpful articles to give the site fresh pages for Google.
-            The Blog page appears in the menu once a post is published.
+            Turn on Blog under Pages in the menu, then publish posts here.
         </p>
 
         <ul v-if="posts.length" class="mt-4 grid gap-2">

@@ -112,6 +112,7 @@ class SiteContentSchema
             'custom_pages.*.body' => ['required', 'string', 'max:8000'],
             'custom_pages.*.cta_label' => ['nullable', 'string', 'max:40'],
             'custom_pages.*.city' => ['nullable', 'string', 'max:80'],
+            'custom_pages.*.in_menu' => ['sometimes', 'boolean'],
             ...SiteLocales::rules(),
         ];
     }
@@ -271,7 +272,7 @@ class SiteContentSchema
         if (array_key_exists('pages', $validated)) {
             $content['pages'] = array_values($validated['pages'] ?? []);
         } elseif ($withDefaults) {
-            $content['pages'] = SitePages::OPTIONAL;
+            $content['pages'] = SitePages::DEFAULT;
         }
 
         if ($copy = SiteCopy::clean($validated['copy'] ?? null)) {
@@ -321,16 +322,22 @@ class SiteContentSchema
 
         if (array_key_exists('custom_pages', $validated)) {
             $content['custom_pages'] = array_values(array_map(
-                fn (array $page) => array_filter([
-                    'kind' => $page['kind'],
-                    'slug' => $page['slug'],
-                    'title' => $page['title'],
-                    'headline' => $page['headline'],
-                    'intro' => $page['intro'] ?? null,
-                    'body' => $page['body'],
-                    'cta_label' => $page['cta_label'] ?? null,
-                    'city' => $page['city'] ?? null,
-                ], fn ($value) => $value !== null && $value !== ''),
+                function (array $page): array {
+                    $normalized = array_filter([
+                        'kind' => $page['kind'],
+                        'slug' => $page['slug'],
+                        'title' => $page['title'],
+                        'headline' => $page['headline'],
+                        'intro' => $page['intro'] ?? null,
+                        'body' => $page['body'],
+                        'cta_label' => $page['cta_label'] ?? null,
+                        'city' => $page['city'] ?? null,
+                    ], fn ($value) => $value !== null && $value !== '');
+
+                    $normalized['in_menu'] = (bool) ($page['in_menu'] ?? false);
+
+                    return $normalized;
+                },
                 $validated['custom_pages'] ?? [],
             ));
         }

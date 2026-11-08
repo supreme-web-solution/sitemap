@@ -3,15 +3,17 @@
     $headingAttributes = ! empty($headingKey) ? $e->label($headingKey) : (! empty($headingPath) ? $e->text($headingPath, $headingLabel ?? 'Heading', 60) : '');
     $introAttributes = ! empty($introKey) ? $e->label($introKey) : (! empty($introPath) ? $e->text($introPath, $introLabel ?? 'Introduction', 250, true) : '');
     $heroSlot = $heroSlot ?? 'home_hero';
+    $heroIndex = $heroIndex ?? null;
+    $heroLabel = $heroSlot === 'service' ? 'Service photo' : 'Page hero photo';
 @endphp
 <section class="hero page-hero">
     @if ($heroImage)
-        <img class="hero-image" src="{{ $heroImage }}" alt="{{ $lead->name }}" loading="eager" decoding="async"{!! $e->image($heroSlot, null, 'Page hero photo') !!}>
+        <img class="hero-image" src="{{ $heroImage }}" alt="{{ $lead->name }}" loading="eager" decoding="async"{!! $e->image($heroSlot, $heroIndex, $heroLabel) !!}>
         @if ($editing)
-            <button type="button" class="edit-change-hero"{!! $e->image($heroSlot, null, 'Page hero photo') !!}>Change photo</button>
+            <button type="button" class="edit-change-hero"{!! $e->image($heroSlot, $heroIndex, $heroLabel) !!}>Change photo</button>
         @endif
     @elseif ($editing)
-        <button type="button" class="edit-add-image"{!! $e->image($heroSlot, null, 'Page hero photo') !!}>Add a hero photo</button>
+        <button type="button" class="edit-add-image"{!! $e->image($heroSlot, $heroIndex, $heroLabel) !!}>Add a hero photo</button>
     @endif
     <div class="container">
         @include('sites.partials.breadcrumbs')

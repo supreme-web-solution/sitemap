@@ -133,7 +133,7 @@ test('the editor receives the posts and page options', function () {
             ->component('sites/Edit')
             ->where('posts.0.title', 'First post')
             ->where('pageOptions.0.value', 'about')
-            ->where('site.content.pages', ['about', 'services', 'gallery', 'blog']));
+            ->where('site.content.pages', ['about', 'services']));
 });
 
 test('page choices and service details are saved with the site', function () {

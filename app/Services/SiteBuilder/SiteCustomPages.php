@@ -30,6 +30,7 @@ class SiteCustomPages
                 'body' => "{$lead->name} helps customers in {$city} with dependable {$category}. Call or message us to talk through what you need.",
                 'city' => $city,
                 'cta_label' => 'Call now',
+                'in_menu' => false,
             ];
         }
 
@@ -41,6 +42,7 @@ class SiteCustomPages
             'intro' => $lead->city ? "Local {$category} for {$lead->city}." : "Local {$category} you can trust.",
             'body' => "Tell us what you need and we will follow up with clear next steps. {$lead->name} keeps things straightforward from the first conversation.",
             'cta_label' => 'Contact us',
+            'in_menu' => false,
         ];
 
         return $pages;
@@ -69,6 +71,7 @@ class SiteCustomPages
                 'body' => "{$businessName} helps customers in {$place} with dependable {$category}. Call or message us to talk through what you need.",
                 'city' => $city ?? '',
                 'cta_label' => 'Call now',
+                'in_menu' => false,
             ];
         }
 
@@ -80,6 +83,7 @@ class SiteCustomPages
             'intro' => $city ? "Local {$category} for {$city}." : "Local {$category} you can trust.",
             'body' => "Tell us what you need and we will follow up with clear next steps. {$businessName} keeps things straightforward from the first conversation.",
             'cta_label' => 'Contact us',
+            'in_menu' => false,
         ];
     }
 }
