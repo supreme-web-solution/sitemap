@@ -5,6 +5,7 @@ import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import FloatingCommandCenter from '@/components/command-center/FloatingCommandCenter.vue';
 import ImpersonationBanner from '@/components/ImpersonationBanner.vue';
 import { Toaster } from '@/components/ui/sonner';
 import type { BreadcrumbItem } from '@/types';
@@ -21,6 +22,11 @@ const page = usePage();
 
 /** Full-viewport boards should not scroll the main chrome — columns scroll inside. */
 const locksViewport = computed(() => page.component === 'leads/Board');
+
+/** Full Command Center page already has the chat — hide the floating widget there. */
+const showCommandWidget = computed(
+    () => page.component !== 'command-center/Index',
+);
 </script>
 
 <template>
@@ -41,6 +47,7 @@ const locksViewport = computed(() => page.component === 'leads/Board');
                 <slot />
             </div>
         </AppContent>
+        <FloatingCommandCenter v-if="showCommandWidget" />
         <Toaster />
     </AppShell>
 </template>

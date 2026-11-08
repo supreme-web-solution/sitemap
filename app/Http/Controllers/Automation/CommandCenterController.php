@@ -101,12 +101,36 @@ class CommandCenterController extends Controller
     public function history(Request $request, Team $currentTeam, CommandCenterSession $session): JsonResponse
     {
         $data = $request->validate([
-            'before' => ['required', 'integer', 'min:1'],
+            'before' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        return response()->json(
-            $session->messagePage($currentTeam, $request->user(), (int) $data['before']),
-        );
+        $before = isset($data['before']) ? (int) $data['before'] : null;
+        $page = $session->messagePage($currentTeam, $request->user(), $before);
+        $employeeName = config('command_center.employee_name');
+
+        if ($before === null && $page['messages'] === []) {
+            $page['messages'] = [[
+                'id' => 'welcome',
+                'role' => 'assistant',
+                'body' => __('Good morning! I\'m :name — I can find leads, move your pipeline, run playbooks, and queue site work. What should we do first?', [
+                    'name' => $employeeName,
+                ]),
+                'at' => now()->toISOString(),
+                'source' => 'web',
+            ]];
+            $page['hasOlder'] = false;
+        }
+
+        return response()->json([
+            ...$page,
+            'chatProcessing' => $session->isProcessing($currentTeam, $request->user()),
+            'aiAvailable' => AiAvailability::openaiConfigured(),
+            'employee' => [
+                'name' => $employeeName,
+                'title' => config('command_center.employee_title'),
+                'avatarUrl' => config('command_center.employee_avatar_url'),
+            ],
+        ]);
     }
 
     public function store(
@@ -114,7 +138,7 @@ class CommandCenterController extends Controller
         Team $currentTeam,
         CommandCenterSession $session,
         CommandCenterChatLog $chatLog,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
         if (! AiAvailability::openaiConfigured()) {
             throw ValidationException::withMessages([
                 'message' => __('Add OPENAI_API_KEY in your environment to chat with the Command Center.'),
@@ -146,6 +170,10 @@ class CommandCenterController extends Controller
             $data['message'],
             'web',
         );
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['ok' => true, 'chatProcessing' => true]);
+        }
 
         return back();
     }
@@ -190,9 +218,13 @@ class CommandCenterController extends Controller
         return back();
     }
 
-    public function destroy(Request $request, Team $currentTeam, CommandCenterSession $session): RedirectResponse
+    public function destroy(Request $request, Team $currentTeam, CommandCenterSession $session): RedirectResponse|JsonResponse
     {
         $session->clearConversation($currentTeam, $request->user());
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['ok' => true]);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Started a fresh conversation.')]);
 

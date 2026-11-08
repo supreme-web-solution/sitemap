@@ -24,6 +24,14 @@ declare module '@inertiajs/core' {
             currentTeam: Team | null;
             impersonating: { name: string } | null;
             teams: Team[];
+            commandCenter: {
+                employee: {
+                    name: string;
+                    title: string;
+                    avatarUrl: string | null;
+                };
+                aiAvailable: boolean;
+            } | null;
             [key: string]: unknown;
         };
     }

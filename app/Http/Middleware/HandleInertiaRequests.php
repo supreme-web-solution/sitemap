@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Services\Ai\AiAvailability;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -51,6 +52,14 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
+            'commandCenter' => fn () => $user?->currentTeam ? [
+                'employee' => [
+                    'name' => config('command_center.employee_name'),
+                    'title' => config('command_center.employee_title'),
+                    'avatarUrl' => config('command_center.employee_avatar_url'),
+                ],
+                'aiAvailable' => AiAvailability::openaiConfigured(),
+            ] : null,
         ];
     }
 }
