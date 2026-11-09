@@ -111,6 +111,8 @@ return [
     'cloudflare' => [
         'api_token' => env('CLOUDFLARE_API_TOKEN'),
         'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+        // Proxied hostname Cloudflare uses for origin TLS (e.g. origin.mapmaticapp.com). Must have a Forge SSL cert.
+        'origin_hostname' => env('CLOUDFLARE_ORIGIN_HOSTNAME'),
     ],
 
 ];

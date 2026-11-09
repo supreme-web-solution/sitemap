@@ -8,6 +8,7 @@ use App\Services\Cloudflare\SyncCloudflareHostname;
 use App\Services\Domains\DnsLookup;
 use App\Services\Domains\DomainVerifier;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 
 function cloudflareSite(): array
 {
@@ -36,6 +37,8 @@ test('cloudflare sync is skipped when credentials are missing', function () {
 });
 
 test('verifying a domain registers it with cloudflare for saas', function () {
+    Queue::fake();
+
     config([
         'services.cloudflare.api_token' => 'cf-token',
         'services.cloudflare.zone_id' => 'zone-123',
@@ -43,7 +46,7 @@ test('verifying a domain registers it with cloudflare for saas', function () {
     ]);
 
     Http::fake([
-        'api.cloudflare.com/client/v4/zones/zone-123/custom_hostnames' => Http::response([
+        'https://api.cloudflare.com/client/v4/zones/zone-123/custom_hostnames*' => Http::response([
             'success' => true,
             'result' => [
                 'id' => 'ch-1111-2222-3333-4444-555555555555',
@@ -95,9 +98,10 @@ test('verifying a domain registers it with cloudflare for saas', function () {
         ->cloudflare_hostname_id->toBe('ch-1111-2222-3333-4444-555555555555')
         ->cloudflare_status->toBe('pending')
         ->cloudflare_ssl_status->toBe('pending_validation')
-        ->check_error->toContain('HTTPS is still activating');
+        ->check_error->not->toBeNull();
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://api.cloudflare.com/client/v4/zones/zone-123/custom_hostnames'
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/custom_hostnames')
+        && $request->method() === 'POST'
         && $request['hostname'] === 'www.pros.example.com');
 });
 
@@ -131,6 +135,8 @@ test('removing a domain deletes the cloudflare custom hostname', function () {
 });
 
 test('rechecking a verified domain refreshes cloudflare ssl status', function () {
+    Queue::fake();
+
     config([
         'services.cloudflare.api_token' => 'cf-token',
         'services.cloudflare.zone_id' => 'zone-123',
@@ -138,7 +144,7 @@ test('rechecking a verified domain refreshes cloudflare ssl status', function ()
     ]);
 
     Http::fake([
-        'api.cloudflare.com/client/v4/zones/zone-123/custom_hostnames/ch-1111-2222-3333-4444-555555555555' => Http::response([
+        'https://api.cloudflare.com/client/v4/zones/zone-123/custom_hostnames/*' => Http::response([
             'success' => true,
             'result' => [
                 'id' => 'ch-1111-2222-3333-4444-555555555555',

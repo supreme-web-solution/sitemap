@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
     CheckCircle2,
     ExternalLink,
@@ -8,7 +9,6 @@ import {
     Save,
     Trash2,
 } from '@lucide/vue';
-import { onMounted, ref } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -122,6 +122,24 @@ onMounted(() => {
 const previewDomainForm = useForm({
     hostname: props.previewDomain?.hostname ?? '',
 });
+
+const httpsActivating = computed(
+    () =>
+        Boolean(props.previewDomain?.verified) &&
+        !props.previewDomain?.sslActive,
+);
+
+const { start: startHttpsPoll, stop: stopHttpsPoll } = usePoll(
+    5000,
+    { only: ['previewDomain'] },
+    { autoStart: false },
+);
+
+watch(
+    httpsActivating,
+    (active) => (active ? startHttpsPoll() : stopHttpsPoll()),
+    { immediate: true },
+);
 
 const submit = () => {
     form.transform((data) => ({
@@ -391,8 +409,8 @@ const disconnectInbox = () => {
                             Outreach and Copy link now start with
                             <span class="font-mono">{{ previewDomain.origin }}/p/…</span>.
                             <template v-if="!previewDomain.sslActive">
-                                Secure HTTPS usually finishes within a few minutes — click
-                                Re-check DNS to refresh the status.
+                                Waiting for Cloudflare to finish HTTPS — this
+                                status refreshes automatically every few seconds.
                             </template>
                         </p>
                     </div>

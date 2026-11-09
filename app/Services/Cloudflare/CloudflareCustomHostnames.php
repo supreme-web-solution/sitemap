@@ -32,18 +32,7 @@ class CloudflareCustomHostnames
     public function create(string $hostname): array
     {
         try {
-            $response = $this->client()->post($this->basePath(), [
-                'hostname' => strtolower($hostname),
-                'ssl' => [
-                    'method' => 'http',
-                    'type' => 'dv',
-                    'settings' => [
-                        'http2' => 'on',
-                        'tls_1_3' => 'on',
-                        'min_tls_version' => '1.2',
-                    ],
-                ],
-            ])->throw()->json('result');
+            $response = $this->client()->post($this->basePath(), $this->createPayload($hostname))->throw()->json('result');
         } catch (RequestException $exception) {
             if ($exception->response->status() === 409) {
                 $existing = $this->findByHostname($hostname);
@@ -117,6 +106,36 @@ class CloudflareCustomHostnames
         } catch (ConnectionException $exception) {
             throw new RuntimeException('Could not reach Cloudflare.', previous: $exception);
         }
+    }
+
+    /**
+     * Point Cloudflare at our Forge origin hostname for the TLS handshake (avoids 525).
+     *
+     * @return array<string, mixed>
+     */
+    protected function createPayload(string $hostname): array
+    {
+        $payload = [
+            'hostname' => strtolower($hostname),
+            'ssl' => [
+                'method' => 'http',
+                'type' => 'dv',
+                'settings' => [
+                    'http2' => 'on',
+                    'tls_1_3' => 'on',
+                    'min_tls_version' => '1.2',
+                ],
+            ],
+        ];
+
+        $origin = strtolower((string) config('services.cloudflare.origin_hostname'));
+
+        if ($origin !== '') {
+            $payload['custom_origin_server'] = $origin;
+            $payload['custom_origin_sni'] = $origin;
+        }
+
+        return $payload;
     }
 
     protected function client(): PendingRequest

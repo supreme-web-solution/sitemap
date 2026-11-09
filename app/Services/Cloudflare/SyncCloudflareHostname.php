@@ -2,6 +2,7 @@
 
 namespace App\Services\Cloudflare;
 
+use App\Jobs\RefreshCloudflareHostnameStatuses;
 use App\Models\SiteDomain;
 use App\Models\Team;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +40,8 @@ class SyncCloudflareHostname
                 'cloudflare_synced_at' => now(),
                 'check_error' => $this->pendingMessage($state),
             ])->save();
+
+            $this->queueStatusRefresh($state);
         } catch (Throwable $exception) {
             report($exception);
             Log::warning('Cloudflare custom hostname sync failed.', [
@@ -50,6 +53,8 @@ class SyncCloudflareHostname
             $domain->forceFill([
                 'check_error' => 'Domain verified, but HTTPS is still being set up. Try Check DNS again in a minute.',
             ])->save();
+
+            RefreshCloudflareHostnameStatuses::dispatch()->delay(now()->addMinute());
         }
     }
 
@@ -80,6 +85,8 @@ class SyncCloudflareHostname
                 'preview_cloudflare_synced_at' => now(),
                 'preview_hostname_check_error' => $this->pendingMessage($state),
             ])->save();
+
+            $this->queueStatusRefresh($state);
         } catch (Throwable $exception) {
             report($exception);
             Log::warning('Cloudflare preview hostname sync failed.', [
@@ -91,6 +98,8 @@ class SyncCloudflareHostname
             $team->forceFill([
                 'preview_hostname_check_error' => 'Domain verified, but HTTPS is still being set up. Try Re-check DNS again in a minute.',
             ])->save();
+
+            RefreshCloudflareHostnameStatuses::dispatch()->delay(now()->addMinute());
         }
     }
 
@@ -142,10 +151,30 @@ class SyncCloudflareHostname
      */
     protected function pendingMessage(array $state): ?string
     {
-        if ($state['status'] === 'active' && $state['ssl_status'] === 'active') {
+        if ($this->isReady($state)) {
             return null;
         }
 
-        return 'DNS is verified. HTTPS is still activating — usually ready within a few minutes. Use Check DNS again to refresh.';
+        return 'DNS is verified. HTTPS is still activating — this page updates automatically; you can also click Re-check DNS.';
+    }
+
+    /**
+     * @param  array{status: string|null, ssl_status: string|null}  $state
+     */
+    protected function queueStatusRefresh(array $state): void
+    {
+        if ($this->isReady($state)) {
+            return;
+        }
+
+        RefreshCloudflareHostnameStatuses::dispatch()->delay(now()->addSeconds(45));
+    }
+
+    /**
+     * @param  array{status: string|null, ssl_status: string|null}  $state
+     */
+    protected function isReady(array $state): bool
+    {
+        return $state['status'] === 'active' && $state['ssl_status'] === 'active';
     }
 }
