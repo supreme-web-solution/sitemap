@@ -18,7 +18,7 @@ Schedule::command('sites:backup')->dailyAt('03:00')->withoutOverlapping()->descr
 Schedule::command('reports:send-weekly')->weeklyOn(1, '07:00')->withoutOverlapping()->description('Email weekly pipeline snapshots');
 Schedule::command('automations:run-scheduled')->dailyAt('04:30')->withoutOverlapping()->description('Queue scheduled agency workflow steps (website re-audits)');
 Schedule::command('horizon:snapshot')->everyFiveMinutes()->when(fn () => class_exists(Horizon::class))->description('Horizon metrics snapshots');
-Schedule::job(new RefreshCloudflareHostnameStatuses)
+Schedule::job(RefreshCloudflareHostnameStatuses::class)
     ->everyMinute()
     ->withoutOverlapping()
     ->when(fn () => filled(config('services.cloudflare.api_token')) && filled(config('services.cloudflare.zone_id')))
