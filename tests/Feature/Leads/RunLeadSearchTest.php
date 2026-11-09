@@ -4,8 +4,10 @@ use App\Actions\Leads\StoreLeadsFromListings;
 use App\Enums\LeadSearchStatus;
 use App\Enums\LeadStatus;
 use App\Jobs\RunLeadSearch;
+use App\Models\AiCreditEvent;
 use App\Models\Lead;
 use App\Models\LeadSearch;
+use App\Services\Ai\AiCreditLog;
 use App\Services\LeadFinder\LeadFinder;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -45,7 +47,7 @@ function runLeadSearch(LeadSearch $search): RunLeadSearch
 {
     $job = (new RunLeadSearch($search))->withFakeQueueInteractions();
 
-    $job->handle(app(LeadFinder::class), app(StoreLeadsFromListings::class));
+    $job->handle(app(LeadFinder::class), app(StoreLeadsFromListings::class), app(AiCreditLog::class));
 
     return $job;
 }
@@ -277,7 +279,7 @@ test('a rejected api key fails the search with a helpful message', function () {
         ->error->toBe('The lead finder API key is missing or invalid.');
 });
 
-test('an empty provider wallet fails the search', function () {
+test('an empty provider wallet fails the search and is logged for admins', function () {
     Http::preventStrayRequests();
     Http::fake([
         'api.mindcase.co/v1/jobs/job-6/results' => Http::response(['status' => 'rejected_balance']),
@@ -290,9 +292,16 @@ test('an empty provider wallet fails the search', function () {
     expect($search->fresh())
         ->status->toBe(LeadSearchStatus::Failed)
         ->error->toBe('Your Mindcase wallet balance is too low to run this search.');
+
+    $event = AiCreditEvent::query()->latest('id')->first();
+
+    expect($event)
+        ->provider->toBe('mindcase')
+        ->source->toBe('lead_search')
+        ->message->toContain('rejected_balance');
 });
 
-test('provider infrastructure failures show a safe message instead of internal wording', function () {
+test('provider infrastructure failures show a safe message and log the real reason for admins', function () {
     Http::preventStrayRequests();
     Http::fake([
         'api.mindcase.co/v1/jobs/job-infra/results' => Http::response([
@@ -301,13 +310,25 @@ test('provider infrastructure failures show a safe message instead of internal w
         ]),
     ]);
 
-    $search = LeadSearch::factory()->running('job-infra')->create();
+    $search = LeadSearch::factory()->running('job-infra')->create([
+        'keyword' => 'tree cutter',
+        'location' => 'texas',
+    ]);
 
     runLeadSearch($search);
 
     expect($search->fresh())
         ->status->toBe(LeadSearchStatus::Failed)
         ->error->toBe('The search could not be completed. Please try again.');
+
+    $event = AiCreditEvent::query()->latest('id')->first();
+
+    expect($event)
+        ->provider->toBe('mindcase')
+        ->source->toBe('lead_search')
+        ->message->toContain('tree cutter')
+        ->message->toContain('infrastructure')
+        ->and($event->team_id)->toBe($search->team_id);
 });
 
 test('a finished search is not sent to the provider again', function () {

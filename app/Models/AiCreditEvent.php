@@ -61,6 +61,7 @@ class AiCreditEvent extends Model
             'anthropic' => 'Anthropic',
             'openai' => 'OpenAI',
             'openrouter' => 'OpenRouter',
+            'mindcase' => 'Mindcase',
             default => ucfirst($this->provider),
         };
     }
@@ -73,6 +74,7 @@ class AiCreditEvent extends Model
         return match ($this->source) {
             'site_creation' => 'Site creation',
             'site_editor' => 'Site editor',
+            'lead_search' => 'Lead search',
             default => ucfirst(str_replace('_', ' ', $this->source)),
         };
     }

@@ -45,7 +45,7 @@ const formatWhen = (value: string | null): string => {
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <Heading
             title="AI credits"
-            description="Credit and quota errors from the provider that writes the website. Site creation uses Anthropic. OpenAI only appears if a photo or other OpenAI call hits the same kind of limit. The site still finishes with built-in copy."
+            description="Provider credit, quota, and lead-search failures. Site creation uses Anthropic (falls back to built-in copy). Lead search uses Mindcase — empty wallet shows as rejected_balance here. OpenAI only appears if a photo or other OpenAI call hits a limit."
         />
 
         <p
@@ -53,7 +53,7 @@ const formatWhen = (value: string | null): string => {
             class="text-sm text-muted-foreground"
             data-test="ai-credits-empty"
         >
-            No credit errors have been recorded.
+            No provider credit or lead-search errors have been recorded yet.
         </p>
 
         <div v-else class="panel overflow-x-auto" data-test="ai-credits-log">
@@ -64,7 +64,7 @@ const formatWhen = (value: string | null): string => {
                         <th class="px-4 py-3 font-medium">Finished</th>
                         <th class="px-4 py-3 font-medium">Provider</th>
                         <th class="px-4 py-3 font-medium">Where</th>
-                        <th class="px-4 py-3 font-medium">Lead</th>
+                        <th class="px-4 py-3 font-medium">Lead / team</th>
                         <th class="px-4 py-3 font-medium">What happened</th>
                     </tr>
                 </thead>
@@ -83,9 +83,9 @@ const formatWhen = (value: string | null): string => {
                         <td class="px-4 py-3 font-medium">{{ event.provider }}</td>
                         <td class="px-4 py-3">{{ event.source }}</td>
                         <td class="px-4 py-3">
-                            <span>{{ event.leadName ?? 'Unknown lead' }}</span>
+                            <span>{{ event.leadName ?? event.teamName ?? '—' }}</span>
                             <span
-                                v-if="event.teamName"
+                                v-if="event.leadName && event.teamName"
                                 class="block text-xs text-muted-foreground"
                             >
                                 {{ event.teamName }}

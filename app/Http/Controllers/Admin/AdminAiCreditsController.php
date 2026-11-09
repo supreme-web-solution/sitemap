@@ -10,7 +10,7 @@ use Inertia\Response;
 class AdminAiCreditsController extends Controller
 {
     /**
-     * List AI credit and quota failures, including when the job finished.
+     * List AI credit, quota, and Mindcase lead-search failures.
      */
     public function __invoke(): Response
     {

@@ -6,6 +6,7 @@ use App\Actions\Leads\StoreLeadsFromListings;
 use App\Data\LeadFinderResult;
 use App\Enums\LeadSearchStatus;
 use App\Models\LeadSearch;
+use App\Services\Ai\AiCreditLog;
 use App\Services\CommandCenter\CommandCenterNotifier;
 use App\Services\LeadFinder\LeadFinder;
 use App\Support\Queues;
@@ -15,6 +16,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 class RunLeadSearch implements ShouldBeUnique, ShouldQueue
@@ -72,7 +74,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(LeadFinder $leadFinder, StoreLeadsFromListings $storeLeads): void
+    public function handle(LeadFinder $leadFinder, StoreLeadsFromListings $storeLeads, AiCreditLog $creditLog): void
     {
         $search = $this->leadSearch;
 
@@ -86,7 +88,12 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
                 : $leadFinder->start($search);
         } catch (RequestException $exception) {
             if ($exception->response->clientError() && $exception->response->status() !== 429) {
-                $search->markAsFailed($this->clientErrorMessage($exception->response->status()));
+                $this->failSearch(
+                    $search,
+                    $this->clientErrorMessage($exception->response->status()),
+                    $creditLog,
+                    $this->clientErrorAdminDetail($exception),
+                );
 
                 return;
             }
@@ -96,7 +103,12 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
 
         match ($result->status) {
             LeadSearchStatus::Completed => $this->complete($search, $result, $storeLeads),
-            LeadSearchStatus::Failed => $search->markAsFailed($result->error ?? 'The search could not be completed.'),
+            LeadSearchStatus::Failed => $this->failSearch(
+                $search,
+                $result->error ?? 'The search could not be completed. Please try again.',
+                $creditLog,
+                $result->providerDetail,
+            ),
             default => $this->waitForProvider($result->providerJobId),
         };
     }
@@ -134,6 +146,32 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     }
 
     /**
+     * Fail the search for the team and keep the provider detail in the admin credit log.
+     */
+    protected function failSearch(LeadSearch $search, string $userError, AiCreditLog $creditLog, ?string $providerDetail = null): void
+    {
+        $label = filled($search->place_url)
+            ? 'Maps link import'
+            : trim(($search->keyword ?? '').' · '.($search->location ?? ''), ' ·');
+
+        $adminMessage = trim(implode(' ', array_filter([
+            $label !== '' ? "Search “{$label}” failed." : 'Lead search failed.',
+            $providerDetail,
+        ])));
+
+        $event = $creditLog->record(
+            lead: null,
+            providerLabel: 'mindcase',
+            source: 'lead_search',
+            message: $adminMessage,
+            team: $search->team,
+        );
+        $creditLog->finish($event, 'Search marked failed');
+
+        $search->markAsFailed($userError);
+    }
+
+    /**
      * Get a user-facing message for a rejected provider request.
      */
     protected function clientErrorMessage(int $status): string
@@ -146,14 +184,32 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     }
 
     /**
+     * Keep the HTTP status and body snippet for admins.
+     */
+    protected function clientErrorAdminDetail(RequestException $exception): string
+    {
+        $status = $exception->response->status();
+        $body = Str::limit(trim(preg_replace('/\s+/', ' ', $exception->response->body()) ?? ''), 400);
+
+        return "HTTP {$status}".($body !== '' ? ": {$body}" : '');
+    }
+
+    /**
      * Handle a job failure.
      */
     public function failed(?Throwable $exception): void
     {
         $this->leadSearch->refresh();
 
-        if (! $this->leadSearch->status->isFinished()) {
-            $this->leadSearch->markAsFailed('The search timed out. Please try again.');
+        if ($this->leadSearch->status->isFinished()) {
+            return;
         }
+
+        $this->failSearch(
+            $this->leadSearch,
+            'The search timed out. Please try again.',
+            app(AiCreditLog::class),
+            $exception?->getMessage() ?: 'The search job exhausted its retries.',
+        );
     }
 }

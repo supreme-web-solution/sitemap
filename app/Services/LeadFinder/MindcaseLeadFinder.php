@@ -109,12 +109,18 @@ class MindcaseLeadFinder implements LeadFinder
         }
 
         if (in_array($status, ['failed', 'cancelled', 'rejected_balance'], true)) {
+            $raw = trim((string) ($payload['error'] ?? ''));
+            $detail = $raw !== '' ? $raw : 'Mindcase status: '.$status;
+
             return new LeadFinderResult(
                 status: LeadSearchStatus::Failed,
                 providerJobId: $jobId,
                 error: $status === 'rejected_balance'
                     ? 'Your Mindcase wallet balance is too low to run this search.'
                     : 'The search could not be completed. Please try again.',
+                providerDetail: $status === 'rejected_balance'
+                    ? 'Mindcase wallet balance is too low (rejected_balance).'
+                    : $detail,
             );
         }
 

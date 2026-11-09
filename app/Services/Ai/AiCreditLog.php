@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiCreditEvent;
 use App\Models\Lead;
+use App\Models\Team;
 use Illuminate\Support\Str;
 
 /**
@@ -14,10 +15,10 @@ class AiCreditLog
     /**
      * Record the moment a provider refused the call for credits or quota.
      */
-    public function record(?Lead $lead, string $providerLabel, string $source, string $message): AiCreditEvent
+    public function record(?Lead $lead, string $providerLabel, string $source, string $message, ?Team $team = null): AiCreditEvent
     {
         return AiCreditEvent::query()->create([
-            'team_id' => $lead?->team_id,
+            'team_id' => $lead?->team_id ?? $team?->id,
             'lead_id' => $lead?->id,
             'provider' => $this->providerKey($message, $providerLabel),
             'source' => $source,
@@ -50,8 +51,8 @@ class AiCreditLog
 
         $label = strtolower($providerLabel);
 
-        foreach (['anthropic', 'openai', 'openrouter'] as $name) {
-            if (str_contains($label, $name)) {
+        foreach (['anthropic', 'openai', 'openrouter', 'mindcase'] as $name) {
+            if (str_contains($label, $name) || str_contains(strtolower($message), $name)) {
                 return $name;
             }
         }
