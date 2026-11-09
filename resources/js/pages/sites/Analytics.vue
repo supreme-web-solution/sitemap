@@ -51,7 +51,10 @@ const props = defineProps<{
 }>();
 
 defineOptions({
-    layout: (layoutProps: { currentTeam?: Team | null }) => ({
+    layout: (layoutProps: {
+        currentTeam?: Team | null;
+        site: { id: number; name: string };
+    }) => ({
         breadcrumbs: [
             {
                 title: 'Websites',
@@ -60,11 +63,11 @@ defineOptions({
                     : '/',
             },
             {
-                title: props.site.name,
+                title: layoutProps.site.name,
                 href: layoutProps.currentTeam
                     ? editSite({
                           current_team: layoutProps.currentTeam.slug,
-                          site: props.site.id,
+                          site: layoutProps.site.id,
                       })
                     : '/',
             },
@@ -73,7 +76,7 @@ defineOptions({
                 href: layoutProps.currentTeam
                     ? analytics.url({
                           current_team: layoutProps.currentTeam.slug,
-                          site: props.site.id,
+                          site: layoutProps.site.id,
                       })
                     : '#',
             },
