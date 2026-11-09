@@ -55,7 +55,7 @@ const sections: Section[] = [
     {
         value: 'publish',
         label: 'Publish & domains',
-        description: 'Staging, custom domains, and going live.',
+        description: 'Custom domains and going live.',
         icon: Globe,
     },
     {
