@@ -3,6 +3,29 @@ export type PlanOption = {
     name: string;
 };
 
+export type PlanTeam = {
+    id: number;
+    name: string;
+    slug: string;
+    is_personal: boolean;
+    owner: string | null;
+    members_count: number;
+    leads_count: number;
+    sites_count: number;
+};
+
+export type PlanAnalytics = {
+    teams_count: number;
+    members_count: number;
+    leads_count: number;
+    sites_count: number;
+    usage_this_month: {
+        key: string;
+        label: string;
+        used: number;
+    }[];
+};
+
 export type Plan = {
     id: number;
     name: string;
@@ -14,6 +37,8 @@ export type Plan = {
     limits: Record<string, number | null>;
     features: string[];
     teams_count?: number;
+    teams?: PlanTeam[];
+    analytics?: PlanAnalytics;
 };
 
 export type PlanMetric = {
