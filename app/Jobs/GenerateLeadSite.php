@@ -8,9 +8,11 @@ use App\Enums\SiteGenerationStatus;
 use App\Models\Lead;
 use App\Services\SiteBuilder\SiteBuildProgress;
 use App\Support\Queues;
+use Illuminate\Bus\UniqueLock;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
@@ -35,16 +37,19 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
     public int $backoff = 15;
 
     /**
+     * Seconds the unique lock may be held.
+     *
+     * Without this, killing Horizon mid-build leaves a permanent lock and every
+     * later click only shows "Waiting for a worker" while nothing is queued.
+     */
+    public int $uniqueFor = 180;
+
+    /**
      * Create a new job instance.
      */
     public function __construct(public Lead $lead, public ?int $designTemplateId = null)
     {
         $this->onQueue(Queues::AI);
-
-        SiteBuildProgress::record($lead->id, 'queued', [
-            'lead' => $lead->name,
-            'design_template_id' => $designTemplateId,
-        ]);
     }
 
     /**
@@ -53,6 +58,17 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
     public function uniqueId(): string
     {
         return (string) $this->lead->id;
+    }
+
+    /**
+     * Drop a stuck unique lock so this lead can be built again.
+     */
+    public static function releaseUniqueLock(int $leadId): void
+    {
+        $lead = new Lead;
+        $lead->id = $leadId;
+
+        Cache::lock(UniqueLock::getKey(new self($lead)))->forceRelease();
     }
 
     /**

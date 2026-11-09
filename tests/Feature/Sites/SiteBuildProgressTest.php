@@ -6,6 +6,8 @@ use App\Models\Lead;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\SiteBuilder\SiteBuildProgress;
+use Illuminate\Bus\UniqueLock;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
@@ -23,8 +25,8 @@ test('a site build writes each step to the log', function () {
 
     GenerateLeadSite::dispatchSync($lead);
 
+    // dispatchSync runs the job immediately, so there is no "Waiting for a worker" queue step.
     expect($messages)->toBe([
-        '[site-build] Waiting for a worker',
         '[site-build] Build started',
         '[site-build] Writing the website copy',
         '[site-build] Saving pages and layout',
@@ -107,4 +109,15 @@ test('the review page exposes build progress while the site is building', functi
         ->assertInertia(fn ($page) => $page
             ->where('lead.siteBuild.step', 'queued')
             ->has('lead.siteBuild.steps'));
+});
+
+test('a stuck unique lock can be force released so the lead can build again', function () {
+    $lead = Lead::factory()->create();
+    $job = new GenerateLeadSite($lead);
+
+    Cache::lock(UniqueLock::getKey($job), 60)->get();
+
+    GenerateLeadSite::releaseUniqueLock($lead->id);
+
+    expect(Cache::lock(UniqueLock::getKey($job), 1)->get())->toBeTrue();
 });

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Jobs\GenerateLeadSite;
 use App\Models\Lead;
 use App\Models\LeadReview;
 use App\Models\Site;
@@ -15,6 +16,7 @@ use App\Services\ReviewFinder\MindcaseReviewFinder;
 use App\Services\ReviewFinder\ReviewFinder;
 use App\Services\SiteBuilder\ClaudeSitePlanner;
 use App\Services\SiteBuilder\RuleBasedCopywriter;
+use App\Services\SiteBuilder\SiteBuildProgress;
 use App\Services\SiteBuilder\SiteCache;
 use App\Services\SiteBuilder\SiteCopywriter;
 use App\Services\SiteBuilder\SiteLocaleTranslator;
@@ -23,8 +25,10 @@ use App\Services\SiteBuilder\SiteSectionDesignReviewer;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -82,6 +86,29 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureRateLimiting();
         $this->configureSiteCache();
+        $this->configureSiteBuildProgress();
+    }
+
+    /**
+     * Log "Waiting for a worker" only after the job is actually on the queue.
+     *
+     * Recording this in the job constructor lied when a stuck unique lock
+     * silently dropped the dispatch.
+     */
+    protected function configureSiteBuildProgress(): void
+    {
+        Event::listen(JobQueued::class, function (JobQueued $event): void {
+            $job = $event->job;
+
+            if (! $job instanceof GenerateLeadSite) {
+                return;
+            }
+
+            SiteBuildProgress::record($job->lead->id, 'queued', [
+                'lead' => $job->lead->name,
+                'design_template_id' => $job->designTemplateId,
+            ]);
+        });
     }
 
     /**
