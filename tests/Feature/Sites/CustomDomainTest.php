@@ -182,6 +182,32 @@ test('the dns instructions fit the kind of domain', function () {
     expect($records('pros.com')->all())->toHaveKey('ALIAS', 'edge.sitemap.app');
 });
 
+test('dns instructions mark completed records as done', function () {
+    config(['sites.cname_target' => 'sites.mapmaticapp.com', 'sites.server_ip' => null]);
+
+    $domain = SiteDomain::factory()->verified()->make([
+        'hostname' => 'www.client-site.com',
+        'verification_token' => 'mapmatic-token',
+        'cloudflare_ownership_txt_name' => '_cf-custom-hostname.www.client-site.com',
+        'cloudflare_ownership_txt_value' => 'cf-token',
+        'cloudflare_status' => 'pending',
+        'cloudflare_ssl_status' => 'pending_validation',
+    ]);
+
+    fakeDns(
+        txt: [
+            '_sitemap-verify.www.client-site.com' => ['mapmatic-token'],
+            '_cf-custom-hostname.www.client-site.com' => ['cf-token'],
+        ],
+        cname: ['www.client-site.com' => ['sites.mapmaticapp.com']],
+    );
+
+    $statuses = collect(app(DomainVerifier::class)->instructions($domain))->pluck('status', 'type');
+
+    expect($statuses['TXT'] ?? null)->toBe('done')
+        ->and($statuses['CNAME'] ?? null)->toBe('done');
+});
+
 test('a domain can be removed', function () {
     [$site, $user, $args] = domainSite();
     $domain = SiteDomain::factory()->for($site)->create();

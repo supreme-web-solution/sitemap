@@ -158,7 +158,7 @@ class SyncCloudflareHostname
     }
 
     /**
-     * @param  array{status: string|null, ssl_status: string|null}  $state
+     * @param  array{status: string|null, ssl_status: string|null, verification_errors?: list<string>}  $state
      */
     protected function pendingMessage(array $state): ?string
     {
@@ -166,7 +166,20 @@ class SyncCloudflareHostname
             return null;
         }
 
-        return 'DNS is verified. HTTPS is still activating — keep the CNAME pointed at '.config('sites.cname_target').' and wait a few minutes, or click Refresh HTTPS.';
+        $target = (string) config('sites.cname_target');
+        $errors = $state['verification_errors'] ?? [];
+
+        foreach ($errors as $error) {
+            if (str_contains(strtolower($error), 'cname')) {
+                return $target !== ''
+                    ? 'Cloudflare cannot see the CNAME yet. At the domain DNS host, point this hostname to '.$target.', wait a few minutes, then click Refresh HTTPS.'
+                    : 'Cloudflare cannot see the CNAME yet. Fix the CNAME at the domain DNS host, wait a few minutes, then click Refresh HTTPS.';
+            }
+        }
+
+        return $target !== ''
+            ? 'Ownership looks good. HTTPS is still activating — keep the CNAME on '.$target.' and click Refresh HTTPS in a minute if this does not clear.'
+            : 'Ownership looks good. HTTPS is still activating — click Refresh HTTPS in a minute if this does not clear.';
     }
 
     protected function failureMessage(Throwable $exception, bool $verified): string

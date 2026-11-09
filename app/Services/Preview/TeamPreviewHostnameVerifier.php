@@ -44,18 +44,22 @@ class TeamPreviewHostnameVerifier
     /**
      * DNS records the agency should create for the preview hostname.
      *
-     * @return list<array{type: string, name: string, value: string, purpose: string}>
+     * @return list<array{type: string, name: string, value: string, purpose: string, status: 'done'|'needed'}>
      */
     public function instructions(Team $team): array
     {
         $hostname = (string) $team->preview_hostname;
         $token = (string) $team->preview_hostname_token;
+        $ownershipDone = $team->hasVerifiedPreviewHostname() || $this->hasOwnershipRecord($team);
+        $pointsHere = $this->pointsHere($hostname);
+        $sslDone = $team->previewSslIsActive();
 
         $records = [[
             'type' => 'TXT',
             'name' => $this->verificationRecordName($hostname),
             'value' => $token,
             'purpose' => 'Proves you own the domain (MapMatic)',
+            'status' => ($ownershipDone || $sslDone) ? 'done' : 'needed',
         ]];
 
         $target = config('sites.cname_target');
@@ -63,21 +67,52 @@ class TeamPreviewHostnameVerifier
         $apex = $this->domainVerifier->isApex($hostname);
 
         if ($apex && $ip) {
-            $records[] = ['type' => 'A', 'name' => $hostname, 'value' => $ip, 'purpose' => 'Sends preview visitors to this app'];
+            $records[] = [
+                'type' => 'A',
+                'name' => $hostname,
+                'value' => $ip,
+                'purpose' => 'Sends preview visitors to this app',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         } elseif ($apex && $target) {
-            $records[] = ['type' => 'ALIAS', 'name' => $hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — points the hostname at MapMatic (also called ANAME or CNAME flattening)'];
+            $records[] = [
+                'type' => 'ALIAS',
+                'name' => $hostname,
+                'value' => $target,
+                'purpose' => 'Required for HTTPS — points the hostname at MapMatic (also called ANAME or CNAME flattening)',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         } elseif ($target) {
-            $records[] = ['type' => 'CNAME', 'name' => $hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — must point at '.$target.' (not the app hostname)'];
+            $records[] = [
+                'type' => 'CNAME',
+                'name' => $hostname,
+                'value' => $target,
+                'purpose' => 'Required for HTTPS — must point at '.$target.' (not the app hostname)',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         } elseif ($ip) {
-            $records[] = ['type' => 'A', 'name' => $hostname, 'value' => $ip, 'purpose' => 'Sends preview visitors to this app'];
+            $records[] = [
+                'type' => 'A',
+                'name' => $hostname,
+                'value' => $ip,
+                'purpose' => 'Sends preview visitors to this app',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         }
 
         if (filled($team->preview_cloudflare_ownership_txt_name) && filled($team->preview_cloudflare_ownership_txt_value)) {
+            $cfTxtDone = $sslDone || in_array(
+                (string) $team->preview_cloudflare_ownership_txt_value,
+                $this->dns->txt((string) $team->preview_cloudflare_ownership_txt_name),
+                true,
+            );
+
             $records[] = [
                 'type' => 'TXT',
                 'name' => $team->preview_cloudflare_ownership_txt_name,
                 'value' => $team->preview_cloudflare_ownership_txt_value,
-                'purpose' => 'Cloudflare ownership check (needed for hostnames outside mapmaticapp.com)',
+                'purpose' => 'Cloudflare ownership check (hostnames outside mapmaticapp.com)',
+                'status' => $cfTxtDone ? 'done' : 'needed',
             ];
         }
 

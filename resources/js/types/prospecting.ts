@@ -365,6 +365,7 @@ export type DnsRecord = {
     name: string;
     value: string;
     purpose: string;
+    status?: 'done' | 'needed';
 };
 
 export type SiteDomain = {

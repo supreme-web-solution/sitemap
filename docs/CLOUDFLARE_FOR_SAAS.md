@@ -356,7 +356,25 @@ If DNS already verified but hostname never appeared in Cloudflare:
 
 ---
 
-## 11. Related files
+## 11. Admin: list & delete Cloudflare hostnames
+
+Platform admins (`ADMIN_EMAILS`) can open:
+
+**Admin → Cloudflare custom hostnames** (`/admin/cloudflare-hostnames`)
+
+- Live list from the Cloudflare API (status, certificate, verification errors)
+- Shows whether each hostname is linked to a MapMatic site domain or preview hostname
+- **Delete** removes it from Cloudflare via API and clears local Cloudflare columns (does not remove the MapMatic domain row)
+
+Use this to clean orphans such as hostnames created by accidental live API calls during tests.
+
+### Customer domains that are *also* on Cloudflare
+
+If Cloudflare says: *“The hostname is using Cloudflare and cannot be activated with a TXT or HTTP validation token… DNS target needs to point to the SaaS zone.”*
+
+The customer’s DNS for that hostname must be a **CNAME to `sites.mapmaticapp.com`** (SaaS zone), not an A record and not a CNAME to `app.mapmaticapp.com`. TXT alone is not enough when the customer zone is Cloudflare.
+
+## 12. Related files
 
 - `config/services.php` — `cloudflare.*`  
 - `config/sites.php` — `cname_target`, `app_hosts`, …  

@@ -27,7 +27,7 @@ class CloudflareCustomHostnames
     /**
      * Register a customer hostname and request an SSL certificate (HTTP DCV).
      *
-     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null}
+     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null, verification_errors: list<string>}
      */
     public function create(string $hostname): array
     {
@@ -53,7 +53,7 @@ class CloudflareCustomHostnames
     /**
      * Refresh a custom hostname's activation and SSL status.
      *
-     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null}
+     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null, verification_errors: list<string>}
      */
     public function get(string $id): array
     {
@@ -71,7 +71,7 @@ class CloudflareCustomHostnames
     /**
      * Find an existing custom hostname by DNS name.
      *
-     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null}|null
+     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null, verification_errors: list<string>}|null
      */
     public function findByHostname(string $hostname): ?array
     {
@@ -88,6 +88,44 @@ class CloudflareCustomHostnames
         }
 
         return $this->normalize($results[0]);
+    }
+
+    /**
+     * List custom hostnames on the SaaS zone (newest first, paginated by Cloudflare).
+     *
+     * @return list<array{id: string, hostname: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null, verification_errors: list<string>}>
+     */
+    public function list(int $perPage = 50): array
+    {
+        try {
+            $results = $this->client()->get($this->basePath(), [
+                'per_page' => max(1, min($perPage, 50)),
+                'direction' => 'desc',
+                'order' => 'ssl',
+            ])->throw()->json('result');
+        } catch (RequestException $exception) {
+            throw new RuntimeException($this->errorMessage($exception), previous: $exception);
+        } catch (ConnectionException $exception) {
+            throw new RuntimeException('Could not reach Cloudflare.', previous: $exception);
+        }
+
+        if (! is_array($results)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            function (mixed $row): array {
+                $normalized = $this->normalize(is_array($row) ? $row : []);
+
+                return [
+                    ...$normalized,
+                    'hostname' => isset($row['hostname']) && is_string($row['hostname'])
+                        ? $row['hostname']
+                        : '',
+                ];
+            },
+            $results,
+        ));
     }
 
     /**
@@ -159,7 +197,7 @@ class CloudflareCustomHostnames
 
     /**
      * @param  array<string, mixed>  $result
-     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null}
+     * @return array{id: string, status: string|null, ssl_status: string|null, ownership_txt_name: string|null, ownership_txt_value: string|null, verification_errors: list<string>}
      */
     protected function normalize(array $result): array
     {
@@ -168,6 +206,12 @@ class CloudflareCustomHostnames
             : [];
 
         $ssl = is_array($result['ssl'] ?? null) ? $result['ssl'] : [];
+        $verificationErrors = is_array($result['verification_errors'] ?? null)
+            ? array_values(array_filter(array_map(
+                static fn (mixed $error): string => is_string($error) ? $error : '',
+                $result['verification_errors'],
+            )))
+            : [];
 
         return [
             'id' => (string) ($result['id'] ?? ''),
@@ -175,6 +219,7 @@ class CloudflareCustomHostnames
             'ssl_status' => isset($ssl['status']) ? (string) $ssl['status'] : null,
             'ownership_txt_name' => isset($ownership['name']) ? (string) $ownership['name'] : null,
             'ownership_txt_value' => isset($ownership['value']) ? (string) $ownership['value'] : null,
+            'verification_errors' => $verificationErrors,
         ];
     }
 

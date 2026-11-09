@@ -44,17 +44,22 @@ class DomainVerifier
     }
 
     /**
-     * Get the DNS records the customer needs to create.
+     * Get the DNS records the customer needs, with live done/needed status for the UI.
      *
-     * @return list<array{type: string, name: string, value: string, purpose: string}>
+     * @return list<array{type: string, name: string, value: string, purpose: string, status: 'done'|'needed'}>
      */
     public function instructions(SiteDomain $domain): array
     {
+        $ownershipDone = $domain->isVerified() || $this->hasOwnershipRecord($domain);
+        $pointsHere = $this->pointsHere($domain->hostname);
+        $sslDone = $domain->sslIsActive();
+
         $records = [[
             'type' => 'TXT',
             'name' => $domain->verificationRecordName(),
             'value' => $domain->verification_token,
             'purpose' => 'Proves you own the domain (MapMatic)',
+            'status' => ($ownershipDone || $sslDone) ? 'done' : 'needed',
         ]];
 
         $target = config('sites.cname_target');
@@ -62,21 +67,51 @@ class DomainVerifier
         $apex = $this->isApex($domain->hostname);
 
         if ($apex && $ip) {
-            $records[] = ['type' => 'A', 'name' => $domain->hostname, 'value' => $ip, 'purpose' => 'Sends visitors to your website'];
+            $records[] = [
+                'type' => 'A',
+                'name' => $domain->hostname,
+                'value' => $ip,
+                'purpose' => 'Sends visitors to your website',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         } elseif ($apex && $target) {
-            $records[] = ['type' => 'ALIAS', 'name' => $domain->hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — points the domain at MapMatic (also called ANAME or CNAME flattening)'];
+            $records[] = [
+                'type' => 'ALIAS',
+                'name' => $domain->hostname,
+                'value' => $target,
+                'purpose' => 'Required for HTTPS — points the domain at MapMatic (also called ANAME or CNAME flattening)',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         } elseif ($target) {
-            $records[] = ['type' => 'CNAME', 'name' => $domain->hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — must point at '.$target.' (not the app hostname)'];
+            $records[] = [
+                'type' => 'CNAME',
+                'name' => $domain->hostname,
+                'value' => $target,
+                'purpose' => 'Required for HTTPS — must point at '.$target.' (not the app hostname)',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         } elseif ($ip) {
-            $records[] = ['type' => 'A', 'name' => $domain->hostname, 'value' => $ip, 'purpose' => 'Sends visitors to your website'];
+            $records[] = [
+                'type' => 'A',
+                'name' => $domain->hostname,
+                'value' => $ip,
+                'purpose' => 'Sends visitors to your website',
+                'status' => ($pointsHere || $sslDone) ? 'done' : 'needed',
+            ];
         }
 
         if (filled($domain->cloudflare_ownership_txt_name) && filled($domain->cloudflare_ownership_txt_value)) {
+            $cfTxtDone = $sslDone || $this->hasTxtValue(
+                (string) $domain->cloudflare_ownership_txt_name,
+                (string) $domain->cloudflare_ownership_txt_value,
+            );
+
             $records[] = [
                 'type' => 'TXT',
                 'name' => $domain->cloudflare_ownership_txt_name,
                 'value' => $domain->cloudflare_ownership_txt_value,
-                'purpose' => 'Cloudflare ownership check (needed for customer domains outside mapmaticapp.com)',
+                'purpose' => 'Cloudflare ownership check (customer domains outside mapmaticapp.com)',
+                'status' => $cfTxtDone ? 'done' : 'needed',
             ];
         }
 
@@ -101,7 +136,12 @@ class DomainVerifier
 
     protected function hasOwnershipRecord(SiteDomain $domain): bool
     {
-        return in_array($domain->verification_token, $this->dns->txt($domain->verificationRecordName()), true);
+        return $this->hasTxtValue($domain->verificationRecordName(), $domain->verification_token);
+    }
+
+    protected function hasTxtValue(string $name, string $value): bool
+    {
+        return in_array($value, $this->dns->txt($name), true);
     }
 
     protected function pointsHere(string $hostname): bool

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { router, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import {
+    CheckCircle2,
+    Circle,
     Copy,
     ExternalLink,
     Globe,
@@ -268,21 +270,25 @@ const promoteToLive = () => {
                     class="mt-3 grid gap-2"
                 >
                     <p class="text-xs text-muted-foreground">
-                        Add these records where the domain's DNS is managed
-                        (your registrar or Cloudflare). The
-                        <span class="font-medium">CNAME</span> is required for
-                        HTTPS on customer domains
-                        <template v-if="publishing.cnameTarget">
-                            — point it at
-                            <span class="font-mono">{{ publishing.cnameTarget }}</span>,
-                            not the app hostname
+                        <template v-if="domain.isVerified">
+                            Ownership is verified. Records marked done can stay
+                            as they are — finish any still needed for HTTPS
+                            <template v-if="publishing.cnameTarget">
+                                (especially the CNAME to
+                                <span class="font-mono">{{ publishing.cnameTarget }}</span>)
+                            </template>
+                            .
                         </template>
-                        .
+                        <template v-else>
+                            Add these at the domain’s DNS host, then click Check
+                            DNS. Green checks appear once we can see each record.
+                        </template>
                     </p>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
                             <thead class="text-muted-foreground">
                                 <tr>
+                                    <th class="py-1 pr-3 font-medium">Status</th>
                                     <th class="py-1 pr-3 font-medium">Type</th>
                                     <th class="py-1 pr-3 font-medium">Name</th>
                                     <th class="py-1 font-medium">Value</th>
@@ -293,7 +299,36 @@ const promoteToLive = () => {
                                     v-for="record in domain.records"
                                     :key="record.type + record.name"
                                     class="border-t align-top"
+                                    :class="
+                                        record.status === 'done'
+                                            ? 'text-muted-foreground'
+                                            : ''
+                                    "
                                 >
+                                    <td class="py-1.5 pr-3">
+                                        <span
+                                            class="inline-flex items-center gap-1 font-medium"
+                                            :class="
+                                                record.status === 'done'
+                                                    ? 'text-emerald-700 dark:text-emerald-300'
+                                                    : 'text-amber-700 dark:text-amber-300'
+                                            "
+                                        >
+                                            <CheckCircle2
+                                                v-if="record.status === 'done'"
+                                                class="size-3.5"
+                                            />
+                                            <Circle
+                                                v-else
+                                                class="size-3.5"
+                                            />
+                                            {{
+                                                record.status === 'done'
+                                                    ? 'Done'
+                                                    : 'Needed'
+                                            }}
+                                        </span>
+                                    </td>
                                     <td class="py-1.5 pr-3 font-mono">
                                         {{ record.type }}
                                     </td>
@@ -308,6 +343,7 @@ const promoteToLive = () => {
                                                 record.value
                                             }}</span>
                                             <Button
+                                                v-if="record.status !== 'done'"
                                                 type="button"
                                                 size="icon-sm"
                                                 variant="ghost"
@@ -330,11 +366,16 @@ const promoteToLive = () => {
                 </div>
 
                 <p
-                    v-if="domain.isVerified && !domain.sslActive && !domain.error"
+                    v-if="
+                        domain.isVerified &&
+                        !domain.sslActive &&
+                        !domain.error &&
+                        domain.records.every((record) => record.status === 'done')
+                    "
                     class="mt-2 text-xs text-sky-700 dark:text-sky-300"
                 >
-                    Waiting for Cloudflare to finish HTTPS — this status updates
-                    automatically.
+                    All DNS checks look good. Waiting for Cloudflare to finish
+                    the certificate — this updates automatically.
                     <template v-if="domain.lastCheckedAt">
                         Last checked
                         {{ formatRelativeTime(domain.lastCheckedAt) }}.

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import Heading from '@/components/Heading.vue';
-import { dashboard as adminDashboard, aiCredits as adminAiCredits, launchReadiness as adminLaunchReadiness } from '@/routes/admin';
+import { dashboard as adminDashboard, aiCredits as adminAiCredits, cloudflareHostnames as adminCloudflareHostnames, launchReadiness as adminLaunchReadiness } from '@/routes/admin';
 import { index as plansIndex } from '@/routes/admin/plans';
 import { edit as editUser, index as usersIndex } from '@/routes/admin/users';
 
@@ -68,6 +68,19 @@ defineOptions({
                 — same report as
                 <code class="rounded bg-muted px-1 text-xs">php artisan ops:verify</code>
                 on the server.
+            </span>
+        </p>
+
+        <p class="text-sm">
+            <Link
+                :href="adminCloudflareHostnames()"
+                class="font-medium text-primary hover:underline"
+                data-test="admin-cloudflare-hostnames-link"
+            >
+                Cloudflare custom hostnames
+            </Link>
+            <span class="text-muted-foreground">
+                — list SaaS hostnames, status, orphans, and delete via API.
             </span>
         </p>
 
