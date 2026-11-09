@@ -56,6 +56,20 @@ class LeadController extends Controller
                     'error' => $search->error,
                     'createdAt' => $search->created_at->toISOString(),
                 ]),
+            'savedSearches' => $currentTeam->savedLeadSearches()
+                ->latest('updated_at')
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get()
+                ->map(fn ($saved) => [
+                    'id' => $saved->id,
+                    'name' => $saved->name,
+                    'keyword' => $saved->keyword,
+                    'location' => $saved->location,
+                    'websiteFilter' => $saved->website_filter->value,
+                    'minimumRating' => $saved->minimum_rating,
+                    'maxResults' => $saved->max_results,
+                ]),
             'filters' => [
                 'status' => $filters['status'] ?? null,
                 'search' => $filters['search'] ?? null,

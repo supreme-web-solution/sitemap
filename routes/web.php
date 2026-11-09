@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\ImpersonationController;
 use App\Http\Controllers\Automation\AutomationSettingsController;
 use App\Http\Controllers\Automation\CommandCenterController;
 use App\Http\Controllers\Automation\CommandCenterZernioWebhookController;
+use App\Http\Controllers\Billing\MapmaticStripeWebhookController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Discover\NicheResearchController;
 use App\Http\Controllers\Invoices\InvoiceActionController;
@@ -32,6 +33,7 @@ use App\Http\Controllers\Leads\LeadProfileController;
 use App\Http\Controllers\Leads\LeadReviewController;
 use App\Http\Controllers\Leads\LeadSearchController;
 use App\Http\Controllers\Leads\LeadTaskController;
+use App\Http\Controllers\Leads\SavedLeadSearchController;
 use App\Http\Controllers\Leads\SequenceEnrollmentController;
 use App\Http\Controllers\Mail\MailInboxController;
 use App\Http\Controllers\Messaging\LeadConsentController;
@@ -60,6 +62,7 @@ use App\Http\Controllers\Sites\LeadSiteController;
 use App\Http\Controllers\Sites\PreviewCommentController;
 use App\Http\Controllers\Sites\PreviewSectionViewController;
 use App\Http\Controllers\Sites\PreviewUnlockController;
+use App\Http\Controllers\Sites\SiteAnalyticsController;
 use App\Http\Controllers\Sites\SiteChatController;
 use App\Http\Controllers\Sites\SiteConceptController;
 use App\Http\Controllers\Sites\SiteContactController;
@@ -82,6 +85,7 @@ use App\Http\Controllers\Sites\SiteVersionController;
 use App\Http\Controllers\Teams\BrandingController;
 use App\Http\Controllers\Teams\BrandingPreviewHostnameController;
 use App\Http\Controllers\Teams\IdealCustomerController;
+use App\Http\Controllers\Teams\PlanChangeController;
 use App\Http\Controllers\Teams\PlanUsageController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureBrandedPreviewHost;
@@ -143,6 +147,7 @@ Route::post('c/{lead:portal_token}/feedback', [ClientPortalController::class, 'f
     ->middleware('throttle:invoice-payments')
     ->name('portal.feedback');
 Route::post('webhooks/stripe/{key}', StripeWebhookController::class)->name('webhooks.stripe');
+Route::post('webhooks/mapmatic/stripe', MapmaticStripeWebhookController::class)->name('webhooks.mapmatic.stripe');
 Route::post('webhooks/paypal/{key}', PayPalWebhookController::class)->name('webhooks.paypal');
 Route::post('webhooks/paystack/{key}', PaystackWebhookController::class)->name('webhooks.paystack');
 Route::post('webhooks/flutterwave/{key}', FlutterwaveWebhookController::class)->name('webhooks.flutterwave');
@@ -193,6 +198,13 @@ Route::prefix('{current_team}')
         Route::post('lead-searches', [LeadSearchController::class, 'store'])
             ->middleware('throttle:lead-searches')
             ->name('lead-searches.store');
+        Route::post('saved-lead-searches', [SavedLeadSearchController::class, 'store'])
+            ->name('saved-lead-searches.store');
+        Route::post('saved-lead-searches/{savedLeadSearch}/run', [SavedLeadSearchController::class, 'run'])
+            ->middleware('throttle:lead-searches')
+            ->name('saved-lead-searches.run');
+        Route::delete('saved-lead-searches/{savedLeadSearch}', [SavedLeadSearchController::class, 'destroy'])
+            ->name('saved-lead-searches.destroy');
         Route::post('lead-imports', [LeadImportController::class, 'store'])
             ->middleware('throttle:lead-searches')
             ->name('lead-imports.store');
@@ -273,6 +285,7 @@ Route::prefix('{current_team}')
             ->name('leads.concepts.choose');
 
         Route::get('sites', [SiteController::class, 'index'])->name('sites.index');
+        Route::get('sites/{site}/analytics', SiteAnalyticsController::class)->name('sites.analytics');
         Route::get('sites/{site}/edit', [SiteController::class, 'edit'])->name('sites.edit');
         Route::put('sites/{site}', [SiteController::class, 'update'])->name('sites.update');
         Route::post('sites/{site}/edits', [SiteEditController::class, 'store'])
@@ -342,6 +355,9 @@ Route::prefix('{current_team}')
         Route::delete('leads/{lead}/messaging-consent', [LeadConsentController::class, 'destroy'])->name('leads.consent.destroy');
 
         Route::get('plan', PlanUsageController::class)->name('plan.index');
+        Route::post('plan/{plan}', PlanChangeController::class)
+            ->withoutScopedBindings()
+            ->name('plan.change');
         Route::get('branding', [BrandingController::class, 'edit'])->name('branding.edit');
         Route::put('branding', [BrandingController::class, 'update'])->name('branding.update');
         Route::post('branding/preview-domain', [BrandingPreviewHostnameController::class, 'store'])->name('branding.preview-domain.store');

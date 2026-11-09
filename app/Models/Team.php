@@ -250,6 +250,16 @@ class Team extends Model
     }
 
     /**
+     * Named lead-search queries the team can re-run.
+     *
+     * @return HasMany<SavedLeadSearch, $this>
+     */
+    public function savedLeadSearches(): HasMany
+    {
+        return $this->hasMany(SavedLeadSearch::class);
+    }
+
+    /**
      * Get all leads belonging to this team.
      *
      * @return HasMany<Lead, $this>

@@ -14,7 +14,7 @@ use Illuminate\Http\RedirectResponse;
 class SitePreviewInterestController extends Controller
 {
     /**
-     * Record that the business owner replied from the public preview.
+     * Record that the business owner replied or claimed from the public preview.
      */
     public function __invoke(StorePreviewInterestRequest $request, Site $site): RedirectResponse
     {
@@ -29,11 +29,21 @@ class SitePreviewInterestController extends Controller
         $name = $request->validated('name');
         $contact = $request->validated('contact');
         $message = $request->validated('message');
+        $isClaim = $request->validated('intent') === 'claim';
+
+        $type = $isClaim ? LeadActivityType::PreviewClaim : LeadActivityType::PreviewInterest;
 
         $lead->recordActivity(
-            LeadActivityType::PreviewInterest,
-            __(':who replied from the website preview', ['who' => $name ?: $lead->name]),
-            ['name' => $name, 'contact' => $contact, 'message' => $message],
+            $type,
+            $isClaim
+                ? __(':who claimed the website preview', ['who' => $name ?: $lead->name])
+                : __(':who replied from the website preview', ['who' => $name ?: $lead->name]),
+            [
+                'name' => $name,
+                'contact' => $contact,
+                'message' => $message,
+                'intent' => $isClaim ? 'claim' : 'discuss',
+            ],
         );
 
         if (in_array($lead->status, [LeadStatus::New, LeadStatus::SiteGenerated, LeadStatus::Contacted], true)) {
@@ -43,7 +53,13 @@ class SitePreviewInterestController extends Controller
         $lead->next_follow_up_at = today()->addDays((int) config('prospecting.follow_up_days_after_preview_interest'));
         $lead->save();
 
-        $site->team->owner()?->notify(new PreviewInterestNotification($lead, $name, $contact, $message));
+        $site->team->owner()?->notify(new PreviewInterestNotification(
+            $lead,
+            $name,
+            $contact,
+            $message,
+            $isClaim ? 'claim' : 'discuss',
+        ));
 
         return $thanks;
     }

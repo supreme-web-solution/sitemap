@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { leadStatusClasses, leadStatusLabel } from '@/lib/leadStatus';
 import { index as leadsIndex } from '@/routes/leads';
 import {
+    analytics as siteAnalytics,
     edit,
     exportMethod as exportSite,
     index as sitesIndex,
@@ -158,6 +159,18 @@ const copyLink = async (site: SiteSummary) => {
                             >
                                 <ExternalLink /> Preview
                             </a>
+                        </Button>
+                        <Button size="sm" variant="outline" as-child>
+                            <Link
+                                :href="
+                                    siteAnalytics.url({
+                                        current_team: teamSlug,
+                                        site: site.id,
+                                    })
+                                "
+                            >
+                                <Eye /> Analytics
+                            </Link>
                         </Button>
                         <Button
                             size="sm"

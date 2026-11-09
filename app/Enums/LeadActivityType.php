@@ -14,6 +14,7 @@ enum LeadActivityType: string
     case MarkedContacted = 'marked_contacted';
     case FollowUpScheduled = 'follow_up_scheduled';
     case PreviewInterest = 'preview_interest';
+    case PreviewClaim = 'preview_claim';
     case InvoiceSent = 'invoice_sent';
     case InvoicePaid = 'invoice_paid';
     case InvoiceReminder = 'invoice_reminder';
@@ -44,6 +45,7 @@ enum LeadActivityType: string
             self::MarkedContacted => 'Marked as contacted',
             self::FollowUpScheduled => 'Follow-up scheduled',
             self::PreviewInterest => 'Prospect replied from preview',
+            self::PreviewClaim => 'Prospect claimed the website',
             self::InvoiceSent => 'Invoice sent',
             self::InvoicePaid => 'Invoice paid',
             self::InvoiceReminder => 'Invoice reminder sent',

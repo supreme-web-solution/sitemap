@@ -15,11 +15,15 @@ class PreviewInterestNotification extends Notification implements ShouldQueue
     /**
      * Create a new notification instance.
      */
-    public function __construct(public Lead $lead, public ?string $visitorName, public ?string $visitorContact, public ?string $visitorMessage) {}
+    public function __construct(
+        public Lead $lead,
+        public ?string $visitorName,
+        public ?string $visitorContact,
+        public ?string $visitorMessage,
+        public string $intent = 'discuss',
+    ) {}
 
     /**
-     * Get the notification's delivery channels.
-     *
      * @return array<int, string>
      */
     public function via(object $notifiable): array
@@ -27,14 +31,17 @@ class PreviewInterestNotification extends Notification implements ShouldQueue
         return ['mail'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
+        $isClaim = $this->intent === 'claim';
+
         $message = (new MailMessage)
-            ->subject(__(':business is interested in their website', ['business' => $this->lead->name]))
-            ->line(__(':business replied from their website preview.', ['business' => $this->lead->name]));
+            ->subject($isClaim
+                ? __(':business wants to claim their website', ['business' => $this->lead->name])
+                : __(':business is interested in their website', ['business' => $this->lead->name]))
+            ->line($isClaim
+                ? __(':business submitted a claim request from their website preview.', ['business' => $this->lead->name])
+                : __(':business replied from their website preview.', ['business' => $this->lead->name]));
 
         if ($this->visitorName) {
             $message->line(__('Name: :name', ['name' => $this->visitorName]));

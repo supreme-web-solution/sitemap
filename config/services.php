@@ -94,4 +94,13 @@ return [
         'url' => env('EXCHANGE_RATE_URL', 'https://open.er-api.com/v6/latest'),
     ],
 
+    /*
+    | Team plan billing (platform Stripe — not client invoice gateways).
+    | When set with a plan.stripe_price_id, owners can self-serve upgrade via Checkout.
+    */
+    'billing' => [
+        'stripe_secret' => env('STRIPE_SECRET'),
+        'stripe_webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
 ];

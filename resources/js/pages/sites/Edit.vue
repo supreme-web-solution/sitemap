@@ -36,7 +36,11 @@ import {
     update as updateReview,
 } from '@/routes/leads/reviews';
 import { store as regenerateSite } from '@/routes/leads/site';
-import { exportMethod as exportSite, index as sitesIndex } from '@/routes/sites';
+import {
+    analytics as siteAnalytics,
+    exportMethod as exportSite,
+    index as sitesIndex,
+} from '@/routes/sites';
 import { store as storeChat } from '@/routes/sites/chat';
 import { restore as restoreVersion } from '@/routes/sites/versions';
 import type {
@@ -354,8 +358,19 @@ const copyLink = async () => {
                         {{ site.name }}
                     </h1>
                     <p class="text-xs text-muted-foreground">
-                        {{ site.viewsCount }}
-                        {{ site.viewsCount === 1 ? 'view' : 'views' }}
+                        <Link
+                            :href="
+                                siteAnalytics.url({
+                                    current_team: teamSlug,
+                                    site: site.id,
+                                })
+                            "
+                            class="underline-offset-2 hover:underline"
+                            data-test="site-analytics-link"
+                        >
+                            {{ site.viewsCount }}
+                            {{ site.viewsCount === 1 ? 'view' : 'views' }}
+                        </Link>
                         <template v-if="isRegenerating">
                             · Regenerating…
                         </template>

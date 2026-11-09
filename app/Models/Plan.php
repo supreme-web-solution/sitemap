@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property string $slug
  * @property string|null $description
  * @property int $price_cents
+ * @property string|null $stripe_price_id
  * @property bool $is_default
  * @property bool $is_active
  * @property array<string, int|null> $limits
@@ -25,7 +26,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'slug', 'description', 'price_cents', 'is_default', 'is_active', 'limits', 'features', 'sort_order'])]
+#[Fillable(['name', 'slug', 'description', 'price_cents', 'stripe_price_id', 'is_default', 'is_active', 'limits', 'features', 'sort_order'])]
 class Plan extends Model
 {
     /** @use HasFactory<PlanFactory> */

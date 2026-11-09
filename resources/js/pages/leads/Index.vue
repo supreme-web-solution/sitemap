@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import {
+    Bookmark,
     CalendarClock,
     Download,
     ListChecks,
@@ -10,9 +11,11 @@ import {
     LoaderCircle,
     MapPin,
     Phone,
+    Play,
     Search,
     Sparkles,
     Star,
+    Trash2,
     X,
 } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
@@ -56,6 +59,11 @@ import { leadStatuses } from '@/lib/leadStatus';
 import { store as storeImport } from '@/routes/lead-imports';
 import { store as storeSearch } from '@/routes/lead-searches';
 import {
+    destroy as destroySavedSearch,
+    run as runSavedSearch,
+    store as storeSavedSearch,
+} from '@/routes/saved-lead-searches';
+import {
     board as leadsBoard,
     exportMethod as exportLeads,
     edit as reviewLead,
@@ -74,9 +82,20 @@ import type {
     Team,
 } from '@/types';
 
+type SavedSearch = {
+    id: number;
+    name: string;
+    keyword: string;
+    location: string;
+    websiteFilter: string;
+    minimumRating: number | null;
+    maxResults: number;
+};
+
 const props = defineProps<{
     leads: Paginated<Lead>;
     searches: LeadSearch[];
+    savedSearches: SavedSearch[];
     filters: {
         status: LeadStatus | null;
         search: string | null;
@@ -119,21 +138,26 @@ const searchForm = useForm({
     locations: [] as string[],
 });
 
+const searchCriteria = () => ({
+    keyword: searchForm.keyword,
+    location: searchForm.location,
+    website_filter: searchForm.website_filter,
+    minimum_rating:
+        searchForm.minimum_rating === 'any'
+            ? null
+            : Number(searchForm.minimum_rating),
+    max_results: Number(searchForm.max_results),
+    locations: extraLocations.value
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean),
+});
+
 const submitSearch = () => {
     pendingDiscovery.value = true;
 
     searchForm
-        .transform((data) => ({
-            ...data,
-            minimum_rating:
-                data.minimum_rating === 'any'
-                    ? null
-                    : Number(data.minimum_rating),
-            locations: extraLocations.value
-                .split(',')
-                .map((part) => part.trim())
-                .filter(Boolean),
-        }))
+        .transform(() => searchCriteria())
         .post(storeSearch.url({ current_team: teamSlug.value }), {
             preserveScroll: true,
             onSuccess: () => {
@@ -144,6 +168,75 @@ const submitSearch = () => {
                 pendingDiscovery.value = false;
             },
         });
+};
+
+const saveSearchName = ref('');
+const saveSearchForm = useForm({
+    name: '',
+    keyword: '',
+    location: '',
+    website_filter: 'withoutWebsite',
+    minimum_rating: null as number | null,
+    max_results: 20,
+});
+
+const saveCurrentSearch = () => {
+    const name = saveSearchName.value.trim();
+
+    if (!name) {
+        toast.error('Give this search a name first.');
+        return;
+    }
+
+    const criteria = searchCriteria();
+
+    saveSearchForm
+        .transform(() => ({
+            name,
+            keyword: criteria.keyword,
+            location: criteria.location,
+            website_filter: criteria.website_filter,
+            minimum_rating: criteria.minimum_rating,
+            max_results: criteria.max_results,
+        }))
+        .post(storeSavedSearch.url({ current_team: teamSlug.value }), {
+            preserveScroll: true,
+            onSuccess: () => {
+                saveSearchName.value = '';
+            },
+        });
+};
+
+const rerunSavedSearch = (saved: SavedSearch) => {
+    pendingDiscovery.value = true;
+
+    router.post(
+        runSavedSearch.url({
+            current_team: teamSlug.value,
+            savedLeadSearch: saved.id,
+        }),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => startPolling(),
+            onError: () => {
+                pendingDiscovery.value = false;
+            },
+            onFinish: () => {
+                pendingDiscovery.value = false;
+            },
+        },
+    );
+};
+
+const removeSavedSearch = (saved: SavedSearch) => {
+    router.delete(
+        destroySavedSearch.url({
+            current_team: teamSlug.value,
+            savedLeadSearch: saved.id,
+        }),
+        { preserveScroll: true },
+    );
 };
 
 const importForm = useForm({ maps_url: '' });
@@ -583,6 +676,52 @@ const onPickDesign = (lead: Lead) => {
         </Alert>
 
         <div
+            v-if="savedSearches.length"
+            class="panel flex flex-col gap-2 p-3 md:p-4"
+            data-test="saved-searches"
+        >
+            <p class="text-xs font-medium text-muted-foreground">
+                Saved searches
+            </p>
+            <ul class="flex flex-col gap-2">
+                <li
+                    v-for="saved in savedSearches"
+                    :key="saved.id"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 px-3 py-2"
+                >
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-medium">
+                            {{ saved.name }}
+                        </p>
+                        <p class="truncate text-xs text-muted-foreground">
+                            {{ saved.keyword }} · {{ saved.location }}
+                        </p>
+                    </div>
+                    <div class="flex shrink-0 gap-1">
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            :disabled="isDiscoveryBusy"
+                            data-test="saved-search-run"
+                            @click="rerunSavedSearch(saved)"
+                        >
+                            <Play class="size-3.5" />
+                            Run
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            data-test="saved-search-delete"
+                            @click="removeSavedSearch(saved)"
+                        >
+                            <Trash2 class="size-3.5" />
+                        </Button>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <div
             v-if="searches.length || isDiscoveryBusy"
             class="flex flex-col gap-2"
         >
@@ -763,7 +902,7 @@ const onPickDesign = (lead: Lead) => {
                         <InputError :message="searchForm.errors.max_results" />
                     </div>
 
-                    <div class="sm:col-span-2">
+                    <div class="sm:col-span-2 grid gap-2">
                         <Button
                             type="submit"
                             class="w-full"
@@ -776,6 +915,25 @@ const onPickDesign = (lead: Lead) => {
                             <Search v-else />
                             Run search
                         </Button>
+                        <div class="flex gap-2">
+                            <Input
+                                v-model="saveSearchName"
+                                placeholder="Name this search to reuse it"
+                                maxlength="80"
+                                data-test="save-search-name"
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                :disabled="saveSearchForm.processing"
+                                data-test="save-search-submit"
+                                @click="saveCurrentSearch"
+                            >
+                                <Bookmark class="size-4" />
+                                Save
+                            </Button>
+                        </div>
+                        <InputError :message="saveSearchForm.errors.name" />
                     </div>
                 </form>
 
