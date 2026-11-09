@@ -306,8 +306,7 @@ const textareaClass =
             <p class="mt-3 text-xs text-muted-foreground">
                 This link is added to proposal emails and to outreach emails
                 automatically. In your own templates use
-                <span class="font-mono">{{ '{{video_url}}' }}</span
-                >.
+                <span class="font-mono">{{ '{' + '{video_url}' + '}' }}</span>.
             </p>
         </section>
 
