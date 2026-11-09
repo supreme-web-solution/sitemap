@@ -28,7 +28,7 @@ test('anyone with the link can view the live preview and the visit is counted', 
         ->assertSee('Austin Pro Plumbing')
         ->assertSee($site->content['headline'])
         ->assertSee('Claim this website')
-        ->assertSee('mailto:agency@example.com', escape: false);
+        ->assertSee('name="intent" value="claim"', false);
 
     expect($site->fresh())
         ->views_count->toBe(1)

@@ -21,7 +21,7 @@ test('the call-to-action band supports layout variants and a background photo sl
     $html = app(SiteRenderer::class)->render($site, asPreview: true);
 
     expect($html)->toContain('cta-v-photo')
-        ->and($html)->toContain('data-section="cta"')
+        ->and($html)->not->toContain('data-section="cta"')
         ->and($html)->toContain('cta-band__media')
         ->and($html)->toContain('Ready to get started?');
 });

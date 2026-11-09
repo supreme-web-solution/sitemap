@@ -5,8 +5,10 @@
 @endphp
 <section
     class="cta-band"
-    data-section="cta"
-    data-section-label="Call-to-action banner"
+    @if (! empty($editing))
+        data-section="cta"
+        data-section-label="Call-to-action banner"
+    @endif
     @if (filled($ctaImage) && in_array($ctaVariant, ['photo', 'split', 'solid'], true))
         style="--cta-image: url('{{ $ctaImage }}')"
     @endif

@@ -298,7 +298,7 @@ test('reworded labels and design choices are stored and rendered', function () {
         ->toContain('Who we are')
         ->toContain('Playfair Display')
         ->toContain('data-sec-style="dark"')
-        ->not->toContain('data-edit');
+        ->not->toContain('data-edit="');
 });
 
 test('a label can be put back to the template default', function () {

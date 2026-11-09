@@ -416,6 +416,8 @@ export type SiteSummary = {
     accent: string;
     headline: string;
     previewUrl: string;
+    thumbnailUrl: string;
+    heroImage?: string | null;
     viewsCount: number;
     lastViewedAt: string | null;
 };

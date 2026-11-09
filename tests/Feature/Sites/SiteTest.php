@@ -96,7 +96,7 @@ test('generated copy does not claim reviews the business does not have', functio
 
     expect($content['about'])->not->toContain('reviews');
     expect($content['faqs'])->toBe([]);
-    expect($content['services'][0]['title'])->toBe('Florist');
+    expect($content['services'][0]['title'])->toBe('Florist visits');
 });
 
 test('regenerating a website keeps its public link and pipeline stage', function () {

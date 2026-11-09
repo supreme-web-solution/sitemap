@@ -57,6 +57,9 @@ class SiteBrandAssets
 
     /**
      * Create brand assets when missing; leave an existing complete set alone.
+     *
+     * Called during render, so this must not flush the HTML cache mid-build
+     * (that would store the page under a retired cache version).
      */
     public function ensure(Site $site): Site
     {
@@ -64,13 +67,21 @@ class SiteBrandAssets
             return $site;
         }
 
-        return $this->refresh($site);
+        return $this->persist($site, flushCache: false);
     }
 
     /**
      * Rebuild favicons and the OG card from the current logo, name, and accent.
      */
     public function refresh(Site $site): Site
+    {
+        return $this->persist($site, flushCache: true);
+    }
+
+    /**
+     * Persist generated brand assets without treating them as an editorial revision.
+     */
+    protected function persist(Site $site, bool $flushCache): Site
     {
         $site->loadMissing('lead');
         $lead = $site->lead;
@@ -105,7 +116,11 @@ class SiteBrandAssets
 
         $content['brand'] = $brand;
         $site->content = $content;
-        $site->save();
+        $site->saveQuietly();
+
+        if ($flushCache) {
+            SiteCache::flush($site->id);
+        }
 
         return $site;
     }

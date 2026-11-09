@@ -60,6 +60,11 @@ class SiteController extends Controller
                     'accent' => $site->content['accent'],
                     'headline' => $site->content['headline'],
                     'previewUrl' => PreviewLink::page($site),
+                    'thumbnailUrl' => route('sites.preview', [
+                        'site' => $site->slug,
+                        'internal' => 1,
+                        'thumbnail' => 1,
+                    ], absolute: false),
                     'viewsCount' => $site->views_count,
                     'lastViewedAt' => $site->last_viewed_at?->toISOString(),
                 ]),

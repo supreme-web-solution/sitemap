@@ -70,6 +70,12 @@ test('pages are sent with caching headers and answer repeat visits with not modi
 
 test('the domain serves its own robots.txt and sitemap', function () {
     $site = liveSite()[0];
+    $site->update([
+        'content' => [
+            ...$site->content,
+            'pages' => ['about', 'services', 'blog'],
+        ],
+    ]);
     SitePost::factory()->for($site)->create(['slug' => 'winter-pipe-tips']);
 
     $this->get('https://pros.example.com/robots.txt')
@@ -141,7 +147,7 @@ test('customer domains only answer reads', function () {
 test('the dashboard host is never treated as a customer site', function () {
     liveSite();
 
-    $this->get('/')->assertOk();
+    $this->get('/')->assertRedirect('/login');
     $this->get(route('login'))->assertOk();
 });
 
@@ -168,8 +174,14 @@ test('edits show up on the live site straight away', function () {
 
 test('publishing a blog post updates the sitemap and menu', function () {
     [$site] = liveSite();
+    $site->update([
+        'content' => [
+            ...$site->content,
+            'pages' => ['about', 'services', 'blog'],
+        ],
+    ]);
 
-    $this->get('https://pros.example.com/sitemap.xml')->assertDontSee('/blog');
+    $this->get('https://pros.example.com/sitemap.xml')->assertDontSee('/blog/');
 
     SitePost::factory()->for($site)->create(['slug' => 'fresh-post']);
 

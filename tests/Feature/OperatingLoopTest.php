@@ -1,5 +1,7 @@
 <?php
 
+use App\Ai\Agents\SiteEditTurnAgent;
+use App\Ai\Agents\SiteSectionDesignCritic;
 use App\Enums\LeadStatus;
 use App\Enums\SiteSection;
 use App\Jobs\CrawlSiteLinks;
@@ -14,6 +16,7 @@ use App\Services\SiteBuilder\SiteRenderer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Ai\Responses\Data\ToolCall;
 
 test('score weights persist on the team and rescore its leads', function () {
     $user = User::factory()->create();
@@ -132,6 +135,22 @@ test('brand pull is not found for another team lead', function () {
 });
 
 test('improving a section applies a synchronous site edit', function () {
+    config(['sites.use_edit_executor' => false]);
+    SiteEditTurnAgent::fake(fn () => new ToolCall(
+        'tool_edit_turn',
+        'SubmitSiteEditTurn',
+        ['turn_json' => json_encode([
+            'mode' => 'apply_edit',
+            'message' => '',
+            'apply_instruction' => null,
+        ], JSON_THROW_ON_ERROR)],
+    ));
+    SiteSectionDesignCritic::fake(fn () => new ToolCall(
+        'tool_design_review',
+        'SubmitSectionDesignReview',
+        ['passed' => true, 'feedback' => 'Matches the request.', 'revision_brief' => ''],
+    ));
+
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create();
     $site = Site::factory()->create(['lead_id' => $lead->id]);
@@ -149,6 +168,22 @@ test('improving a section applies a synchronous site edit', function () {
 });
 
 test('fix with ai applies a synchronous site edit', function () {
+    config(['sites.use_edit_executor' => false]);
+    SiteEditTurnAgent::fake(fn () => new ToolCall(
+        'tool_edit_turn',
+        'SubmitSiteEditTurn',
+        ['turn_json' => json_encode([
+            'mode' => 'apply_edit',
+            'message' => '',
+            'apply_instruction' => null,
+        ], JSON_THROW_ON_ERROR)],
+    ));
+    SiteSectionDesignCritic::fake(fn () => new ToolCall(
+        'tool_design_review',
+        'SubmitSectionDesignReview',
+        ['passed' => true, 'feedback' => 'Matches the request.', 'revision_brief' => ''],
+    ));
+
     $user = User::factory()->create();
     $lead = Lead::factory()->for($user->currentTeam)->create();
     $site = Site::factory()->create(['lead_id' => $lead->id]);

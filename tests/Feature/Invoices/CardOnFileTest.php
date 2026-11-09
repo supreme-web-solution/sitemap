@@ -3,6 +3,7 @@
 use App\Enums\InvoiceStatus;
 use App\Enums\RecurringCollectionMode;
 use App\Mail\InvoiceEmail;
+use App\Mail\InvoicePaidClientEmail;
 use App\Models\Invoice;
 use App\Models\Lead;
 use App\Models\PaymentAccount;
@@ -38,7 +39,8 @@ test('a recurring schedule can charge a saved stripe card without emailing', fun
         ->and($invoice->paid_via)->toBe('stripe')
         ->and($invoice->emailed_at)->toBeNull();
 
-    Mail::assertNothingQueued();
+    Mail::assertNotQueued(InvoiceEmail::class);
+    Mail::assertQueued(InvoicePaidClientEmail::class);
 });
 
 test('auto charge falls back to emailing when the card charge fails', function () {
@@ -176,7 +178,8 @@ test('a recurring schedule can charge a vaulted paypal payment method without em
         ->and($invoice->paid_via)->toBe('paypal')
         ->and($invoice->emailed_at)->toBeNull();
 
-    Mail::assertNothingQueued();
+    Mail::assertNotQueued(InvoiceEmail::class);
+    Mail::assertQueued(InvoicePaidClientEmail::class);
 });
 
 test('paying a recurring invoice through paypal can vault the payment method for later cycles', function () {

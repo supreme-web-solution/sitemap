@@ -23,7 +23,7 @@ class SiteCache
      */
     public function remember(int $siteId, string $key, Closure $build): ?string
     {
-        $cacheKey = 'site-page:'.$siteId.':'.$this->version($siteId).':'.md5($key);
+        $cacheKey = $this->pageKey($siteId, $key);
 
         $cached = Cache::get($cacheKey);
 
@@ -33,9 +33,16 @@ class SiteCache
 
         $value = $build();
 
-        Cache::put($cacheKey, $value ?? '', config('sites.html_cache_seconds'));
+        // Builders may flush the version (e.g. first-time brand assets). Store under the
+        // version that is current after the build so the next request can hit this entry.
+        Cache::put($this->pageKey($siteId, $key), $value ?? '', config('sites.html_cache_seconds'));
 
         return $value;
+    }
+
+    protected function pageKey(int $siteId, string $key): string
+    {
+        return 'site-page:'.$siteId.':'.$this->version($siteId).':'.md5($key);
     }
 
     /**
