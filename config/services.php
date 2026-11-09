@@ -111,8 +111,11 @@ return [
     'cloudflare' => [
         'api_token' => env('CLOUDFLARE_API_TOKEN'),
         'zone_id' => env('CLOUDFLARE_ZONE_ID'),
-        // Proxied hostname Cloudflare uses for origin TLS (e.g. origin.mapmaticapp.com). Must have a Forge SSL cert.
+        // Fallback Origin is configured in the Cloudflare dashboard (origin.mapmaticapp.com).
+        // Per-hostname custom_origin_server / custom_origin_sni requires paid SSL for SaaS
+        // provisioning — leave custom_origin false on Free (error 1456 otherwise).
         'origin_hostname' => env('CLOUDFLARE_ORIGIN_HOSTNAME'),
+        'custom_origin' => (bool) env('CLOUDFLARE_CUSTOM_ORIGIN', false),
     ],
 
 ];

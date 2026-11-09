@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm, usePage } from '@inertiajs/vue3';
+import { router, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import {
     Copy,
     ExternalLink,
@@ -10,7 +10,7 @@ import {
     Trash2,
 } from '@lucide/vue';
 import { useClipboard } from '@vueuse/core';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,24 @@ const publishError = computed(
 
 const form = useForm({ hostname: '' });
 const { copy } = useClipboard();
+
+const httpsActivating = computed(() =>
+    props.publishing.domains.some(
+        (domain) => domain.isVerified && !domain.sslActive,
+    ),
+);
+
+const { start: startHttpsPoll, stop: stopHttpsPoll } = usePoll(
+    5000,
+    { only: ['publishing'] },
+    { autoStart: false },
+);
+
+watch(
+    httpsActivating,
+    (active) => (active ? startHttpsPoll() : stopHttpsPoll()),
+    { immediate: true },
+);
 
 const routeArgs = () => ({ current_team: props.teamSlug, site: props.siteId });
 
@@ -218,7 +236,7 @@ const promoteToLive = () => {
                             domain.sslActive
                                 ? 'Live HTTPS'
                                 : domain.isVerified
-                                  ? 'DNS verified'
+                                  ? 'DNS verified — HTTPS activating'
                                   : 'Waiting for DNS'
                         }}
                     </span>
@@ -299,6 +317,18 @@ const promoteToLive = () => {
                         </table>
                     </div>
                 </div>
+
+                <p
+                    v-if="domain.isVerified && !domain.sslActive && !domain.error"
+                    class="mt-2 text-xs text-sky-700 dark:text-sky-300"
+                >
+                    Waiting for Cloudflare to finish HTTPS — this status updates
+                    automatically.
+                    <template v-if="domain.lastCheckedAt">
+                        Last checked
+                        {{ formatRelativeTime(domain.lastCheckedAt) }}.
+                    </template>
+                </p>
 
                 <p
                     v-if="domain.error"

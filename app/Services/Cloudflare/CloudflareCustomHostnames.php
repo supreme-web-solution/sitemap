@@ -109,7 +109,11 @@ class CloudflareCustomHostnames
     }
 
     /**
-     * Point Cloudflare at our Forge origin hostname for the TLS handshake (avoids 525).
+     * Build the Custom Hostname create body.
+     *
+     * Free Cloudflare for SaaS routes traffic via the zone Fallback Origin. Setting
+     * custom_origin_server / custom_origin_sni per hostname needs paid provisioning
+     * and returns Cloudflare error 1456 when unavailable.
      *
      * @return array<string, mixed>
      */
@@ -130,7 +134,7 @@ class CloudflareCustomHostnames
 
         $origin = strtolower((string) config('services.cloudflare.origin_hostname'));
 
-        if ($origin !== '') {
+        if (config('services.cloudflare.custom_origin') && $origin !== '') {
             $payload['custom_origin_server'] = $origin;
             $payload['custom_origin_sni'] = $origin;
         }

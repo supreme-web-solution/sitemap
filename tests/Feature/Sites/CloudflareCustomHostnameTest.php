@@ -42,6 +42,8 @@ test('verifying a domain registers it with cloudflare for saas', function () {
     config([
         'services.cloudflare.api_token' => 'cf-token',
         'services.cloudflare.zone_id' => 'zone-123',
+        'services.cloudflare.origin_hostname' => 'origin.mapmaticapp.com',
+        'services.cloudflare.custom_origin' => false,
         'sites.cname_target' => 'sites.mapmaticapp.com',
     ]);
 
@@ -102,7 +104,41 @@ test('verifying a domain registers it with cloudflare for saas', function () {
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/custom_hostnames')
         && $request->method() === 'POST'
-        && $request['hostname'] === 'www.pros.example.com');
+        && $request['hostname'] === 'www.pros.example.com'
+        && ! array_key_exists('custom_origin_server', $request->data())
+        && ! array_key_exists('custom_origin_sni', $request->data()));
+});
+
+test('custom origin fields are only sent when explicitly enabled', function () {
+    config([
+        'services.cloudflare.api_token' => 'cf-token',
+        'services.cloudflare.zone_id' => 'zone-123',
+        'services.cloudflare.origin_hostname' => 'origin.mapmaticapp.com',
+        'services.cloudflare.custom_origin' => true,
+    ]);
+
+    Http::fake([
+        'https://api.cloudflare.com/client/v4/zones/zone-123/custom_hostnames*' => Http::response([
+            'success' => true,
+            'result' => [
+                'id' => 'ch-origin-enabled',
+                'hostname' => 'www.pros.example.com',
+                'status' => 'pending',
+                'ssl' => ['status' => 'pending_validation'],
+            ],
+        ], 200),
+    ]);
+
+    [$site] = cloudflareSite();
+    $domain = SiteDomain::factory()->verified()->for($site)->create([
+        'hostname' => 'www.pros.example.com',
+    ]);
+
+    app(SyncCloudflareHostname::class)->syncSiteDomain($domain);
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && $request['custom_origin_server'] === 'origin.mapmaticapp.com'
+        && $request['custom_origin_sni'] === 'origin.mapmaticapp.com');
 });
 
 test('removing a domain deletes the cloudflare custom hostname', function () {

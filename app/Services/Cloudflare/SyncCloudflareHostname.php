@@ -5,6 +5,7 @@ namespace App\Services\Cloudflare;
 use App\Models\SiteDomain;
 use App\Models\Team;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -48,7 +49,7 @@ class SyncCloudflareHostname
             ]);
 
             $domain->forceFill([
-                'check_error' => 'Domain verified, but HTTPS is still being set up. Try Check DNS again in a minute.',
+                'check_error' => $this->failureMessage($exception),
             ])->save();
         }
     }
@@ -89,7 +90,7 @@ class SyncCloudflareHostname
             ]);
 
             $team->forceFill([
-                'preview_hostname_check_error' => 'Domain verified, but HTTPS is still being set up. Try Re-check DNS again in a minute.',
+                'preview_hostname_check_error' => $this->failureMessage($exception),
             ])->save();
         }
     }
@@ -147,5 +148,16 @@ class SyncCloudflareHostname
         }
 
         return 'DNS is verified. HTTPS is still activating — this page updates automatically; you can also click Re-check DNS.';
+    }
+
+    protected function failureMessage(Throwable $exception): string
+    {
+        $detail = trim($exception->getMessage());
+
+        if ($detail === '') {
+            return 'Domain verified, but HTTPS could not be set up. Try Refresh HTTPS again in a minute.';
+        }
+
+        return 'Domain verified, but HTTPS could not be set up: '.Str::limit($detail, 180);
     }
 }
