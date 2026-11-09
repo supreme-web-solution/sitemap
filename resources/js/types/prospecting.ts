@@ -15,12 +15,7 @@ export type Paginated<T> = {
 };
 
 export type LeadStatus =
-    | 'new'
-    | 'site_generated'
-    | 'contacted'
-    | 'interested'
-    | 'won'
-    | 'lost';
+    'new' | 'site_generated' | 'contacted' | 'interested' | 'won' | 'lost';
 
 export type Lead = {
     id: number;
@@ -44,6 +39,7 @@ export type Lead = {
     detailsConfirmed: boolean;
     siteGenerationStatus: SiteGenerationStatus;
     siteGenerationError: string | null;
+    siteBuild?: SiteBuild | null;
     site: { id: number; previewUrl: string } | null;
     activeSequences?: { enrollmentId: number; name: string }[];
 };
@@ -51,6 +47,23 @@ export type Lead = {
 export type OpportunityTier = 'hot' | 'warm' | 'cold';
 
 export type SiteGenerationStatus = 'idle' | 'queued' | 'failed';
+
+export type SiteBuildStep = {
+    key: string;
+    label: string;
+    percent: number;
+    state: 'done' | 'active' | 'pending';
+};
+
+export type SiteBuild = {
+    percent: number;
+    step: string;
+    label: string;
+    stalled: boolean;
+    startedAt: string | null;
+    updatedAt: string | null;
+    steps: SiteBuildStep[];
+};
 
 export type CheckStatus = 'pass' | 'warn' | 'fail';
 
@@ -213,6 +226,7 @@ export type LeadProfile = {
     detailsConfirmedAt: string | null;
     siteGenerationStatus: SiteGenerationStatus;
     siteGenerationError: string | null;
+    siteBuild: SiteBuild | null;
     site: {
         id: number;
         previewUrl: string;
@@ -449,7 +463,12 @@ export type SiteHealth = {
     uptimeOk: boolean | null;
     lastUptimeAt: string | null;
     lastCrawledAt: string | null;
-    brokenLinks: { id: number; url: string; status: number | null; error: string | null }[];
+    brokenLinks: {
+        id: number;
+        url: string;
+        status: number | null;
+        error: string | null;
+    }[];
     findings: CheckItem[];
     backupCount: number;
     comments: {
@@ -512,10 +531,7 @@ export type DashboardChart = {
 };
 
 export type DashboardActivityType =
-    | 'site_created'
-    | 'preview_viewed'
-    | 'lead_found'
-    | 'deal_won';
+    'site_created' | 'preview_viewed' | 'lead_found' | 'deal_won';
 
 export type DashboardActivity = {
     type: DashboardActivityType;

@@ -6,6 +6,7 @@ use App\Actions\Sites\GenerateSite;
 use App\Enums\AutomationTrigger;
 use App\Enums\SiteGenerationStatus;
 use App\Models\Lead;
+use App\Services\SiteBuilder\SiteBuildProgress;
 use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,6 +40,11 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
     public function __construct(public Lead $lead, public ?int $designTemplateId = null)
     {
         $this->onQueue(Queues::AI);
+
+        SiteBuildProgress::record($lead->id, 'queued', [
+            'lead' => $lead->name,
+            'design_template_id' => $designTemplateId,
+        ]);
     }
 
     /**
@@ -54,7 +60,11 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
      */
     public function handle(GenerateSite $generateSite): void
     {
+        SiteBuildProgress::record($this->lead->id, 'started', ['attempt' => $this->attempts()]);
+
         $generateSite->handle($this->lead, designTemplateId: $this->designTemplateId);
+
+        SiteBuildProgress::finished($this->lead->id);
 
         RunAgencyWorkflow::dispatchForLead($this->lead->fresh(), AutomationTrigger::SiteGenerated);
     }
@@ -64,6 +74,8 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
      */
     public function failed(?Throwable $exception): void
     {
+        SiteBuildProgress::failed($this->lead->id, $exception?->getMessage());
+
         $lead = $this->lead->fresh(['site']);
 
         if ($lead === null) {

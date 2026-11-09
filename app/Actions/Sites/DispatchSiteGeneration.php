@@ -6,6 +6,7 @@ use App\Enums\SiteGenerationStatus;
 use App\Jobs\FetchLeadReviews;
 use App\Jobs\GenerateLeadSite;
 use App\Models\Lead;
+use App\Services\SiteBuilder\SiteBuildProgress;
 
 class DispatchSiteGeneration
 {
@@ -24,6 +25,8 @@ class DispatchSiteGeneration
             'reviews_fetch_status' => SiteGenerationStatus::Queued,
             'reviews_fetch_error' => null,
         ]);
+
+        SiteBuildProgress::record($lead->id, 'reviews', ['lead' => $lead->name]);
 
         FetchLeadReviews::dispatch($lead, thenGenerate: true, designTemplateId: $designTemplateId);
     }

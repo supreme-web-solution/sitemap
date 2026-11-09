@@ -226,6 +226,47 @@
     }
 }
 
+/* Water-like flowing fill for in-flight site builds. */
+@keyframes build-flow {
+    from {
+        background-position: 0% 0;
+    }
+    to {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes build-wave {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(350%);
+    }
+}
+
+@utility build-flow {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in oklch, var(--primary) 85%, white),
+        color-mix(in oklch, var(--primary) 55%, #38bdf8),
+        color-mix(in oklch, var(--primary) 85%, white)
+    );
+    background-size: 200% 100%;
+    animation: build-flow 1.8s linear infinite;
+}
+
+@utility build-wave {
+    animation: build-wave 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .build-flow,
+    .build-wave {
+        animation: none;
+    }
+}
+
 /* Slim scrollbars for kanban / tables (Firefox + WebKit). */
 @utility scrollbar-thin {
     scrollbar-width: thin;

@@ -6,6 +6,7 @@ use App\Enums\SiteGenerationStatus;
 use App\Models\Lead;
 use App\Services\Preview\PreviewLink;
 use App\Services\Prospecting\OpportunityScorer;
+use App\Services\SiteBuilder\SiteBuildProgress;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -55,6 +56,9 @@ class LeadResource extends JsonResource
                 ? SiteGenerationStatus::Idle->value
                 : $this->site_generation_status->value,
             'siteGenerationError' => $this->hasGeneratedSite() ? null : $this->site_generation_error,
+            'siteBuild' => ! $this->hasGeneratedSite() && $this->site_generation_status === SiteGenerationStatus::Queued
+                ? SiteBuildProgress::snapshot($this->id)
+                : null,
             'site' => $this->whenLoaded('site', fn () => $this->site ? [
                 'id' => $this->site->id,
                 'previewUrl' => PreviewLink::page($this->site),

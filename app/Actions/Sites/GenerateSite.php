@@ -11,6 +11,7 @@ use App\Models\Site;
 use App\Models\SiteDesignTemplate;
 use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteBrandAssets;
+use App\Services\SiteBuilder\SiteBuildProgress;
 use App\Services\SiteBuilder\SiteContentSchema;
 use App\Services\SiteBuilder\SiteCopywriter;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,11 @@ class GenerateSite
         $designTemplate = $designTemplateId ? SiteDesignTemplate::query()->find($designTemplateId) : null;
         $template ??= $designTemplate?->siteTemplate();
 
-        $draft ??= $this->copywriter->write($lead, $template);
+        if ($draft === null) {
+            SiteBuildProgress::record($lead->id, 'writing');
+
+            $draft = $this->copywriter->write($lead, $template);
+        }
 
         if ($designTemplate !== null) {
             $content = $draft->content;
@@ -45,6 +50,8 @@ class GenerateSite
 
             $draft = new SiteDraft($designTemplate->siteTemplate(), $content);
         }
+
+        SiteBuildProgress::record($lead->id, 'saving');
 
         return DB::transaction(function () use ($lead, $draft, $designTemplate) {
             $previous = $lead->site?->content ?? [];
@@ -70,6 +77,8 @@ class GenerateSite
             }
 
             $lead->save();
+
+            SiteBuildProgress::record($lead->id, 'assets');
 
             return $this->brandAssets->refresh($site->fresh(['lead']));
         });

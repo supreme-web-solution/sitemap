@@ -31,6 +31,7 @@ import OutreachCard from '@/components/leads/OutreachCard.vue';
 import VerificationCard from '@/components/leads/VerificationCard.vue';
 import DeleteLeadDialog from '@/components/leads/DeleteLeadDialog.vue';
 import RedesignWorkflowCard from '@/components/leads/RedesignWorkflowCard.vue';
+import SiteBuildProgress from '@/components/leads/SiteBuildProgress.vue';
 import WebsiteAuditCard from '@/components/leads/WebsiteAuditCard.vue';
 import WebsiteBrandCard from '@/components/leads/WebsiteBrandCard.vue';
 import SiteDesignTemplatePicker from '@/components/sites/SiteDesignTemplatePicker.vue';
@@ -38,7 +39,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { create as createInvoice } from '@/routes/invoices';
-import { create as createProposal, edit as editProposal } from '@/routes/proposals';
+import {
+    create as createProposal,
+    edit as editProposal,
+} from '@/routes/proposals';
 import { edit as reviewLead, index as leadsIndex } from '@/routes/leads';
 import { update as updateProfile } from '@/routes/leads/profile';
 import { store as generateSite } from '@/routes/leads/site';
@@ -189,15 +193,13 @@ const scrollElementIntoContainer = (
 ) => {
     const containerRect = container.getBoundingClientRect();
     const elementRect = element.getBoundingClientRect();
-    const top =
-        elementRect.top - containerRect.top + container.scrollTop - 12;
+    const top = elementRect.top - containerRect.top + container.scrollTop - 12;
 
     container.scrollTo({ top, behavior: 'smooth' });
 };
 
 const scrollToWorkflowTarget = (target: 'audit' | 'outreach') => {
-    const id =
-        target === 'audit' ? 'website-audit-card' : 'lead-outreach-card';
+    const id = target === 'audit' ? 'website-audit-card' : 'lead-outreach-card';
     const element = document.getElementById(id);
 
     if (!element) {
@@ -317,7 +319,11 @@ const textareaClass =
                             "
                         >
                             <FileText />
-                            {{ lead.proposalId ? 'Edit proposal' : 'New proposal' }}
+                            {{
+                                lead.proposalId
+                                    ? 'Edit proposal'
+                                    : 'New proposal'
+                            }}
                         </Link>
                     </Button>
                     <Button
@@ -357,9 +363,14 @@ const textareaClass =
                     @scroll-to="scrollToWorkflowTarget"
                 />
 
+                <SiteBuildProgress
+                    v-if="isBuilding && lead.siteBuild"
+                    :build="lead.siteBuild"
+                />
+
                 <div
                     v-if="
-                        isBuilding ||
+                        (isBuilding && !lead.siteBuild) ||
                         lead.site ||
                         (lead.siteGenerationError && !lead.site)
                     "
@@ -376,7 +387,9 @@ const textareaClass =
                             Building the website… this usually takes under a
                             minute.
                         </template>
-                        <template v-else-if="lead.siteGenerationError && !lead.site">
+                        <template
+                            v-else-if="lead.siteGenerationError && !lead.site"
+                        >
                             {{ lead.siteGenerationError }}
                         </template>
                         <template v-else>
@@ -697,7 +710,11 @@ const textareaClass =
                     :members="members"
                     :lost-reasons="lostReasons"
                 />
-                <LeadTasksCard :lead-id="lead.id" :tasks="tasks" :members="members" />
+                <LeadTasksCard
+                    :lead-id="lead.id"
+                    :tasks="tasks"
+                    :members="members"
+                />
                 <LeadSequenceCard
                     :lead-id="lead.id"
                     :sequences="sequences"

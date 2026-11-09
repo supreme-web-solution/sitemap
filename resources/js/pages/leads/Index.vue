@@ -25,6 +25,7 @@ import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PaginationBar from '@/components/PaginationBar.vue';
 import LeadQuickActions from '@/components/leads/LeadQuickActions.vue';
+import SiteBuildBar from '@/components/leads/SiteBuildBar.vue';
 import LeadStageControls from '@/components/leads/LeadStageControls.vue';
 import TruncatedText from '@/components/leads/TruncatedText.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -487,16 +488,13 @@ const bulkSequenceSelect = computed({
 });
 
 const submitBulkEnroll = () => {
-    bulkEnrollForm.post(
-        bulkEnrollLeads.url({ current_team: teamSlug.value }),
-        {
-            preserveScroll: true,
-            only: ['leads'],
-            onSuccess: () => {
-                selectedLeadIds.value = [];
-            },
+    bulkEnrollForm.post(bulkEnrollLeads.url({ current_team: teamSlug.value }), {
+        preserveScroll: true,
+        only: ['leads'],
+        onSuccess: () => {
+            selectedLeadIds.value = [];
         },
-    );
+    });
 };
 
 const applyFilters = () => {
@@ -599,8 +597,7 @@ const followUpMeta = (lead: Lead) => {
               ? 'Due today'
               : (lead.nextFollowUpAt ?? '');
 
-    const tone: 'upcoming' | 'due' =
-        state === 'upcoming' ? 'upcoming' : 'due';
+    const tone: 'upcoming' | 'due' = state === 'upcoming' ? 'upcoming' : 'due';
 
     return { label, tone };
 };
@@ -627,10 +624,7 @@ const onPickDesign = (lead: Lead) => {
                     :disabled="isDiscoveryBusy"
                     @click="searchModalOpen = true"
                 >
-                    <LoaderCircle
-                        v-if="isDiscoveryBusy"
-                        class="animate-spin"
-                    />
+                    <LoaderCircle v-if="isDiscoveryBusy" class="animate-spin" />
                     <Sparkles v-else />
                     {{ isDiscoveryBusy ? 'Search running…' : 'New search' }}
                 </Button>
@@ -650,7 +644,10 @@ const onPickDesign = (lead: Lead) => {
             data-test="lead-search-in-progress"
             class="border-primary/25 bg-primary/5"
         >
-            <LoaderCircle class="animate-spin text-primary" aria-hidden="true" />
+            <LoaderCircle
+                class="animate-spin text-primary"
+                aria-hidden="true"
+            />
             <AlertTitle>Finding businesses</AlertTitle>
             <AlertDescription>
                 {{
@@ -672,7 +669,10 @@ const onPickDesign = (lead: Lead) => {
             v-else-if="isBuildingSite"
             class="border-primary/25 bg-primary/5"
         >
-            <LoaderCircle class="animate-spin text-primary" aria-hidden="true" />
+            <LoaderCircle
+                class="animate-spin text-primary"
+                aria-hidden="true"
+            />
             <AlertTitle>Building websites</AlertTitle>
             <AlertDescription>
                 Preview sites are generating in the background. Rows update when
@@ -944,7 +944,8 @@ const onPickDesign = (lead: Lead) => {
                             autocomplete="off"
                         />
                         <p class="text-xs text-muted-foreground">
-                            Open a business in Google Maps, tap Share, and paste the link here.
+                            Open a business in Google Maps, tap Share, and paste
+                            the link here.
                         </p>
                         <InputError :message="importForm.errors.maps_url" />
                     </div>
@@ -992,9 +993,7 @@ const onPickDesign = (lead: Lead) => {
                     :key="tier.value"
                     size="sm"
                     class="h-8"
-                    :variant="
-                        tierFilter === tier.value ? 'secondary' : 'ghost'
-                    "
+                    :variant="tierFilter === tier.value ? 'secondary' : 'ghost'"
                     :aria-pressed="tierFilter === tier.value"
                     @click="tierFilter = tier.value"
                 >
@@ -1159,9 +1158,16 @@ const onPickDesign = (lead: Lead) => {
                     <li
                         v-for="lead in leads.data"
                         :key="`m-${lead.id}`"
-                        class="space-y-3 p-4"
+                        class="relative space-y-3 p-4"
                         data-test="lead-row"
                     >
+                        <div
+                            v-if="lead.siteBuild"
+                            class="absolute inset-x-0 top-0"
+                            aria-hidden="true"
+                        >
+                            <SiteBuildBar :build="lead.siteBuild" />
+                        </div>
                         <div class="flex items-start gap-3">
                             <Checkbox
                                 v-if="sequences.length"
@@ -1210,9 +1216,7 @@ const onPickDesign = (lead: Lead) => {
                                 :tier="lead.opportunityTier"
                             />
                         </div>
-                        <div
-                            class="flex flex-wrap items-center gap-2 text-xs"
-                        >
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
                             <span
                                 v-if="lead.rating"
                                 class="inline-flex items-center gap-1"
@@ -1307,9 +1311,7 @@ const onPickDesign = (lead: Lead) => {
                                     <Checkbox
                                         v-if="sequences.length"
                                         :model-value="
-                                            allOnPageSelected
-                                                ? true
-                                                : false
+                                            allOnPageSelected ? true : false
                                         "
                                         aria-label="Select all on this page"
                                         @update:model-value="toggleAllOnPage"
@@ -1319,7 +1321,9 @@ const onPickDesign = (lead: Lead) => {
                                     Business
                                 </th>
                                 <th class="px-2 py-2.5 font-medium">Score</th>
-                                <th class="hidden px-2 py-2.5 font-medium sm:table-cell">
+                                <th
+                                    class="hidden px-2 py-2.5 font-medium sm:table-cell"
+                                >
                                     Rating
                                 </th>
                                 <th
@@ -1335,182 +1339,198 @@ const onPickDesign = (lead: Lead) => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr
-                                v-for="lead in leads.data"
-                                :key="lead.id"
-                                data-test="lead-row"
-                                class="border-t align-middle"
-                            >
-                                <td class="px-2 py-2.5">
-                                    <Checkbox
-                                        v-if="sequences.length"
-                                        :model-value="
-                                            selectedLeadIds.includes(lead.id)
-                                        "
-                                        :aria-label="`Select ${lead.name}`"
-                                        @update:model-value="
-                                            (checked) =>
-                                                toggleLead(lead.id, checked)
-                                        "
-                                    />
-                                </td>
-                                <td class="min-w-0 px-3 py-2.5">
-                                    <Link
-                                        :href="
-                                            reviewLead({
-                                                current_team: teamSlug,
-                                                lead: lead.id,
-                                            })
-                                        "
-                                        class="block min-w-0 font-medium hover:underline"
-                                    >
-                                        <TruncatedText :text="lead.name" />
-                                    </Link>
-                                    <div
-                                        class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
-                                    >
-                                        <MapPin
-                                            class="size-3.5 shrink-0"
-                                            aria-hidden="true"
-                                        />
-                                        <TruncatedText
-                                            :text="leadSubtitle(lead)"
-                                            class="min-w-0 flex-1"
-                                        />
-                                    </div>
-                                    <Badge
-                                        v-if="lead.activeSequences?.length"
-                                        variant="secondary"
-                                        class="mt-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-                                    >
-                                        Sequence ·
-                                        {{ lead.activeSequences[0]?.name }}
-                                    </Badge>
-                                    <a
-                                        v-if="lead.phone"
-                                        :href="`tel:${lead.phone}`"
-                                        class="mt-1 inline-flex max-w-full items-center gap-1 text-xs lg:hidden"
-                                    >
-                                        <Phone class="size-3 shrink-0" />
-                                        <TruncatedText
-                                            :text="lead.phone"
-                                            class="min-w-0"
-                                        />
-                                    </a>
-                                </td>
-                                <td class="px-2 py-2.5">
-                                    <ScoreBadge
-                                        :score="lead.opportunityScore"
-                                        :tier="lead.opportunityTier"
-                                    />
-                                </td>
-                                <td
-                                    class="hidden px-2 py-2.5 sm:table-cell"
+                            <template v-for="lead in leads.data" :key="lead.id">
+                                <tr
+                                    v-if="lead.siteBuild"
+                                    aria-hidden="true"
+                                    data-test="lead-build-bar"
                                 >
-                                    <span
-                                        v-if="lead.rating"
-                                        class="inline-flex items-center gap-0.5 text-xs"
-                                    >
-                                        <Star
-                                            class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
-                                        />
-                                        {{ lead.rating.toFixed(1) }}
-                                    </span>
-                                    <span
-                                        v-else
-                                        class="text-xs text-muted-foreground"
-                                        >—</span
-                                    >
-                                </td>
-                                <td
-                                    class="hidden min-w-0 px-2 py-2.5 lg:table-cell"
+                                    <td colspan="8" class="border-t p-0">
+                                        <SiteBuildBar :build="lead.siteBuild" />
+                                    </td>
+                                </tr>
+                                <tr
+                                    data-test="lead-row"
+                                    class="align-middle"
+                                    :class="
+                                        lead.siteBuild ? undefined : 'border-t'
+                                    "
                                 >
-                                    <a
-                                        v-if="lead.phone"
-                                        :href="`tel:${lead.phone}`"
-                                        class="inline-flex max-w-full items-center gap-1 text-xs hover:underline"
-                                    >
-                                        <Phone class="size-3.5 shrink-0" />
-                                        <TruncatedText
-                                            :text="lead.phone"
-                                            class="min-w-0"
+                                    <td class="px-2 py-2.5">
+                                        <Checkbox
+                                            v-if="sequences.length"
+                                            :model-value="
+                                                selectedLeadIds.includes(
+                                                    lead.id,
+                                                )
+                                            "
+                                            :aria-label="`Select ${lead.name}`"
+                                            @update:model-value="
+                                                (checked) =>
+                                                    toggleLead(lead.id, checked)
+                                            "
                                         />
-                                    </a>
-                                    <span
-                                        v-else
-                                        class="text-xs text-muted-foreground"
-                                        >—</span
-                                    >
-                                </td>
-                                <td class="px-2 py-2.5">
-                                    <Tooltip v-if="lead.website">
-                                        <TooltipTrigger as-child>
-                                            <a
-                                                :href="lead.website"
-                                                target="_blank"
-                                                rel="noopener"
-                                                class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-                                            >
-                                                <Globe class="size-4" />
-                                                <span class="sr-only"
-                                                    >Has website</span
-                                                >
-                                            </a>
-                                        </TooltipTrigger>
-                                        <TooltipContent
-                                            class="max-w-xs break-all"
+                                    </td>
+                                    <td class="min-w-0 px-3 py-2.5">
+                                        <Link
+                                            :href="
+                                                reviewLead({
+                                                    current_team: teamSlug,
+                                                    lead: lead.id,
+                                                })
+                                            "
+                                            class="block min-w-0 font-medium hover:underline"
                                         >
-                                            {{ lead.website }}
-                                        </TooltipContent>
-                                    </Tooltip>
-                                    <Badge
-                                        v-else
-                                        class="px-1.5 py-0 text-[10px] leading-tight bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                            <TruncatedText :text="lead.name" />
+                                        </Link>
+                                        <div
+                                            class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"
+                                        >
+                                            <MapPin
+                                                class="size-3.5 shrink-0"
+                                                aria-hidden="true"
+                                            />
+                                            <TruncatedText
+                                                :text="leadSubtitle(lead)"
+                                                class="min-w-0 flex-1"
+                                            />
+                                        </div>
+                                        <Badge
+                                            v-if="lead.activeSequences?.length"
+                                            variant="secondary"
+                                            class="mt-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                                        >
+                                            Sequence ·
+                                            {{ lead.activeSequences[0]?.name }}
+                                        </Badge>
+                                        <a
+                                            v-if="lead.phone"
+                                            :href="`tel:${lead.phone}`"
+                                            class="mt-1 inline-flex max-w-full items-center gap-1 text-xs lg:hidden"
+                                        >
+                                            <Phone class="size-3 shrink-0" />
+                                            <TruncatedText
+                                                :text="lead.phone"
+                                                class="min-w-0"
+                                            />
+                                        </a>
+                                    </td>
+                                    <td class="px-2 py-2.5">
+                                        <ScoreBadge
+                                            :score="lead.opportunityScore"
+                                            :tier="lead.opportunityTier"
+                                        />
+                                    </td>
+                                    <td
+                                        class="hidden px-2 py-2.5 sm:table-cell"
                                     >
-                                        None
-                                    </Badge>
-                                </td>
-                                <td class="min-w-0 px-2 py-2.5">
-                                    <LeadStageControls
-                                        :lead="lead"
-                                        :follow-up-label="
-                                            followUpMeta(lead).label
-                                        "
-                                        :follow-up-tone="
-                                            followUpMeta(lead).tone
-                                        "
-                                        @update:status="
-                                            (status) =>
-                                                updateLeadDetails(lead, {
-                                                    status,
-                                                })
-                                        "
-                                        @update:deal-value="
-                                            (deal_value) =>
-                                                updateLeadDetails(lead, {
-                                                    deal_value,
-                                                })
-                                        "
-                                    />
-                                </td>
-                                <td class="px-2 py-2.5">
-                                    <LeadQuickActions
-                                        :lead="lead"
-                                        :team-slug="teamSlug"
-                                        :generating-lead-id="generatingLeadId"
-                                        @pick-design="onPickDesign"
-                                    />
-                                    <p
-                                        v-if="
-                                            lead.siteGenerationError &&
-                                            !lead.site
-                                        "
-                                        class="mt-1 text-right text-[10px] leading-tight text-destructive"
+                                        <span
+                                            v-if="lead.rating"
+                                            class="inline-flex items-center gap-0.5 text-xs"
+                                        >
+                                            <Star
+                                                class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+                                            />
+                                            {{ lead.rating.toFixed(1) }}
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="text-xs text-muted-foreground"
+                                            >—</span
+                                        >
+                                    </td>
+                                    <td
+                                        class="hidden min-w-0 px-2 py-2.5 lg:table-cell"
                                     >
-                                        {{ lead.siteGenerationError }}
-                                    </p>
-                                </td>
-                            </tr>
+                                        <a
+                                            v-if="lead.phone"
+                                            :href="`tel:${lead.phone}`"
+                                            class="inline-flex max-w-full items-center gap-1 text-xs hover:underline"
+                                        >
+                                            <Phone class="size-3.5 shrink-0" />
+                                            <TruncatedText
+                                                :text="lead.phone"
+                                                class="min-w-0"
+                                            />
+                                        </a>
+                                        <span
+                                            v-else
+                                            class="text-xs text-muted-foreground"
+                                            >—</span
+                                        >
+                                    </td>
+                                    <td class="px-2 py-2.5">
+                                        <Tooltip v-if="lead.website">
+                                            <TooltipTrigger as-child>
+                                                <a
+                                                    :href="lead.website"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                                                >
+                                                    <Globe class="size-4" />
+                                                    <span class="sr-only"
+                                                        >Has website</span
+                                                    >
+                                                </a>
+                                            </TooltipTrigger>
+                                            <TooltipContent
+                                                class="max-w-xs break-all"
+                                            >
+                                                {{ lead.website }}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                        <Badge
+                                            v-else
+                                            class="px-1.5 py-0 text-[10px] leading-tight bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                        >
+                                            None
+                                        </Badge>
+                                    </td>
+                                    <td class="min-w-0 px-2 py-2.5">
+                                        <LeadStageControls
+                                            :lead="lead"
+                                            :follow-up-label="
+                                                followUpMeta(lead).label
+                                            "
+                                            :follow-up-tone="
+                                                followUpMeta(lead).tone
+                                            "
+                                            @update:status="
+                                                (status) =>
+                                                    updateLeadDetails(lead, {
+                                                        status,
+                                                    })
+                                            "
+                                            @update:deal-value="
+                                                (deal_value) =>
+                                                    updateLeadDetails(lead, {
+                                                        deal_value,
+                                                    })
+                                            "
+                                        />
+                                    </td>
+                                    <td class="px-2 py-2.5">
+                                        <LeadQuickActions
+                                            :lead="lead"
+                                            :team-slug="teamSlug"
+                                            :generating-lead-id="
+                                                generatingLeadId
+                                            "
+                                            @pick-design="onPickDesign"
+                                        />
+                                        <p
+                                            v-if="
+                                                lead.siteGenerationError &&
+                                                !lead.site
+                                            "
+                                            class="mt-1 text-right text-[10px] leading-tight text-destructive"
+                                        >
+                                            {{ lead.siteGenerationError }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>

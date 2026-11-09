@@ -27,6 +27,7 @@ use App\Services\Prospecting\ProfileVerifier;
 use App\Services\Prospecting\SalesAssistant;
 use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteBrandAssets;
+use App\Services\SiteBuilder\SiteBuildProgress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -77,6 +78,9 @@ class LeadProfileController extends Controller
                     ? SiteGenerationStatus::Idle->value
                     : $lead->site_generation_status->value,
                 'siteGenerationError' => $lead->site ? null : $lead->site_generation_error,
+                'siteBuild' => $lead->site === null && $lead->site_generation_status === SiteGenerationStatus::Queued
+                    ? SiteBuildProgress::snapshot($lead->id)
+                    : null,
                 'site' => $lead->site ? [
                     'id' => $lead->site->id,
                     'previewUrl' => PreviewLink::page($lead->site),
