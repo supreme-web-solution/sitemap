@@ -3,6 +3,8 @@
 namespace App\Services\Audit;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException as GuzzleConnectException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Handler\CurlHandler;
 use GuzzleHttp\HandlerStack;
 use Illuminate\Http\Client\ConnectionException;
@@ -81,11 +83,15 @@ class SafeHttpFetcher
                 ->get($url);
         }
 
-        $psr = $this->pinnedGuzzleClient()->request('GET', $url, [
-            'curl' => [
-                CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"],
-            ],
-        ]);
+        try {
+            $psr = $this->pinnedGuzzleClient()->request('GET', $url, [
+                'curl' => [
+                    CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"],
+                ],
+            ]);
+        } catch (GuzzleConnectException|GuzzleException $exception) {
+            throw new ConnectionException($exception->getMessage(), previous: $exception);
+        }
 
         return new Response($psr);
     }

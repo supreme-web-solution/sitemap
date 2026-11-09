@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Site;
 use App\Services\Audit\SafeHttpFetcher;
 use App\Services\Audit\UnsafeUrlException;
-use App\Services\Preview\PreviewLink;
 use App\Support\Queues;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,7 +30,7 @@ class CheckSiteUptime implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Ping the live domain (or the preview) and store whether it answered.
+     * Ping the live domain (or the app-host preview) and store whether it answered.
      */
     public function handle(SafeHttpFetcher $fetcher): void
     {
@@ -54,8 +53,14 @@ class CheckSiteUptime implements ShouldBeUnique, ShouldQueue
     {
         $domain = $this->site->primaryDomain();
 
-        return $domain !== null
-            ? 'https://'.$domain->hostname
-            : PreviewLink::page($this->site);
+        if ($domain !== null) {
+            return 'https://'.$domain->hostname;
+        }
+
+        // Keep monitoring on the app host. Branded preview hostnames can pass DNS
+        // while Caddy is still issuing HTTPS, which would false-fail uptime.
+        return rtrim((string) config('app.url'), '/').route('sites.preview', [
+            'site' => $this->site->slug,
+        ], absolute: false);
     }
 }

@@ -378,11 +378,15 @@ const disconnectInbox = () => {
                 <div class="flex items-start gap-2 text-emerald-700 dark:text-emerald-300">
                     <CheckCircle2 class="mt-0.5 size-5 shrink-0" />
                     <div class="grid gap-1">
-                        <p class="text-sm font-medium">Verified and in use</p>
+                        <p class="text-sm font-medium">DNS verified — share links use this host</p>
                         <p class="text-sm text-emerald-800/80 dark:text-emerald-200/80">
-                            Outreach emails and Copy link on sites now start with this hostname.
-                            Open a site editor and copy the preview link — it should look like
-                            <span class="font-mono">{{ previewDomain.origin }}/p/…</span>
+                            Outreach and Copy link now start with this hostname
+                            (<span class="font-mono">{{ previewDomain.origin }}/p/…</span>).
+                            HTTPS still needs Caddy on-demand TLS: open a real preview URL once so
+                            the certificate can be issued. An
+                            <span class="font-mono">ERR_SSL_UNRECOGNIZED_NAME_ALERT</span> means DNS
+                            is fine but the cert is not ready yet — keep the CNAME, confirm
+                            <span class="font-mono">SITES_TLS_ASK_TOKEN</span> on the server, then retry.
                         </p>
                     </div>
                 </div>
