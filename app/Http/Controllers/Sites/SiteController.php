@@ -183,6 +183,7 @@ class SiteController extends Controller
                 'canPublish' => $primaryDomain !== null,
                 'canPromoteFromStaging' => $site->isStagingPublished() && $primaryDomain !== null,
                 'dnsConfigured' => filled(config('sites.cname_target')) || filled(config('sites.server_ip')),
+                'cnameTarget' => config('sites.cname_target'),
                 'domains' => $site->domains()->orderBy('id')->get()->map(fn (SiteDomain $domain) => [
                     'id' => $domain->id,
                     'hostname' => $domain->hostname,

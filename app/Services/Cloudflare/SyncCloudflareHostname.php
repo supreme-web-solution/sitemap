@@ -9,18 +9,21 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Keep Cloudflare for SaaS custom hostnames in sync with verified MapMatic domains.
+ * Keep Cloudflare for SaaS custom hostnames in sync with MapMatic domains.
+ *
+ * Hostnames are registered as soon as a domain is added so the UI can show the
+ * CNAME target and Cloudflare ownership TXT before the customer leaves DNS settings.
  */
 class SyncCloudflareHostname
 {
     public function __construct(protected CloudflareCustomHostnames $cloudflare) {}
 
     /**
-     * Create or refresh the Cloudflare hostname for a verified site domain.
+     * Create or refresh the Cloudflare hostname for a site domain.
      */
     public function syncSiteDomain(SiteDomain $domain): void
     {
-        if (! $this->cloudflare->enabled() || ! $domain->isVerified()) {
+        if (! $this->cloudflare->enabled()) {
             return;
         }
 
@@ -33,13 +36,20 @@ class SyncCloudflareHostname
                 return;
             }
 
-            $domain->forceFill([
+            $payload = [
                 'cloudflare_hostname_id' => $state['id'],
                 'cloudflare_status' => $state['status'],
                 'cloudflare_ssl_status' => $state['ssl_status'],
+                'cloudflare_ownership_txt_name' => $state['ownership_txt_name'],
+                'cloudflare_ownership_txt_value' => $state['ownership_txt_value'],
                 'cloudflare_synced_at' => now(),
-                'check_error' => $this->pendingMessage($state),
-            ])->save();
+            ];
+
+            if ($domain->isVerified()) {
+                $payload['check_error'] = $this->pendingMessage($state);
+            }
+
+            $domain->forceFill($payload)->save();
         } catch (Throwable $exception) {
             report($exception);
             Log::warning('Cloudflare custom hostname sync failed.', [
@@ -49,17 +59,17 @@ class SyncCloudflareHostname
             ]);
 
             $domain->forceFill([
-                'check_error' => $this->failureMessage($exception),
+                'check_error' => $this->failureMessage($exception, $domain->isVerified()),
             ])->save();
         }
     }
 
     /**
-     * Create or refresh the Cloudflare hostname for a verified preview domain.
+     * Create or refresh the Cloudflare hostname for a preview domain.
      */
     public function syncTeamPreview(Team $team): void
     {
-        if (! $this->cloudflare->enabled() || ! $team->hasVerifiedPreviewHostname()) {
+        if (! $this->cloudflare->enabled() || blank($team->preview_hostname)) {
             return;
         }
 
@@ -74,13 +84,20 @@ class SyncCloudflareHostname
                 return;
             }
 
-            $team->forceFill([
+            $payload = [
                 'preview_cloudflare_hostname_id' => $state['id'],
                 'preview_cloudflare_status' => $state['status'],
                 'preview_cloudflare_ssl_status' => $state['ssl_status'],
+                'preview_cloudflare_ownership_txt_name' => $state['ownership_txt_name'],
+                'preview_cloudflare_ownership_txt_value' => $state['ownership_txt_value'],
                 'preview_cloudflare_synced_at' => now(),
-                'preview_hostname_check_error' => $this->pendingMessage($state),
-            ])->save();
+            ];
+
+            if ($team->hasVerifiedPreviewHostname()) {
+                $payload['preview_hostname_check_error'] = $this->pendingMessage($state);
+            }
+
+            $team->forceFill($payload)->save();
         } catch (Throwable $exception) {
             report($exception);
             Log::warning('Cloudflare preview hostname sync failed.', [
@@ -90,7 +107,7 @@ class SyncCloudflareHostname
             ]);
 
             $team->forceFill([
-                'preview_hostname_check_error' => $this->failureMessage($exception),
+                'preview_hostname_check_error' => $this->failureMessage($exception, $team->hasVerifiedPreviewHostname()),
             ])->save();
         }
     }
@@ -134,6 +151,8 @@ class SyncCloudflareHostname
             'preview_cloudflare_hostname_id' => null,
             'preview_cloudflare_status' => null,
             'preview_cloudflare_ssl_status' => null,
+            'preview_cloudflare_ownership_txt_name' => null,
+            'preview_cloudflare_ownership_txt_value' => null,
             'preview_cloudflare_synced_at' => null,
         ])->save();
     }
@@ -147,17 +166,20 @@ class SyncCloudflareHostname
             return null;
         }
 
-        return 'DNS is verified. HTTPS is still activating — this page updates automatically; you can also click Re-check DNS.';
+        return 'DNS is verified. HTTPS is still activating — keep the CNAME pointed at '.config('sites.cname_target').' and wait a few minutes, or click Refresh HTTPS.';
     }
 
-    protected function failureMessage(Throwable $exception): string
+    protected function failureMessage(Throwable $exception, bool $verified): string
     {
         $detail = trim($exception->getMessage());
+        $prefix = $verified
+            ? 'Domain verified, but HTTPS could not be set up'
+            : 'Could not start HTTPS setup with Cloudflare';
 
         if ($detail === '') {
-            return 'Domain verified, but HTTPS could not be set up. Try Refresh HTTPS again in a minute.';
+            return $prefix.'. Try Refresh HTTPS again in a minute.';
         }
 
-        return 'Domain verified, but HTTPS could not be set up: '.Str::limit($detail, 180);
+        return $prefix.': '.Str::limit($detail, 180);
     }
 }

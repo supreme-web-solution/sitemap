@@ -391,6 +391,7 @@ export type SitePublishing = {
     canPublish: boolean;
     canPromoteFromStaging: boolean;
     dnsConfigured: boolean;
+    cnameTarget?: string | null;
     domains: SiteDomain[];
 };
 

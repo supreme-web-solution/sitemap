@@ -55,6 +55,10 @@ test('verifying a domain registers it with cloudflare for saas', function () {
                 'hostname' => 'www.pros.example.com',
                 'status' => 'pending',
                 'ssl' => ['status' => 'pending_validation'],
+                'ownership_verification' => [
+                    'name' => '_cf-custom-hostname.www.pros.example.com',
+                    'value' => 'cf-ownership-token',
+                ],
             ],
         ], 200),
     ]);
@@ -100,13 +104,70 @@ test('verifying a domain registers it with cloudflare for saas', function () {
         ->cloudflare_hostname_id->toBe('ch-1111-2222-3333-4444-555555555555')
         ->cloudflare_status->toBe('pending')
         ->cloudflare_ssl_status->toBe('pending_validation')
+        ->cloudflare_ownership_txt_name->toBe('_cf-custom-hostname.www.pros.example.com')
+        ->cloudflare_ownership_txt_value->toBe('cf-ownership-token')
         ->check_error->not->toBeNull();
+
+    $instructionValues = collect(app(DomainVerifier::class)->instructions($domain))->pluck('value');
+
+    expect($instructionValues)->toContain('sites.mapmaticapp.com')
+        ->and($instructionValues)->toContain('cf-ownership-token');
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/custom_hostnames')
         && $request->method() === 'POST'
         && $request['hostname'] === 'www.pros.example.com'
         && ! array_key_exists('custom_origin_server', $request->data())
         && ! array_key_exists('custom_origin_sni', $request->data()));
+});
+
+test('adding a domain registers cloudflare early so ownership dns is shown', function () {
+    Queue::fake();
+
+    config([
+        'services.cloudflare.api_token' => 'cf-token',
+        'services.cloudflare.zone_id' => 'zone-123',
+        'services.cloudflare.custom_origin' => false,
+        'sites.cname_target' => 'sites.mapmaticapp.com',
+    ]);
+
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.cloudflare.com/*' => Http::response([
+            'success' => true,
+            'result' => [
+                'id' => 'ch-on-add',
+                'hostname' => 'www.client-site.com',
+                'status' => 'pending',
+                'ssl' => ['status' => 'pending_validation'],
+                'ownership_verification' => [
+                    'name' => '_cf-custom-hostname.www.client-site.com',
+                    'value' => 'ownership-on-add',
+                ],
+            ],
+        ], 200),
+    ]);
+
+    [$site, $user] = cloudflareSite();
+
+    $this->actingAs($user)
+        ->post(route('sites.domains.store', [
+            'current_team' => $user->currentTeam->slug,
+            'site' => $site->id,
+        ]), ['hostname' => 'www.client-site.com'])
+        ->assertRedirect();
+
+    $domain = $site->domains()->where('hostname', 'www.client-site.com')->first();
+
+    expect($domain)
+        ->not->toBeNull()
+        ->cloudflare_hostname_id->toBe('ch-on-add')
+        ->cloudflare_ownership_txt_value->toBe('ownership-on-add')
+        ->verified_at->toBeNull()
+        ->check_error->toBeNull();
+
+    expect(collect(app(DomainVerifier::class)->instructions($domain))->pluck('value'))
+        ->toContain('sites.mapmaticapp.com')
+        ->toContain('ownership-on-add');
 });
 
 test('custom origin fields are only sent when explicitly enabled', function () {

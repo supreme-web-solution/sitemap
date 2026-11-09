@@ -471,11 +471,14 @@ const disconnectInbox = () => {
             </p>
 
             <div
-                v-if="!previewDomain.verified && previewDomain.dnsRecords.length"
+                v-if="!previewDomain.sslActive && previewDomain.dnsRecords.length"
                 class="overflow-x-auto rounded-xl border p-3"
             >
                 <p class="mb-3 text-sm text-muted-foreground">
-                    Add these DNS records, wait for them to propagate, then click Check DNS.
+                    Add these DNS records where the hostname is managed. The
+                    <span class="font-medium">CNAME</span> must point at your
+                    MapMatic sites target (not the app hostname). Wait for DNS,
+                    then click Check DNS / Re-check.
                 </p>
                 <table class="w-full text-sm">
                     <thead>
@@ -483,6 +486,7 @@ const disconnectInbox = () => {
                             <th class="pb-2 pr-3">Type</th>
                             <th class="pb-2 pr-3">Name</th>
                             <th class="pb-2 pr-3">Value</th>
+                            <th class="pb-2 pr-3">Why</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -491,42 +495,13 @@ const disconnectInbox = () => {
                             :key="index"
                         >
                             <td class="py-1 pr-3 font-mono">{{ record.type }}</td>
-                            <td class="py-1 pr-3 font-mono">{{ record.name }}</td>
-                            <td class="py-1 pr-3 font-mono">{{ record.value }}</td>
+                            <td class="py-1 pr-3 font-mono break-all">{{ record.name }}</td>
+                            <td class="py-1 pr-3 font-mono break-all">{{ record.value }}</td>
+                            <td class="py-1 pr-3 text-muted-foreground">{{ record.purpose }}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-
-            <details
-                v-else-if="previewDomain.verified && previewDomain.dnsRecords.length"
-                class="rounded-xl border px-3 py-2 text-sm"
-            >
-                <summary class="cursor-pointer select-none text-muted-foreground">
-                    Keep these DNS records (optional to review)
-                </summary>
-                <div class="mt-3 overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-muted-foreground">
-                                <th class="pb-2 pr-3">Type</th>
-                                <th class="pb-2 pr-3">Name</th>
-                                <th class="pb-2 pr-3">Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="(record, index) in previewDomain.dnsRecords"
-                                :key="index"
-                            >
-                                <td class="py-1 pr-3 font-mono">{{ record.type }}</td>
-                                <td class="py-1 pr-3 font-mono">{{ record.name }}</td>
-                                <td class="py-1 pr-3 font-mono">{{ record.value }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </details>
         </section>
     </div>
 </template>

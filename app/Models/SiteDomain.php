@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $cloudflare_hostname_id
  * @property string|null $cloudflare_status
  * @property string|null $cloudflare_ssl_status
+ * @property string|null $cloudflare_ownership_txt_name
+ * @property string|null $cloudflare_ownership_txt_value
  * @property Carbon|null $cloudflare_synced_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at

@@ -51,6 +51,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $preview_cloudflare_hostname_id
  * @property string|null $preview_cloudflare_status
  * @property string|null $preview_cloudflare_ssl_status
+ * @property string|null $preview_cloudflare_ownership_txt_name
+ * @property string|null $preview_cloudflare_ownership_txt_value
  * @property Carbon|null $preview_cloudflare_synced_at
  */
 #[Fillable(['name', 'slug', 'is_personal'])]

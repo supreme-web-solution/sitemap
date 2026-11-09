@@ -263,10 +263,21 @@ const promoteToLive = () => {
                     </div>
                 </div>
 
-                <div v-if="!domain.isVerified" class="mt-3 grid gap-2">
+                <div
+                    v-if="!domain.sslActive && domain.records.length"
+                    class="mt-3 grid gap-2"
+                >
                     <p class="text-xs text-muted-foreground">
                         Add these records where the domain's DNS is managed
-                        (your registrar or Cloudflare):
+                        (your registrar or Cloudflare). The
+                        <span class="font-medium">CNAME</span> is required for
+                        HTTPS on customer domains
+                        <template v-if="publishing.cnameTarget">
+                            — point it at
+                            <span class="font-mono">{{ publishing.cnameTarget }}</span>,
+                            not the app hostname
+                        </template>
+                        .
                     </p>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">

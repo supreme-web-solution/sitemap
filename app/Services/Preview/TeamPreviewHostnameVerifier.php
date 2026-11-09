@@ -55,7 +55,7 @@ class TeamPreviewHostnameVerifier
             'type' => 'TXT',
             'name' => $this->verificationRecordName($hostname),
             'value' => $token,
-            'purpose' => 'Proves you own the domain',
+            'purpose' => 'Proves you own the domain (MapMatic)',
         ]];
 
         $target = config('sites.cname_target');
@@ -65,11 +65,20 @@ class TeamPreviewHostnameVerifier
         if ($apex && $ip) {
             $records[] = ['type' => 'A', 'name' => $hostname, 'value' => $ip, 'purpose' => 'Sends preview visitors to this app'];
         } elseif ($apex && $target) {
-            $records[] = ['type' => 'ALIAS', 'name' => $hostname, 'value' => $target, 'purpose' => 'Sends preview visitors to this app (also called ANAME or CNAME flattening)'];
+            $records[] = ['type' => 'ALIAS', 'name' => $hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — points the hostname at MapMatic (also called ANAME or CNAME flattening)'];
         } elseif ($target) {
-            $records[] = ['type' => 'CNAME', 'name' => $hostname, 'value' => $target, 'purpose' => 'Sends preview visitors to this app'];
+            $records[] = ['type' => 'CNAME', 'name' => $hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — must point at '.$target.' (not the app hostname)'];
         } elseif ($ip) {
             $records[] = ['type' => 'A', 'name' => $hostname, 'value' => $ip, 'purpose' => 'Sends preview visitors to this app'];
+        }
+
+        if (filled($team->preview_cloudflare_ownership_txt_name) && filled($team->preview_cloudflare_ownership_txt_value)) {
+            $records[] = [
+                'type' => 'TXT',
+                'name' => $team->preview_cloudflare_ownership_txt_name,
+                'value' => $team->preview_cloudflare_ownership_txt_value,
+                'purpose' => 'Cloudflare ownership check (needed for hostnames outside mapmaticapp.com)',
+            ];
         }
 
         return $records;
@@ -98,8 +107,12 @@ class TeamPreviewHostnameVerifier
             'preview_cloudflare_hostname_id' => null,
             'preview_cloudflare_status' => null,
             'preview_cloudflare_ssl_status' => null,
+            'preview_cloudflare_ownership_txt_name' => null,
+            'preview_cloudflare_ownership_txt_value' => null,
             'preview_cloudflare_synced_at' => null,
         ])->save();
+
+        $this->cloudflare->syncTeamPreview($team->fresh());
 
         return true;
     }

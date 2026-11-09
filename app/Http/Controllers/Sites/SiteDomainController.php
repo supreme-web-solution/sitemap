@@ -20,16 +20,18 @@ class SiteDomainController extends Controller
     /**
      * Connect a domain to the website. It starts unverified.
      */
-    public function store(StoreSiteDomainRequest $request, Team $currentTeam, Site $site, UsageMeter $usage): RedirectResponse
+    public function store(StoreSiteDomainRequest $request, Team $currentTeam, Site $site, UsageMeter $usage, SyncCloudflareHostname $cloudflare): RedirectResponse
     {
         $usage->ensureWithin($currentTeam, UsageMetric::Domains);
 
-        $site->domains()->create([
+        $domain = $site->domains()->create([
             'hostname' => $request->validated('hostname'),
             'verification_token' => Str::random(32),
         ]);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Domain added. Create the DNS records, then check them.')]);
+        $cloudflare->syncSiteDomain($domain->fresh());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Domain added. Create the DNS records shown below (including the CNAME), then check them.')]);
 
         return back();
     }

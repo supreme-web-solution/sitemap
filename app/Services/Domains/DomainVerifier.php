@@ -54,7 +54,7 @@ class DomainVerifier
             'type' => 'TXT',
             'name' => $domain->verificationRecordName(),
             'value' => $domain->verification_token,
-            'purpose' => 'Proves you own the domain',
+            'purpose' => 'Proves you own the domain (MapMatic)',
         ]];
 
         $target = config('sites.cname_target');
@@ -64,11 +64,20 @@ class DomainVerifier
         if ($apex && $ip) {
             $records[] = ['type' => 'A', 'name' => $domain->hostname, 'value' => $ip, 'purpose' => 'Sends visitors to your website'];
         } elseif ($apex && $target) {
-            $records[] = ['type' => 'ALIAS', 'name' => $domain->hostname, 'value' => $target, 'purpose' => 'Sends visitors to your website (also called ANAME or CNAME flattening)'];
+            $records[] = ['type' => 'ALIAS', 'name' => $domain->hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — points the domain at MapMatic (also called ANAME or CNAME flattening)'];
         } elseif ($target) {
-            $records[] = ['type' => 'CNAME', 'name' => $domain->hostname, 'value' => $target, 'purpose' => 'Sends visitors to your website'];
+            $records[] = ['type' => 'CNAME', 'name' => $domain->hostname, 'value' => $target, 'purpose' => 'Required for HTTPS — must point at '.$target.' (not the app hostname)'];
         } elseif ($ip) {
             $records[] = ['type' => 'A', 'name' => $domain->hostname, 'value' => $ip, 'purpose' => 'Sends visitors to your website'];
+        }
+
+        if (filled($domain->cloudflare_ownership_txt_name) && filled($domain->cloudflare_ownership_txt_value)) {
+            $records[] = [
+                'type' => 'TXT',
+                'name' => $domain->cloudflare_ownership_txt_name,
+                'value' => $domain->cloudflare_ownership_txt_value,
+                'purpose' => 'Cloudflare ownership check (needed for customer domains outside mapmaticapp.com)',
+            ];
         }
 
         return $records;

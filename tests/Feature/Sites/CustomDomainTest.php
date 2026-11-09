@@ -8,6 +8,10 @@ use App\Services\Domains\DnsLookup;
 use App\Services\Domains\DomainVerifier;
 use Inertia\Testing\AssertableInertia as Assert;
 
+beforeEach(function () {
+    config(['services.cloudflare.api_token' => null, 'services.cloudflare.zone_id' => null]);
+});
+
 /**
  * @return array{0: Site, 1: User, 2: array{current_team: string, site: int}}
  */
