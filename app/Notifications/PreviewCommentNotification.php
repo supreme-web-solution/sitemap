@@ -32,6 +32,7 @@ class PreviewCommentNotification extends Notification implements ShouldQueue
     {
         $message = (new MailMessage)
             ->subject(__('Comment on the :business website', ['business' => $this->lead->name]))
+            ->greeting(__('New preview comment'))
             ->line(__(':who left a comment on the website preview.', ['who' => $this->authorName]));
 
         if ($this->section) {

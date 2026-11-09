@@ -126,6 +126,16 @@ class Site extends Model
     }
 
     /**
+     * Get recurring client billing schedules linked to this site.
+     *
+     * @return HasMany<RecurringInvoice, $this>
+     */
+    public function recurringInvoices(): HasMany
+    {
+        return $this->hasMany(RecurringInvoice::class);
+    }
+
+    /**
      * Get the catalog entry chosen before generation, if any.
      *
      * @return BelongsTo<SiteDesignTemplate, $this>

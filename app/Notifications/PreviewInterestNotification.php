@@ -39,6 +39,7 @@ class PreviewInterestNotification extends Notification implements ShouldQueue
             ->subject($isClaim
                 ? __(':business wants to claim their website', ['business' => $this->lead->name])
                 : __(':business is interested in their website', ['business' => $this->lead->name]))
+            ->greeting($isClaim ? __('New claim request') : __('New preview reply'))
             ->line($isClaim
                 ? __(':business submitted a claim request from their website preview.', ['business' => $this->lead->name])
                 : __(':business replied from their website preview.', ['business' => $this->lead->name]));

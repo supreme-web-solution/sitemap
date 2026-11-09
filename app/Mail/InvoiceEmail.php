@@ -39,6 +39,9 @@ class InvoiceEmail extends Mailable
      */
     public function content(): Content
     {
-        return new Content(text: 'mail.invoice');
+        return new Content(
+            html: 'mail.invoice',
+            text: 'mail.invoice-text',
+        );
     }
 }

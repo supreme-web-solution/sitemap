@@ -39,6 +39,9 @@ class InvoiceReminderEmail extends Mailable
      */
     public function content(): Content
     {
-        return new Content(text: 'mail.invoice-reminder');
+        return new Content(
+            html: 'mail.invoice-reminder',
+            text: 'mail.invoice-reminder-text',
+        );
     }
 }

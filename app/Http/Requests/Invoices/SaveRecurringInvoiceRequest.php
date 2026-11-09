@@ -45,6 +45,14 @@ class SaveRecurringInvoiceRequest extends FormRequest
                 'interval' => ['required', Rule::enum(BillingInterval::class)],
                 'starts_on' => ['required', 'date', 'after_or_equal:today'],
             ] : []),
+            'site_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('sites', 'id')->where('team_id', $team->id)->where(
+                    'lead_id',
+                    $isNew ? $this->input('lead_id') : $schedule->lead_id,
+                ),
+            ],
             'ends_on' => ['nullable', 'date', 'after_or_equal:'.($isNew ? 'starts_on' : $schedule->starts_on->toDateString())],
             'due_in_days' => ['required', 'integer', 'min:0', 'max:90'],
             'email_client' => ['required', 'boolean'],

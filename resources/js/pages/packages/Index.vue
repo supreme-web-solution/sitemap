@@ -18,12 +18,14 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { create as createProposal } from '@/routes/proposals';
-import { destroy, store, update } from '@/routes/packages';
+import { destroy, seedDefaults, store, update } from '@/routes/packages';
 import type { Paginated } from '@/types';
 
 type PackageRow = {
     id: number;
     name: string;
+    kind: string;
+    kindLabel: string;
     description: string | null;
     price: number;
     priceLabel: string;
@@ -35,6 +37,8 @@ type PackageRow = {
 const props = defineProps<{
     packages: Paginated<PackageRow>;
     intervals: { value: string; label: string }[];
+    kinds: { value: string; label: string }[];
+    canSeedDefaults: boolean;
 }>();
 
 defineOptions({
@@ -46,18 +50,33 @@ const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 
 const modalOpen = ref(false);
 const editing = ref<PackageRow | null>(null);
+const seeding = ref(false);
 
 const form = useForm({
     name: '',
+    kind: 'service',
     description: '',
     price: '' as number | '',
     interval: '',
     is_active: true,
 });
 
+const kindHint = computed(() => {
+    if (form.kind === 'hosting' || form.kind === 'maintenance') {
+        return 'Hosting and Maintenance usually use a monthly interval. Clients pay you — not MapMatic.';
+    }
+
+    if (form.kind === 'one_time') {
+        return 'One-time packages bill once when a proposal is accepted.';
+    }
+
+    return 'Use Service for retainers or other work that does not fit Hosting or Maintenance.';
+});
+
 const startCreating = () => {
     editing.value = null;
     form.reset();
+    form.kind = 'service';
     form.clearErrors();
     modalOpen.value = true;
 };
@@ -66,6 +85,7 @@ const startEditing = (row: PackageRow) => {
     editing.value = row;
     form.clearErrors();
     form.name = row.name;
+    form.kind = row.kind;
     form.description = row.description ?? '';
     form.price = row.price;
     form.interval = row.interval ?? '';
@@ -83,6 +103,23 @@ watch(modalOpen, (isOpen) => {
         form.clearErrors();
     }
 });
+
+watch(
+    () => form.kind,
+    (kind) => {
+        if (editing.value) {
+            return;
+        }
+
+        if ((kind === 'hosting' || kind === 'maintenance') && !form.interval) {
+            form.interval = 'monthly';
+        }
+
+        if (kind === 'one_time') {
+            form.interval = '';
+        }
+    },
+);
 
 const submit = () => {
     form.transform((data) => ({
@@ -119,6 +156,20 @@ const remove = (row: PackageRow) => {
     }
 };
 
+const seedStarterPackages = () => {
+    seeding.value = true;
+    router.post(
+        seedDefaults.url(teamSlug.value),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                seeding.value = false;
+            },
+        },
+    );
+};
+
 const hasActivePackages = computed(() =>
     props.packages.data.some((row) => row.isActive),
 );
@@ -131,10 +182,23 @@ const hasActivePackages = computed(() =>
         <div class="flex items-start justify-between gap-4">
             <Heading
                 title="Packages"
-                description="Services you sell once or on a schedule. Active packages appear when you build a proposal."
+                description="What you sell to clients — Hosting, Maintenance, website builds, and more. Clients pay you through your connected payments."
             />
             <Button @click="startCreating"><Plus /> New package</Button>
         </div>
+
+        <section
+            class="panel flex gap-3 p-4 text-sm"
+            data-test="packages-agency-billing"
+        >
+            <Package class="size-5 shrink-0 text-primary" />
+            <p class="text-muted-foreground">
+                These are
+                <strong class="font-medium text-foreground">agency → client</strong>
+                prices. MapMatic live hosting capacity still comes from your plan’s
+                Websites and Custom domains limits.
+            </p>
+        </section>
 
         <section
             v-if="packages.data.length"
@@ -170,10 +234,22 @@ const hasActivePackages = computed(() =>
         <EmptyState
             v-if="!packages.data.length"
             title="No packages yet"
-            description="Add website builds, hosting, or maintenance. Then drop them into proposals in one click."
+            description="Add Website build, Hosting, and Maintenance in one click, then edit the prices you charge."
             :icon="Package"
         >
-            <Button @click="startCreating"><Plus /> New package</Button>
+            <div class="flex flex-wrap gap-2">
+                <Button
+                    v-if="canSeedDefaults"
+                    :disabled="seeding"
+                    @click="seedStarterPackages"
+                >
+                    <LoaderCircle v-if="seeding" class="animate-spin" />
+                    Add starter packages
+                </Button>
+                <Button :variant="canSeedDefaults ? 'outline' : 'default'" @click="startCreating">
+                    <Plus /> New package
+                </Button>
+            </div>
         </EmptyState>
 
         <div v-if="packages.data.length" class="flex flex-col gap-3">
@@ -186,6 +262,11 @@ const hasActivePackages = computed(() =>
                     <div>
                         <p class="font-medium">
                             {{ row.name }}
+                            <span
+                                class="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-normal text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                            >
+                                {{ row.kindLabel }}
+                            </span>
                             <span
                                 v-if="!row.isActive"
                                 class="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-normal text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
@@ -244,6 +325,24 @@ const hasActivePackages = computed(() =>
                             <InputError :message="form.errors.name" />
                         </div>
                         <div class="grid gap-2">
+                            <Label for="pkg-kind">Kind</Label>
+                            <select
+                                id="pkg-kind"
+                                v-model="form.kind"
+                                class="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                            >
+                                <option
+                                    v-for="kind in kinds"
+                                    :key="kind.value"
+                                    :value="kind.value"
+                                >
+                                    {{ kind.label }}
+                                </option>
+                            </select>
+                            <p class="text-xs text-muted-foreground">{{ kindHint }}</p>
+                            <InputError :message="form.errors.kind" />
+                        </div>
+                        <div class="grid gap-2">
                             <Label for="pkg-price">Price (USD)</Label>
                             <Input
                                 id="pkg-price"
@@ -254,7 +353,7 @@ const hasActivePackages = computed(() =>
                             />
                             <InputError :message="form.errors.price" />
                         </div>
-                        <div class="grid gap-2">
+                        <div class="grid gap-2 sm:col-span-2">
                             <Label>Billing</Label>
                             <BillingIntervalSelect
                                 v-model="form.interval"

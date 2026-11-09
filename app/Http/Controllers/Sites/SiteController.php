@@ -9,8 +9,10 @@ use App\Enums\SiteTemplate;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Leads\UpdateLeadProfileRequest;
 use App\Http\Requests\Sites\UpdateSiteRequest;
+use App\Models\Invoice;
 use App\Models\Lead;
 use App\Models\LeadReview;
+use App\Models\RecurringInvoice;
 use App\Models\Site;
 use App\Models\SiteChatMessage;
 use App\Models\SiteDomain;
@@ -136,6 +138,32 @@ class SiteController extends Controller
                     'body' => $comment->body,
                     'createdAt' => $comment->created_at->toISOString(),
                 ]),
+            ],
+            'clientServices' => [
+                'linked' => $site->recurringInvoices()
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (RecurringInvoice $schedule) => [
+                        'id' => $schedule->id,
+                        'label' => collect($schedule->items)->pluck('description')->filter()->implode(', ')
+                            ?: $schedule->interval->label(),
+                        'total' => Invoice::formatCents($schedule->totalCents()),
+                        'intervalLabel' => $schedule->interval->label(),
+                        'status' => $schedule->hasEnded() ? 'ended' : ($schedule->is_active ? 'active' : 'paused'),
+                    ]),
+                'attachable' => $currentTeam->recurringInvoices()
+                    ->where('lead_id', $site->lead_id)
+                    ->whereNull('site_id')
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (RecurringInvoice $schedule) => [
+                        'id' => $schedule->id,
+                        'label' => collect($schedule->items)->pluck('description')->filter()->implode(', ')
+                            ?: $schedule->interval->label(),
+                        'total' => Invoice::formatCents($schedule->totalCents()),
+                        'intervalLabel' => $schedule->interval->label(),
+                        'status' => $schedule->hasEnded() ? 'ended' : ($schedule->is_active ? 'active' : 'paused'),
+                    ]),
             ],
             'quality' => $quality->check($site),
             'publishing' => [

@@ -31,7 +31,7 @@ class AcceptProposal
      */
     public function handle(Proposal $proposal, string $acceptedBy): ?Invoice
     {
-        $proposal->loadMissing(['items', 'team', 'lead']);
+        $proposal->loadMissing(['items', 'team', 'lead.site']);
 
         $schedules = new Collection;
         $oneTimeInvoice = null;
@@ -63,12 +63,15 @@ class AcceptProposal
                 $proposal->forceFill(['invoice_id' => $oneTimeInvoice->id])->save();
             }
 
+            $siteId = $proposal->lead->site?->id;
+
             $proposal->items
                 ->filter(fn (ProposalItem $item) => $item->interval !== null)
                 ->groupBy(fn (ProposalItem $item) => $item->interval->value)
-                ->each(function (Collection $items, string $interval) use ($proposal, &$schedules) {
+                ->each(function (Collection $items, string $interval) use ($proposal, $siteId, &$schedules) {
                     $schedule = $proposal->team->recurringInvoices()->make([
                         'lead_id' => $proposal->lead_id,
+                        'site_id' => $siteId,
                         'interval' => BillingInterval::from($interval),
                         'starts_on' => today(),
                         'due_in_days' => self::DUE_IN_DAYS,

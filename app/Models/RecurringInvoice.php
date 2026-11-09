@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $team_id
  * @property int $lead_id
+ * @property int|null $site_id
  * @property BillingInterval $interval
  * @property Carbon $starts_on
  * @property Carbon|null $next_run_on
@@ -36,8 +37,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Team $team
  * @property-read Lead $lead
+ * @property-read Site|null $site
  */
-#[Fillable(['lead_id', 'interval', 'starts_on', 'ends_on', 'due_in_days', 'email_client', 'collection_mode', 'payment_provider', 'notes', 'items'])]
+#[Fillable(['lead_id', 'site_id', 'interval', 'starts_on', 'ends_on', 'due_in_days', 'email_client', 'collection_mode', 'payment_provider', 'notes', 'items'])]
 class RecurringInvoice extends Model
 {
     /** @use HasFactory<RecurringInvoiceFactory> */
@@ -118,6 +120,16 @@ class RecurringInvoice extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    /**
+     * Get the live site this schedule covers, when linked.
+     *
+     * @return BelongsTo<Site, $this>
+     */
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PackageKind;
 use App\Models\Package;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -21,6 +22,7 @@ class PackageFactory extends Factory
         return [
             'team_id' => Team::factory(),
             'name' => fake()->words(3, true),
+            'kind' => PackageKind::Service,
             'description' => null,
             'unit_cents' => 50000,
             'interval' => null,

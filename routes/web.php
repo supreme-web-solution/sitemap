@@ -340,6 +340,7 @@ Route::prefix('{current_team}')
         Route::get('recurring-invoices', [RecurringInvoiceController::class, 'index'])->name('recurring-invoices.index');
         Route::post('recurring-invoices', [RecurringInvoiceController::class, 'store'])->name('recurring-invoices.store');
         Route::put('recurring-invoices/{recurringInvoice}', [RecurringInvoiceController::class, 'update'])->name('recurring-invoices.update');
+        Route::put('recurring-invoices/{recurringInvoice}/site', [RecurringInvoiceController::class, 'linkSite'])->name('recurring-invoices.site');
         Route::post('recurring-invoices/{recurringInvoice}/toggle', [RecurringInvoiceController::class, 'toggle'])->name('recurring-invoices.toggle');
         Route::delete('recurring-invoices/{recurringInvoice}', [RecurringInvoiceController::class, 'destroy'])->name('recurring-invoices.destroy');
 
@@ -369,6 +370,7 @@ Route::prefix('{current_team}')
 
         Route::get('packages', [PackageController::class, 'index'])->name('packages.index');
         Route::post('packages', [PackageController::class, 'store'])->name('packages.store');
+        Route::post('packages/seed-defaults', [PackageController::class, 'seedDefaults'])->name('packages.seed-defaults');
         Route::put('packages/{package}', [PackageController::class, 'update'])->name('packages.update');
         Route::delete('packages/{package}', [PackageController::class, 'destroy'])->name('packages.destroy');
 

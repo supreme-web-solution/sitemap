@@ -12,6 +12,7 @@ use App\Models\Lead;
 use App\Models\RecurringInvoice;
 use App\Models\Team;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,7 +26,7 @@ class RecurringInvoiceController extends Controller
     {
         return Inertia::render('invoices/Recurring', [
             'schedules' => $currentTeam->recurringInvoices()
-                ->with('lead:id,name,email')
+                ->with(['lead:id,name,email', 'site:id,lead_id'])
                 ->latest('id')
                 ->paginate(25)
                 ->withQueryString()
@@ -34,6 +35,7 @@ class RecurringInvoiceController extends Controller
                     'leadId' => $schedule->lead_id,
                     'leadName' => $schedule->lead->name,
                     'leadEmail' => $schedule->lead->email,
+                    'siteId' => $schedule->site_id,
                     'interval' => $schedule->interval->value,
                     'intervalLabel' => $schedule->interval->label(),
                     'startsOn' => $schedule->starts_on->toDateString(),
@@ -77,7 +79,7 @@ class RecurringInvoiceController extends Controller
 
         $currentTeam->recurringInvoices()
             ->make([
-                ...$request->safe()->only(['lead_id', 'interval', 'starts_on', 'ends_on', 'due_in_days', 'email_client', 'notes']),
+                ...$request->safe()->only(['lead_id', 'site_id', 'interval', 'starts_on', 'ends_on', 'due_in_days', 'email_client', 'notes']),
                 'collection_mode' => $collectionMode,
                 'payment_provider' => $collectionMode === RecurringCollectionMode::AutoCharge
                     ? PaymentProvider::from($request->validated('payment_provider'))
@@ -98,7 +100,7 @@ class RecurringInvoiceController extends Controller
     public function update(SaveRecurringInvoiceRequest $request, Team $currentTeam, RecurringInvoice $recurringInvoice): RedirectResponse
     {
         $recurringInvoice->update([
-            ...$request->safe()->only(['ends_on', 'due_in_days', 'email_client', 'notes']),
+            ...$request->safe()->only(['site_id', 'ends_on', 'due_in_days', 'email_client', 'notes']),
             'items' => $request->lineItems(),
         ]);
 
@@ -132,6 +134,33 @@ class RecurringInvoiceController extends Controller
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
+
+        return back();
+    }
+
+    /**
+     * Link or unlink a live site for this schedule.
+     */
+    public function linkSite(Team $currentTeam, RecurringInvoice $recurringInvoice): RedirectResponse
+    {
+        $siteId = request()->validate([
+            'site_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('sites', 'id')
+                    ->where('team_id', $currentTeam->id)
+                    ->where('lead_id', $recurringInvoice->lead_id),
+            ],
+        ])['site_id'] ?? null;
+
+        $recurringInvoice->update(['site_id' => $siteId]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $siteId
+                ? __('Linked to the client website.')
+                : __('Unlinked from the client website.'),
+        ]);
 
         return back();
     }

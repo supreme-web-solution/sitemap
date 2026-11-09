@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\LeadStatus;
-use App\Mail\OutreachEmail;
+use App\Mail\WeeklyTeamReportEmail;
 use App\Models\Invoice;
 use App\Models\Team;
 use Illuminate\Console\Attributes\Description;
@@ -34,16 +34,13 @@ class SendClientReports extends Command
             $outstanding = Invoice::formatCents((int) $team->invoices()->outstanding()->sum('total_cents'));
             $openLeads = $team->leads()->whereNotIn('status', [LeadStatus::Won, LeadStatus::Lost])->count();
 
-            Mail::to($email)->queue(new OutreachEmail(
-                __('Weekly snapshot for :team', ['team' => $team->name]),
-                __(":open leads still open. :won won this week. Outstanding invoices: :outstanding.\n\nOpen the dashboard for the full picture.", [
-                    'open' => $openLeads,
-                    'won' => $won,
-                    'outstanding' => $outstanding,
-                ]),
-                $team->brand()['name'],
-                $email,
-            ));
+            Mail::to($email)->queue(new WeeklyTeamReportEmail($team, [
+                'openLeads' => $openLeads,
+                'wonThisWeek' => $won,
+                'outstanding' => $outstanding,
+                'dashboardUrl' => route('dashboard', ['current_team' => $team->slug]),
+                'reportsUrl' => route('reports.index', ['current_team' => $team->slug]),
+            ]));
         }, 50);
 
         return self::SUCCESS;

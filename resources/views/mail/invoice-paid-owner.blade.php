@@ -41,7 +41,20 @@
                         </tr>
                     @endif
                     <tr>
-                        <td style="padding:28px 32px 32px;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.6;color:#71717a;">
+                        <td style="padding:28px 32px 8px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="border-radius:999px;background:{{ $brand['color'] ?: '#18181b' }};">
+                                        <a href="{{ route('invoices.edit', ['current_team' => $invoice->team->slug, 'invoice' => $invoice->id]) }}" style="display:inline-block;padding:14px 22px;font-family:Arial, Helvetica, sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">
+                                            Open the invoice
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 32px 32px;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.6;color:#71717a;">
                             The client has been emailed a receipt@if ($lead->site && $lead->site->transferred_at) and their website download link@endif.
                         </td>
                     </tr>

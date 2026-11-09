@@ -3,12 +3,20 @@
 namespace App\Http\Requests\Proposals;
 
 use App\Enums\BillingInterval;
+use App\Enums\PackageKind;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class SavePackageRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('kind')) {
+            $this->merge(['kind' => PackageKind::Service->value]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -18,6 +26,7 @@ class SavePackageRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:120'],
+            'kind' => ['required', Rule::enum(PackageKind::class)],
             'description' => ['nullable', 'string', 'max:500'],
             'price' => ['required', 'numeric', 'min:0.01', 'max:999999.99', 'decimal:0,2'],
             'interval' => ['nullable', Rule::enum(BillingInterval::class)],
@@ -34,6 +43,7 @@ class SavePackageRequest extends FormRequest
     {
         return [
             'name' => $this->validated('name'),
+            'kind' => $this->validated('kind'),
             'description' => $this->validated('description'),
             'unit_cents' => (int) round(((float) $this->validated('price')) * 100),
             'interval' => $this->validated('interval'),

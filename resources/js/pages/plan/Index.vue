@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Check, X } from '@lucide/vue';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
+import { index as packagesIndex } from '@/routes/packages';
 import { change as changePlan } from '@/routes/plan';
 import type { UsageRow } from '@/types';
 
@@ -77,10 +78,10 @@ const planActionLabel = (option: PlanCard) => {
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <Heading
             title="Plan & usage"
-            description="What your plan includes and how much you have used. Monthly allowances reset on the 1st."
+            description="Your MapMatic plan caps how much you can run on the platform. Monthly allowances reset on the 1st."
         />
 
-        <section class="panel p-5">
+        <section class="panel space-y-3 p-5">
             <template v-if="plan">
                 <p class="text-lg font-semibold">
                     {{ plan.name }}
@@ -95,12 +96,26 @@ const planActionLabel = (option: PlanCard) => {
             <p v-else class="text-sm text-muted-foreground">
                 No plan limits apply to your team.
             </p>
-            <p v-if="!canChangePlan" class="mt-2 text-xs text-muted-foreground">
+            <p class="text-sm leading-relaxed text-muted-foreground">
+                <strong class="font-medium text-foreground">Websites</strong> and
+                <strong class="font-medium text-foreground">Custom domains</strong>
+                are your live hosting capacity on MapMatic — how many client sites you
+                can publish on our servers. Fees you charge clients for Hosting or
+                Maintenance are priced under
+                <Link
+                    :href="packagesIndex.url({ current_team: teamSlug })"
+                    class="font-medium text-foreground underline-offset-2 hover:underline"
+                >
+                    Packages
+                </Link>
+                and paid to you, not to MapMatic.
+            </p>
+            <p v-if="!canChangePlan" class="text-xs text-muted-foreground">
                 Ask a team admin or owner to change plans.
             </p>
             <p
                 v-else-if="!billingConfigured"
-                class="mt-2 text-xs text-muted-foreground"
+                class="text-xs text-muted-foreground"
             >
                 Free plans can be switched here. Paid checkout needs Stripe keys
                 and a Stripe price on the plan.

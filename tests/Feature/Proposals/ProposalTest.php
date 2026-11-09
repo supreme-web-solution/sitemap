@@ -221,12 +221,14 @@ test('packages can be created, priced and used as one-time or recurring services
     $user = User::factory()->create();
     $slug = $user->currentTeam->slug;
 
-    $this->actingAs($user)->post(route('packages.store', ['current_team' => $slug]), ['name' => 'Hosting', 'price' => 49.99, 'interval' => 'monthly'])->assertSessionHasNoErrors();
+    $this->actingAs($user)->post(route('packages.store', ['current_team' => $slug]), ['name' => 'Hosting', 'kind' => 'hosting', 'price' => 49.99, 'interval' => 'monthly'])->assertSessionHasNoErrors();
 
     $package = Package::sole();
-    expect($package->unit_cents)->toBe(4999)->and($package->interval)->toBe(BillingInterval::Monthly);
+    expect($package->unit_cents)->toBe(4999)
+        ->and($package->interval)->toBe(BillingInterval::Monthly)
+        ->and($package->kind->value)->toBe('hosting');
 
-    $this->actingAs($user)->put(route('packages.update', ['current_team' => $slug, 'package' => $package->id]), ['name' => 'Hosting', 'price' => 59, 'interval' => '', 'is_active' => false]);
+    $this->actingAs($user)->put(route('packages.update', ['current_team' => $slug, 'package' => $package->id]), ['name' => 'Hosting', 'kind' => 'hosting', 'price' => 59, 'interval' => '', 'is_active' => false]);
     expect($package->refresh()->unit_cents)->toBe(5900)->and($package->interval)->toBeNull()->and($package->is_active)->toBeFalse();
 
     $this->actingAs(User::factory()->create())->delete(route('packages.destroy', ['current_team' => $slug, 'package' => $package->id]))->assertForbidden();

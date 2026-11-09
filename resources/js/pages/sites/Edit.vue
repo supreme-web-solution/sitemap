@@ -23,6 +23,8 @@ import EditorSettingsDialog from '@/components/sites/editor/EditorSettingsDialog
 import type { SettingsTab } from '@/components/sites/editor/EditorSettingsDialog.vue';
 import SiteEditorWorkspace from '@/components/sites/editor/SiteEditorWorkspace.vue';
 import SiteChatPanel from '@/components/sites/SiteChatPanel.vue';
+import SiteClientServicesPanel from '@/components/sites/SiteClientServicesPanel.vue';
+import type { ClientServiceRow } from '@/components/sites/SiteClientServicesPanel.vue';
 import SiteHealthPanel from '@/components/sites/SiteHealthPanel.vue';
 import SiteTransferPanel from '@/components/sites/SiteTransferPanel.vue';
 import SitePreviewAccessPanel from '@/components/sites/SitePreviewAccessPanel.vue';
@@ -75,6 +77,10 @@ const props = defineProps<{
     copyFields: SiteCopyField[];
     chat: SiteChat;
     health: SiteHealth;
+    clientServices: {
+        linked: ClientServiceRow[];
+        attachable: ClientServiceRow[];
+    };
 }>();
 
 const page = usePage();
@@ -535,6 +541,12 @@ const copyLink = async () => {
                     :site-id="site.id"
                     :team-slug="teamSlug"
                     :publishing="publishing"
+                />
+                <SiteClientServicesPanel
+                    :site-id="site.id"
+                    :team-slug="teamSlug"
+                    :linked="clientServices.linked"
+                    :attachable="clientServices.attachable"
                 />
             </template>
 

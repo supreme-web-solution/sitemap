@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BillingInterval;
+use App\Enums\PackageKind;
 use Database\Factories\PackageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $team_id
  * @property string $name
+ * @property PackageKind $kind
  * @property string|null $description
  * @property int $unit_cents
  * @property BillingInterval|null $interval
@@ -24,11 +26,18 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Team $team
  */
-#[Fillable(['name', 'description', 'unit_cents', 'interval', 'is_active'])]
+#[Fillable(['name', 'kind', 'description', 'unit_cents', 'interval', 'is_active'])]
 class Package extends Model
 {
     /** @use HasFactory<PackageFactory> */
     use HasFactory;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'kind' => 'service',
+    ];
 
     /**
      * Get the team that sells the package.
@@ -43,11 +52,12 @@ class Package extends Model
     /**
      * Get the attributes that should be cast.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     protected function casts(): array
     {
         return [
+            'kind' => PackageKind::class,
             'unit_cents' => 'integer',
             'interval' => BillingInterval::class,
             'is_active' => 'boolean',
