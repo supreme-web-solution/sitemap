@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { LoaderCircle, RefreshCw } from '@lucide/vue';
+import {
+    CheckCircle2,
+    ExternalLink,
+    LoaderCircle,
+    RefreshCw,
+    Save,
+    Trash2,
+} from '@lucide/vue';
 import { onMounted, ref } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -70,6 +77,7 @@ const props = defineProps<{
     previewDomain: {
         hostname: string;
         verified: boolean;
+        origin: string | null;
         checkError: string | null;
         dnsRecords: DnsRecord[];
     } | null;
@@ -134,6 +142,14 @@ const verifyPreviewDomain = () => {
 };
 
 const removePreviewDomain = () => {
+    if (
+        !confirm(
+            'Remove this preview domain? Share links go back to the app URL until you add and verify another hostname.',
+        )
+    ) {
+        return;
+    }
+
     router.delete(destroyPreviewDomain.url(teamSlug), { preserveScroll: true });
 };
 
@@ -354,6 +370,34 @@ const disconnectInbox = () => {
                 </p>
             </div>
 
+            <div
+                v-if="previewDomain.verified"
+                class="grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30"
+                data-test="preview-domain-verified"
+            >
+                <div class="flex items-start gap-2 text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle2 class="mt-0.5 size-5 shrink-0" />
+                    <div class="grid gap-1">
+                        <p class="text-sm font-medium">Verified and in use</p>
+                        <p class="text-sm text-emerald-800/80 dark:text-emerald-200/80">
+                            Outreach emails and Copy link on sites now start with this hostname.
+                            Open a site editor and copy the preview link — it should look like
+                            <span class="font-mono">{{ previewDomain.origin }}/p/…</span>
+                        </p>
+                    </div>
+                </div>
+                <a
+                    v-if="previewDomain.origin"
+                    :href="previewDomain.origin"
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-emerald-800 underline-offset-2 hover:underline dark:text-emerald-200"
+                >
+                    {{ previewDomain.origin }}
+                    <ExternalLink class="size-3.5" />
+                </a>
+            </div>
+
             <form v-if="canManage" class="grid gap-3" @submit.prevent="savePreviewDomain">
                 <div class="grid gap-2">
                     <Label for="preview-hostname">Hostname</Label>
@@ -365,34 +409,45 @@ const disconnectInbox = () => {
                     <InputError :message="previewDomainForm.errors.hostname" />
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <Button type="submit" :disabled="previewDomainForm.processing">Save hostname</Button>
+                    <Button type="submit" :disabled="previewDomainForm.processing">
+                        <Save />
+                        Save hostname
+                    </Button>
                     <Button
                         v-if="previewDomain.hostname"
                         type="button"
                         variant="secondary"
                         @click="verifyPreviewDomain"
                     >
-                        Check DNS
+                        <RefreshCw />
+                        {{ previewDomain.verified ? 'Re-check DNS' : 'Check DNS' }}
                     </Button>
                     <Button
                         v-if="previewDomain.hostname"
                         type="button"
-                        variant="ghost"
+                        variant="destructive"
                         @click="removePreviewDomain"
                     >
+                        <Trash2 />
                         Remove
                     </Button>
                 </div>
             </form>
 
-            <p v-if="previewDomain.verified" class="text-sm text-emerald-600 dark:text-emerald-400">
-                Verified — outreach and copy-link use this hostname.
-            </p>
-            <p v-else-if="previewDomain.checkError" class="text-sm text-destructive">
+            <p
+                v-if="!previewDomain.verified && previewDomain.checkError"
+                class="text-sm text-destructive"
+            >
                 {{ previewDomain.checkError }}
             </p>
 
-            <div v-if="previewDomain.dnsRecords.length" class="overflow-x-auto">
+            <div
+                v-if="!previewDomain.verified && previewDomain.dnsRecords.length"
+                class="overflow-x-auto rounded-xl border p-3"
+            >
+                <p class="mb-3 text-sm text-muted-foreground">
+                    Add these DNS records, wait for them to propagate, then click Check DNS.
+                </p>
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-muted-foreground">
@@ -402,7 +457,10 @@ const disconnectInbox = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(record, index) in previewDomain.dnsRecords" :key="index">
+                        <tr
+                            v-for="(record, index) in previewDomain.dnsRecords"
+                            :key="index"
+                        >
                             <td class="py-1 pr-3 font-mono">{{ record.type }}</td>
                             <td class="py-1 pr-3 font-mono">{{ record.name }}</td>
                             <td class="py-1 pr-3 font-mono">{{ record.value }}</td>
@@ -410,6 +468,36 @@ const disconnectInbox = () => {
                     </tbody>
                 </table>
             </div>
+
+            <details
+                v-else-if="previewDomain.verified && previewDomain.dnsRecords.length"
+                class="rounded-xl border px-3 py-2 text-sm"
+            >
+                <summary class="cursor-pointer select-none text-muted-foreground">
+                    Keep these DNS records (optional to review)
+                </summary>
+                <div class="mt-3 overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-muted-foreground">
+                                <th class="pb-2 pr-3">Type</th>
+                                <th class="pb-2 pr-3">Name</th>
+                                <th class="pb-2 pr-3">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="(record, index) in previewDomain.dnsRecords"
+                                :key="index"
+                            >
+                                <td class="py-1 pr-3 font-mono">{{ record.type }}</td>
+                                <td class="py-1 pr-3 font-mono">{{ record.name }}</td>
+                                <td class="py-1 pr-3 font-mono">{{ record.value }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
         </section>
     </div>
 </template>

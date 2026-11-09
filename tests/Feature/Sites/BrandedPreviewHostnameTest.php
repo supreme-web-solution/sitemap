@@ -7,6 +7,26 @@ use App\Models\User;
 use App\Services\Domains\DnsLookup;
 use App\Services\Preview\PreviewLink;
 
+test('the branding page shows the verified preview origin and hides setup as the main focus', function () {
+    $owner = User::factory()->create();
+    $team = $owner->currentTeam;
+    $team->forceFill([
+        'plan_id' => Plan::factory()->withAllFeatures()->create()->id,
+        'preview_hostname' => 'previews.agency.test',
+        'preview_hostname_verified_at' => now(),
+        'preview_hostname_token' => 'token',
+    ])->save();
+
+    $this->actingAs($owner)
+        ->get(route('branding.edit', ['current_team' => $team->slug]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('branding/Edit')
+            ->where('previewDomain.verified', true)
+            ->where('previewDomain.origin', 'https://previews.agency.test')
+            ->where('previewDomain.hostname', 'previews.agency.test'));
+});
+
 test('preview links use the verified agency hostname', function () {
     $owner = User::factory()->create();
     $team = $owner->currentTeam;

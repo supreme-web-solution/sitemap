@@ -53,7 +53,7 @@ class LeadController extends Controller
                     'placeUrl' => $search->place_url,
                     'status' => $search->status->value,
                     'resultsCount' => $search->results_count,
-                    'error' => $search->error,
+                    'error' => LeadSearch::publicFacingError($search->error),
                     'createdAt' => $search->created_at->toISOString(),
                 ]),
             'savedSearches' => $currentTeam->savedLeadSearches()

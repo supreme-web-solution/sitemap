@@ -46,6 +46,7 @@ class BrandingController extends Controller
             'previewDomain' => $canUsePreviewDomain ? [
                 'hostname' => $currentTeam->preview_hostname ?? '',
                 'verified' => $currentTeam->hasVerifiedPreviewHostname(),
+                'origin' => $currentTeam->brandedPreviewOrigin(),
                 'checkError' => $currentTeam->preview_hostname_check_error,
                 'dnsRecords' => filled($currentTeam->preview_hostname)
                     ? $verifier->instructions($currentTeam)

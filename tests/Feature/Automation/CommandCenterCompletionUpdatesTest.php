@@ -57,7 +57,7 @@ test('a finished lead search updates the web thread', function () {
     expect($message->source)->toBe(CommandCenterMessageSource::Web);
 });
 
-test('a failed lead search tells the user what went wrong', function () {
+test('a failed lead search tells the user to try again without provider wording', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
 
@@ -65,13 +65,19 @@ test('a failed lead search tells the user what went wrong', function () {
         'team_id' => $team->id,
         'user_id' => $user->id,
         'notify_command_center' => true,
+        'keyword' => 'window repair',
+        'location' => 'Austin',
     ]);
 
-    $search->markAsFailed('Your Mindcase wallet balance is too low to run this search.');
+    $search->markAsFailed('System error: this run failed on our infrastructure.');
 
     $message = CommandCenterMessage::query()->where('role', 'assistant')->latest('id')->first();
 
-    expect($message->body)->toContain('could not be completed')->toContain('wallet balance');
+    expect($message->body)
+        ->toContain('window repair')
+        ->toContain('could not be completed')
+        ->toContain('Please try again')
+        ->not->toContain('infrastructure');
 });
 
 test('searches not started from the command center do not post updates', function () {

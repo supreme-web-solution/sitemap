@@ -292,6 +292,24 @@ test('an empty provider wallet fails the search', function () {
         ->error->toBe('Your Mindcase wallet balance is too low to run this search.');
 });
 
+test('provider infrastructure failures show a safe message instead of internal wording', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/jobs/job-infra/results' => Http::response([
+            'status' => 'failed',
+            'error' => 'System error: this run failed on our infrastructure, not because of anything in your request. You were not charged for it, so please try again.',
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->running('job-infra')->create();
+
+    runLeadSearch($search);
+
+    expect($search->fresh())
+        ->status->toBe(LeadSearchStatus::Failed)
+        ->error->toBe('The search could not be completed. Please try again.');
+});
+
 test('a finished search is not sent to the provider again', function () {
     Http::preventStrayRequests();
 

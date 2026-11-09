@@ -114,7 +114,7 @@ class MindcaseLeadFinder implements LeadFinder
                 providerJobId: $jobId,
                 error: $status === 'rejected_balance'
                     ? 'Your Mindcase wallet balance is too low to run this search.'
-                    : (string) ($payload['error'] ?? 'The search could not be completed.'),
+                    : 'The search could not be completed. Please try again.',
             );
         }
 

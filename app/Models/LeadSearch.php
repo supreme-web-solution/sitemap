@@ -93,11 +93,38 @@ class LeadSearch extends Model
     {
         $this->update([
             'status' => LeadSearchStatus::Failed,
-            'error' => $error,
+            'error' => self::publicFacingError($error),
             'completed_at' => now(),
         ]);
 
         app(CommandCenterNotifier::class)->leadSearchFinished($this);
+    }
+
+    /**
+     * Error text safe to show in the product UI (provider infra wording is stripped).
+     */
+    public static function publicFacingError(?string $error): ?string
+    {
+        if ($error === null || trim($error) === '') {
+            return null;
+        }
+
+        $normalized = strtolower($error);
+
+        $allowed = [
+            'your mindcase wallet balance is too low to run this search.',
+            'the lead finder api key is missing or invalid.',
+            'the lead finder rejected this search. try a more specific location.',
+            'the search timed out. please try again.',
+            'the search could not be completed.',
+            'the search could not be completed. please try again.',
+        ];
+
+        if (in_array($normalized, $allowed, true)) {
+            return $error;
+        }
+
+        return 'The search could not be completed. Please try again.';
     }
 
     /**

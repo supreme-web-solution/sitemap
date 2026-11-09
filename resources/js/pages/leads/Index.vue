@@ -279,6 +279,10 @@ const activeSearches = computed(() =>
     ),
 );
 
+const visibleSearches = computed(() =>
+    props.searches.filter((search) => search.status !== 'failed'),
+);
+
 const hasActiveSearch = computed(() => activeSearches.value.length > 0);
 
 const isDiscoveryBusy = computed(
@@ -340,7 +344,8 @@ watch(
                 current === 'failed'
             ) {
                 toast.error(
-                    search.error ?? `${searchLabel(search)} could not finish`,
+                    search.error ??
+                        `${searchLabel(search)} could not be completed. Please try again.`,
                 );
             }
 
@@ -722,15 +727,14 @@ const onPickDesign = (lead: Lead) => {
         </div>
 
         <div
-            v-if="searches.length || isDiscoveryBusy"
+            v-if="visibleSearches.length || isDiscoveryBusy"
             class="flex flex-col gap-2"
         >
             <div class="flex flex-wrap gap-2">
                 <Badge
-                    v-for="search in searches"
+                    v-for="search in visibleSearches"
                     :key="search.id"
                     :variant="searchStatusVariant(search.status)"
-                    :title="search.error ?? undefined"
                     class="gap-1.5 py-1"
                 >
                     <LoaderCircle
@@ -744,20 +748,8 @@ const onPickDesign = (lead: Lead) => {
                     <span v-if="search.status === 'completed'">
                         ({{ search.resultsCount }} found)
                     </span>
-                    <span v-else-if="search.status === 'failed'">
-                        (failed)
-                    </span>
                 </Badge>
             </div>
-            <p
-                v-for="search in searches.filter(
-                    (search) => search.status === 'failed' && search.error,
-                )"
-                :key="`error-${search.id}`"
-                class="text-sm text-destructive"
-            >
-                {{ searchLabel(search) }}: {{ search.error }}
-            </p>
         </div>
 
         <Dialog v-model:open="searchModalOpen">
