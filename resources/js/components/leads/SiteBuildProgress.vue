@@ -111,13 +111,12 @@ const stepNumber = computed(
                 v-if="build.stalled"
                 class="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
             >
-                This is taking longer than usual. It may be waiting on the AI
-                provider or the queue worker. You can leave this page; the build
-                keeps running and the details are in the server log.
+                Still working — this one’s taking a bit longer than usual. Feel
+                free to leave this page; we’ll finish in the background.
             </p>
             <p v-else class="text-xs text-muted-foreground">
-                This usually takes under a minute. You can leave this page; the
-                build keeps running.
+                This usually takes under a minute. Feel free to leave this page;
+                we’ll finish in the background.
             </p>
         </div>
     </div>

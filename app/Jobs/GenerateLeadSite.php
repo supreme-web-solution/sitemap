@@ -22,9 +22,11 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
     /**
      * The number of seconds the job can run before timing out.
      *
-     * Must stay below the queue connection's retry_after (90 seconds by default).
+     * AI copy often needs ~90s across retries, then saving and brand images.
+     * Must stay below the AI Horizon supervisor timeout (300) and Redis
+     * retry_after (360).
      */
-    public int $timeout = 80;
+    public int $timeout = 240;
 
     /**
      * The number of times the job may be attempted.
@@ -40,9 +42,9 @@ class GenerateLeadSite implements ShouldBeUnique, ShouldQueue
      * Seconds the unique lock may be held.
      *
      * Without this, killing Horizon mid-build leaves a permanent lock and every
-     * later click only shows "Waiting for a worker" while nothing is queued.
+     * later click only shows "Getting ready" while nothing is queued.
      */
-    public int $uniqueFor = 180;
+    public int $uniqueFor = 300;
 
     /**
      * Create a new job instance.

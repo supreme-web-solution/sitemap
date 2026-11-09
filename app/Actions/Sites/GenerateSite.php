@@ -16,6 +16,7 @@ use App\Services\SiteBuilder\SiteContentSchema;
 use App\Services\SiteBuilder\SiteCopywriter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class GenerateSite
 {
@@ -53,7 +54,7 @@ class GenerateSite
 
         SiteBuildProgress::record($lead->id, 'saving');
 
-        return DB::transaction(function () use ($lead, $draft, $designTemplate) {
+        $site = DB::transaction(function () use ($lead, $draft, $designTemplate) {
             $previous = $lead->site?->content ?? [];
             $site = $lead->site ?? new Site([
                 'lead_id' => $lead->id,
@@ -78,10 +79,21 @@ class GenerateSite
 
             $lead->save();
 
-            SiteBuildProgress::record($lead->id, 'assets');
-
-            return $this->brandAssets->refresh($site->fresh(['lead']));
+            return $site->fresh(['lead']);
         });
+
+        // Brand images run after commit so a slow/failed OG render cannot roll
+        // back a site the copywriter already finished. Preview render can fill
+        // them later via SiteBrandAssets::ensure().
+        SiteBuildProgress::record($lead->id, 'assets');
+
+        try {
+            return $this->brandAssets->refresh($site);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $site;
+        }
     }
 
     /**

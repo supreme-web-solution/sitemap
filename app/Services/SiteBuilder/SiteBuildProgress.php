@@ -24,12 +24,12 @@ class SiteBuildProgress
      * @var array<string, array{label: string, percent: int}>
      */
     public const STEPS = [
-        'queued' => ['label' => 'Waiting for a worker', 'percent' => 8],
+        'queued' => ['label' => 'Getting ready', 'percent' => 8],
         'reviews' => ['label' => 'Collecting Google reviews', 'percent' => 20],
         'started' => ['label' => 'Build started', 'percent' => 30],
         'writing' => ['label' => 'Writing the website copy', 'percent' => 60],
         'saving' => ['label' => 'Saving pages and layout', 'percent' => 82],
-        'assets' => ['label' => 'Preparing logo and brand assets', 'percent' => 94],
+        'assets' => ['label' => 'Preparing logo and brand images', 'percent' => 94],
     ];
 
     public static function key(int $leadId): string

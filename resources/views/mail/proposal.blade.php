@@ -60,7 +60,7 @@
                     </tr>
                     <tr>
                         <td style="padding:8px 32px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.6;color:#52525b;">
-                            Open the private link to review the details and accept online. No login is required.
+                            Review the offer, ask questions, and accept when you’re ready.
                         </td>
                     </tr>
                     <tr>

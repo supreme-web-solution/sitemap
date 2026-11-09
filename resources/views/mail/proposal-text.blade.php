@@ -16,7 +16,7 @@ It stays open until {{ $proposal->valid_until->toFormattedDateString() }}.
 {{ $proposal->intro }}
 
 @endif
-View the proposal (no login needed):
+View the proposal:
 {{ $proposal->publicUrl() }}
 
 Questions? Reply to this email and it goes to {{ $senderName }} at {{ $brand['name'] }}.

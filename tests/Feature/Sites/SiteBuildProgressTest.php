@@ -25,12 +25,12 @@ test('a site build writes each step to the log', function () {
 
     GenerateLeadSite::dispatchSync($lead);
 
-    // dispatchSync runs the job immediately, so there is no "Waiting for a worker" queue step.
+    // dispatchSync runs the job immediately, so there is no "Getting ready" queue step.
     expect($messages)->toBe([
         '[site-build] Build started',
         '[site-build] Writing the website copy',
         '[site-build] Saving pages and layout',
-        '[site-build] Preparing logo and brand assets',
+        '[site-build] Preparing logo and brand images',
         '[site-build] Website build finished',
     ]);
 });
