@@ -187,6 +187,8 @@ class SiteController extends Controller
                     'id' => $domain->id,
                     'hostname' => $domain->hostname,
                     'isVerified' => $domain->isVerified(),
+                    'sslActive' => $domain->sslIsActive(),
+                    'sslStatus' => $domain->cloudflare_ssl_status,
                     'isPrimary' => $primaryDomain?->is($domain) ?? false,
                     'error' => $domain->check_error,
                     'lastCheckedAt' => $domain->last_checked_at?->toISOString(),

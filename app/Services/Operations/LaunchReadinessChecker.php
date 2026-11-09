@@ -191,12 +191,21 @@ class LaunchReadinessChecker
             $checks[] = $this->pass('domains', 'app_hosts', 'Dashboard hostnames', implode(', ', $appHosts));
         }
 
-        if ($production && $token === '') {
-            $checks[] = $this->fail('domains', 'tls_token', 'On-demand TLS', 'SITES_TLS_ASK_TOKEN is empty.', 'Caddy must send this token when calling /internal/domains/allowed.');
-        } elseif ($token === '') {
-            $checks[] = $this->warn('domains', 'tls_token', 'On-demand TLS', 'SITES_TLS_ASK_TOKEN is not set.');
-        } else {
-            $checks[] = $this->pass('domains', 'tls_token', 'On-demand TLS', 'SITES_TLS_ASK_TOKEN is configured.');
+        $cloudflareReady = filled(config('services.cloudflare.api_token'))
+            && filled(config('services.cloudflare.zone_id'));
+
+        if ($cloudflareReady) {
+            $checks[] = $this->pass('domains', 'cloudflare_saas', 'Cloudflare for SaaS', 'Custom hostnames API is configured.');
+        } elseif ($production) {
+            $checks[] = $this->warn('domains', 'cloudflare_saas', 'Cloudflare for SaaS', 'CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID are not set.', 'Needed for automatic HTTPS on customer domains without Caddy.');
+        }
+
+        if ($token !== '') {
+            $checks[] = $this->pass('domains', 'tls_token', 'Caddy TLS ask token', 'SITES_TLS_ASK_TOKEN is configured.');
+        } elseif (! $cloudflareReady && $production) {
+            $checks[] = $this->fail('domains', 'tls_token', 'Customer-domain HTTPS', 'Neither Cloudflare for SaaS nor SITES_TLS_ASK_TOKEN is configured.', 'Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ZONE_ID (recommended on Forge) or Caddy + SITES_TLS_ASK_TOKEN.');
+        } elseif (! $cloudflareReady) {
+            $checks[] = $this->warn('domains', 'tls_token', 'Customer-domain HTTPS', 'No Cloudflare for SaaS or Caddy TLS token configured.');
         }
 
         if ($production && $cname === '' && $ip === '') {

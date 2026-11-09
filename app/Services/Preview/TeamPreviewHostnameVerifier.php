@@ -5,6 +5,7 @@ namespace App\Services\Preview;
 use App\Http\Requests\Sites\StoreSiteDomainRequest;
 use App\Models\SiteDomain;
 use App\Models\Team;
+use App\Services\Cloudflare\SyncCloudflareHostname;
 use App\Services\Domains\DnsLookup;
 use App\Services\Domains\DomainVerifier;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -14,6 +15,7 @@ class TeamPreviewHostnameVerifier
     public function __construct(
         protected DnsLookup $dns,
         protected DomainVerifier $domainVerifier,
+        protected SyncCloudflareHostname $cloudflare,
     ) {}
 
     /**
@@ -84,11 +86,19 @@ class TeamPreviewHostnameVerifier
             return false;
         }
 
+        if (filled($team->preview_cloudflare_hostname_id) && $team->preview_hostname !== $hostname) {
+            $this->cloudflare->forgetTeamPreview($team);
+        }
+
         $team->forceFill([
             'preview_hostname' => $hostname,
             'preview_hostname_token' => $team->preview_hostname_token ?? bin2hex(random_bytes(16)),
             'preview_hostname_verified_at' => null,
             'preview_hostname_check_error' => null,
+            'preview_cloudflare_hostname_id' => null,
+            'preview_cloudflare_status' => null,
+            'preview_cloudflare_ssl_status' => null,
+            'preview_cloudflare_synced_at' => null,
         ])->save();
 
         return true;
@@ -136,6 +146,8 @@ class TeamPreviewHostnameVerifier
 
             return false;
         }
+
+        $this->cloudflare->syncTeamPreview($team->fresh());
 
         return true;
     }

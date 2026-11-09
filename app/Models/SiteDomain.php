@@ -19,6 +19,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $verified_hostname
  * @property Carbon|null $last_checked_at
  * @property string|null $check_error
+ * @property string|null $cloudflare_hostname_id
+ * @property string|null $cloudflare_status
+ * @property string|null $cloudflare_ssl_status
+ * @property Carbon|null $cloudflare_synced_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Site $site
@@ -53,6 +57,15 @@ class SiteDomain extends Model
     }
 
     /**
+     * Whether Cloudflare reports the custom hostname SSL as active.
+     */
+    public function sslIsActive(): bool
+    {
+        return $this->cloudflare_status === 'active'
+            && $this->cloudflare_ssl_status === 'active';
+    }
+
+    /**
      * The DNS name of the ownership TXT record.
      */
     public function verificationRecordName(): string
@@ -80,6 +93,7 @@ class SiteDomain extends Model
         return [
             'verified_at' => 'datetime',
             'last_checked_at' => 'datetime',
+            'cloudflare_synced_at' => 'datetime',
         ];
     }
 }

@@ -77,6 +77,8 @@ const props = defineProps<{
     previewDomain: {
         hostname: string;
         verified: boolean;
+        sslActive: boolean;
+        sslStatus: string | null;
         origin: string | null;
         checkError: string | null;
         dnsRecords: DnsRecord[];
@@ -378,15 +380,20 @@ const disconnectInbox = () => {
                 <div class="flex items-start gap-2 text-emerald-700 dark:text-emerald-300">
                     <CheckCircle2 class="mt-0.5 size-5 shrink-0" />
                     <div class="grid gap-1">
-                        <p class="text-sm font-medium">DNS verified — share links use this host</p>
+                        <p class="text-sm font-medium">
+                            {{
+                                previewDomain.sslActive
+                                    ? 'Verified — share links use this host with HTTPS'
+                                    : 'DNS verified — HTTPS is activating'
+                            }}
+                        </p>
                         <p class="text-sm text-emerald-800/80 dark:text-emerald-200/80">
-                            Outreach and Copy link now start with this hostname
-                            (<span class="font-mono">{{ previewDomain.origin }}/p/…</span>).
-                            HTTPS still needs Caddy on-demand TLS: open a real preview URL once so
-                            the certificate can be issued. An
-                            <span class="font-mono">ERR_SSL_UNRECOGNIZED_NAME_ALERT</span> means DNS
-                            is fine but the cert is not ready yet — keep the CNAME, confirm
-                            <span class="font-mono">SITES_TLS_ASK_TOKEN</span> on the server, then retry.
+                            Outreach and Copy link now start with
+                            <span class="font-mono">{{ previewDomain.origin }}/p/…</span>.
+                            <template v-if="!previewDomain.sslActive">
+                                Secure HTTPS usually finishes within a few minutes — click
+                                Re-check DNS to refresh the status.
+                            </template>
                         </p>
                     </div>
                 </div>

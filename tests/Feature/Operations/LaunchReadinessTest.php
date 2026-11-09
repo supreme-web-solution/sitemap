@@ -11,12 +11,29 @@ test('ops verify command prints a report and succeeds in local testing', functio
 });
 
 test('ops verify fails in production mode when tls token is missing', function () {
-    config(['sites.tls_ask_token' => '']);
+    config([
+        'sites.tls_ask_token' => '',
+        'services.cloudflare.api_token' => null,
+        'services.cloudflare.zone_id' => null,
+    ]);
 
     $report = app(LaunchReadinessChecker::class)->run(live: false, production: true);
 
     expect($report->ok())->toBeFalse()
         ->and(collect($report->checks)->firstWhere('id', 'tls_token')?->status)->toBe('fail');
+});
+
+test('ops verify passes customer-domain https when cloudflare for saas is configured', function () {
+    config([
+        'sites.tls_ask_token' => '',
+        'services.cloudflare.api_token' => 'cf-token',
+        'services.cloudflare.zone_id' => 'zone-123',
+    ]);
+
+    $report = app(LaunchReadinessChecker::class)->run(live: false, production: true);
+
+    expect(collect($report->checks)->firstWhere('id', 'cloudflare_saas')?->status)->toBe('pass')
+        ->and(collect($report->checks)->firstWhere('id', 'tls_token'))->toBeNull();
 });
 
 test('ops verify live mode probes the tls gate', function () {

@@ -207,22 +207,31 @@ const promoteToLive = () => {
                     <span
                         :class="[
                             'rounded-full px-2 py-0.5 text-xs font-medium',
-                            domain.isVerified
+                            domain.sslActive
                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                                : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+                                : domain.isVerified
+                                  ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
                         ]"
                     >
-                        {{ domain.isVerified ? 'Verified' : 'Waiting for DNS' }}
+                        {{
+                            domain.sslActive
+                                ? 'Live HTTPS'
+                                : domain.isVerified
+                                  ? 'DNS verified'
+                                  : 'Waiting for DNS'
+                        }}
                     </span>
                     <div class="ml-auto flex gap-1">
                         <Button
-                            v-if="!domain.isVerified"
+                            v-if="!domain.sslActive"
                             type="button"
                             size="sm"
                             variant="outline"
                             @click="check(domain)"
                         >
-                            <RefreshCw /> Check DNS
+                            <RefreshCw />
+                            {{ domain.isVerified ? 'Refresh HTTPS' : 'Check DNS' }}
                         </Button>
                         <Button
                             type="button"
@@ -289,17 +298,23 @@ const promoteToLive = () => {
                             </tbody>
                         </table>
                     </div>
-                    <p
-                        v-if="domain.error"
-                        class="text-xs text-rose-600 dark:text-rose-300"
-                    >
-                        {{ domain.error }}
-                        <template v-if="domain.lastCheckedAt">
-                            Last checked
-                            {{ formatRelativeTime(domain.lastCheckedAt) }}.
-                        </template>
-                    </p>
                 </div>
+
+                <p
+                    v-if="domain.error"
+                    class="mt-2 text-xs"
+                    :class="
+                        domain.isVerified
+                            ? 'text-sky-700 dark:text-sky-300'
+                            : 'text-rose-600 dark:text-rose-300'
+                    "
+                >
+                    {{ domain.error }}
+                    <template v-if="domain.lastCheckedAt">
+                        Last checked
+                        {{ formatRelativeTime(domain.lastCheckedAt) }}.
+                    </template>
+                </p>
             </li>
         </ul>
 

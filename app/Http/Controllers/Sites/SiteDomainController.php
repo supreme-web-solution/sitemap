@@ -9,6 +9,7 @@ use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
+use App\Services\Cloudflare\SyncCloudflareHostname;
 use App\Services\Domains\DomainVerifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
@@ -39,10 +40,13 @@ class SiteDomainController extends Controller
     public function verify(Team $currentTeam, Site $site, SiteDomain $domain, DomainVerifier $verifier): RedirectResponse
     {
         $verified = $verifier->verify($domain);
+        $domain = $domain->fresh();
 
         Inertia::flash('toast', $verified
-            ? ['type' => 'success', 'message' => __('Domain verified.')]
-            : ['type' => 'error', 'message' => $domain->check_error ?? __('The domain could not be verified.')]);
+            ? ['type' => 'success', 'message' => $domain?->sslIsActive()
+                ? __('Domain verified. HTTPS is active.')
+                : __('Domain verified. HTTPS is activating — check again in a minute.')]
+            : ['type' => 'error', 'message' => $domain?->check_error ?? __('The domain could not be verified.')]);
 
         return back();
     }
@@ -50,8 +54,9 @@ class SiteDomainController extends Controller
     /**
      * Disconnect a domain from the website.
      */
-    public function destroy(Team $currentTeam, Site $site, SiteDomain $domain): RedirectResponse
+    public function destroy(Team $currentTeam, Site $site, SiteDomain $domain, SyncCloudflareHostname $cloudflare): RedirectResponse
     {
+        $cloudflare->forgetSiteDomain($domain);
         $domain->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Domain removed.')]);

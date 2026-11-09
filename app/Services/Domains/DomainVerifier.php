@@ -3,6 +3,7 @@
 namespace App\Services\Domains;
 
 use App\Models\SiteDomain;
+use App\Services\Cloudflare\SyncCloudflareHostname;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 class DomainVerifier
@@ -17,7 +18,10 @@ class DomainVerifier
         'com.mx', 'co.in', 'co.jp', 'com.sg', 'com.ng', 'co.ke', 'com.pk', 'com.ph',
     ];
 
-    public function __construct(protected DnsLookup $dns) {}
+    public function __construct(
+        protected DnsLookup $dns,
+        protected SyncCloudflareHostname $cloudflare,
+    ) {}
 
     /**
      * Check the domain's DNS and mark it verified when ownership is proven.
@@ -119,6 +123,8 @@ class DomainVerifier
 
             return false;
         }
+
+        $this->cloudflare->syncSiteDomain($domain->fresh());
 
         return true;
     }

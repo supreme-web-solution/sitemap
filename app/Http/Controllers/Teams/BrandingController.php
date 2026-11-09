@@ -46,6 +46,8 @@ class BrandingController extends Controller
             'previewDomain' => $canUsePreviewDomain ? [
                 'hostname' => $currentTeam->preview_hostname ?? '',
                 'verified' => $currentTeam->hasVerifiedPreviewHostname(),
+                'sslActive' => $currentTeam->previewSslIsActive(),
+                'sslStatus' => $currentTeam->preview_cloudflare_ssl_status,
                 'origin' => $currentTeam->brandedPreviewOrigin(),
                 'checkError' => $currentTeam->preview_hostname_check_error,
                 'dnsRecords' => filled($currentTeam->preview_hostname)

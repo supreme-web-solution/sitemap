@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Sites\StoreSiteDomainRequest;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
+use App\Services\Cloudflare\SyncCloudflareHostname;
 use App\Services\Preview\TeamPreviewHostnameVerifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,9 +53,12 @@ class BrandingPreviewHostnameController extends Controller
         $usage->ensureFeature($currentTeam, PlanFeature::WhiteLabel);
 
         $verified = $verifier->verify($currentTeam);
+        $currentTeam->refresh();
 
         Inertia::flash('toast', $verified
-            ? ['type' => 'success', 'message' => __('Preview domain verified. Share links now use this hostname.')]
+            ? ['type' => 'success', 'message' => $currentTeam->previewSslIsActive()
+                ? __('Preview domain verified. Share links now use this hostname.')
+                : __('Preview domain verified. HTTPS is activating — re-check in a minute.')]
             : ['type' => 'error', 'message' => $currentTeam->preview_hostname_check_error ?? __('The domain could not be verified.')]);
 
         return back();
@@ -63,10 +67,12 @@ class BrandingPreviewHostnameController extends Controller
     /**
      * Remove the branded preview hostname.
      */
-    public function destroy(Team $currentTeam, UsageMeter $usage): RedirectResponse
+    public function destroy(Team $currentTeam, UsageMeter $usage, SyncCloudflareHostname $cloudflare): RedirectResponse
     {
         Gate::authorize('update', $currentTeam);
         $usage->ensureFeature($currentTeam, PlanFeature::WhiteLabel);
+
+        $cloudflare->forgetTeamPreview($currentTeam);
 
         $currentTeam->forceFill([
             'preview_hostname' => null,
@@ -74,6 +80,10 @@ class BrandingPreviewHostnameController extends Controller
             'preview_hostname_verified_at' => null,
             'preview_hostname_checked_at' => null,
             'preview_hostname_check_error' => null,
+            'preview_cloudflare_hostname_id' => null,
+            'preview_cloudflare_status' => null,
+            'preview_cloudflare_ssl_status' => null,
+            'preview_cloudflare_synced_at' => null,
         ])->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Preview domain removed.')]);

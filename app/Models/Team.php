@@ -48,6 +48,10 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $preview_hostname_verified_at
  * @property Carbon|null $preview_hostname_checked_at
  * @property string|null $preview_hostname_check_error
+ * @property string|null $preview_cloudflare_hostname_id
+ * @property string|null $preview_cloudflare_status
+ * @property string|null $preview_cloudflare_ssl_status
+ * @property Carbon|null $preview_cloudflare_synced_at
  */
 #[Fillable(['name', 'slug', 'is_personal'])]
 class Team extends Model
@@ -108,6 +112,15 @@ class Team extends Model
     public function hasVerifiedPreviewHostname(): bool
     {
         return filled($this->preview_hostname) && $this->preview_hostname_verified_at !== null;
+    }
+
+    /**
+     * Whether Cloudflare reports the branded preview hostname SSL as active.
+     */
+    public function previewSslIsActive(): bool
+    {
+        return $this->preview_cloudflare_status === 'active'
+            && $this->preview_cloudflare_ssl_status === 'active';
     }
 
     /**
@@ -472,6 +485,9 @@ class Team extends Model
             'ideal_customer' => 'array',
             'score_weights' => 'array',
             'automation' => 'array',
+            'preview_hostname_verified_at' => 'datetime',
+            'preview_hostname_checked_at' => 'datetime',
+            'preview_cloudflare_synced_at' => 'datetime',
         ];
     }
 

@@ -371,6 +371,8 @@ export type SiteDomain = {
     id: number;
     hostname: string;
     isVerified: boolean;
+    sslActive?: boolean;
+    sslStatus?: string | null;
     isPrimary: boolean;
     error: string | null;
     lastCheckedAt: string | null;

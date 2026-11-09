@@ -103,4 +103,14 @@ return [
         'stripe_webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    /*
+    | Cloudflare for SaaS — automatic HTTPS for customer and branded preview domains.
+    | Create an API token with Zone → SSL and Certificates → Edit on the mapmaticapp.com zone.
+    | Leave blank in local/dev; domain verification still works without it.
+    */
+    'cloudflare' => [
+        'api_token' => env('CLOUDFLARE_API_TOKEN'),
+        'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+    ],
+
 ];
