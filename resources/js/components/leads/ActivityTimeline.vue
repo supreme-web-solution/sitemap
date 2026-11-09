@@ -12,6 +12,7 @@ import {
     Receipt,
     ScanSearch,
     Sparkles,
+    Video,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import type { Component } from 'vue';
@@ -113,6 +114,10 @@ const icons: Record<LeadActivityType, { icon: Component; tone: string }> = {
     site_edited: {
         icon: Sparkles,
         tone: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
+    },
+    pitch_video_viewed: {
+        icon: Video,
+        tone: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300',
     },
 };
 

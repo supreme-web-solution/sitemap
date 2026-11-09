@@ -16,6 +16,11 @@ It stays open until {{ $proposal->valid_until->toFormattedDateString() }}.
 {{ $proposal->intro }}
 
 @endif
+@if ($pitchVideo ?? null)
+Watch a short video about your website:
+{{ $pitchVideo->watchUrl() }}
+
+@endif
 View the proposal:
 {{ $proposal->publicUrl() }}
 

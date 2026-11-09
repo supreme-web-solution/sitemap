@@ -19,6 +19,7 @@ class MergeFieldRenderer
         'city' => 'The business city',
         'rating' => 'The Google rating',
         'preview_url' => 'The link to the generated website preview',
+        'video_url' => 'The link to the sales video made for this business (empty until the video is ready)',
         'top_issue' => 'The most important issue found by the website audit',
         'sender_name' => 'Your name',
         'team_name' => 'Your workspace name',
@@ -58,6 +59,8 @@ class MergeFieldRenderer
     public function values(Lead $lead, User $sender): array
     {
         $lead->loadMissing('site:id,lead_id,team_id,slug', 'team:id,name');
+        $lead->site?->loadMissing('pitchVideo');
+        $pitchVideo = $lead->site?->pitchVideo;
 
         $topIssue = collect($lead->website_audit['checks'] ?? [])
             ->firstWhere('status', 'fail')['detail'] ?? '';
@@ -68,6 +71,7 @@ class MergeFieldRenderer
             'city' => $lead->city ?? '',
             'rating' => $lead->rating !== null ? (string) $lead->rating : '',
             'preview_url' => $lead->site ? PreviewLink::page($lead->site) : '',
+            'video_url' => $pitchVideo?->isWatchable() ? $pitchVideo->watchUrl() : '',
             'top_issue' => $topIssue,
             'sender_name' => $sender->name,
             'team_name' => $lead->team->name,

@@ -19,7 +19,9 @@ use App\Models\SiteDomain;
 use App\Models\SitePost;
 use App\Models\SiteVersion;
 use App\Models\Team;
+use App\Services\Ai\AiAvailability;
 use App\Services\Billing\UsageMeter;
+use App\Services\Did\DidClient;
 use App\Services\Domains\DomainVerifier;
 use App\Services\Media\SiteImageStorage;
 use App\Services\Preview\PreviewLink;
@@ -36,6 +38,7 @@ use App\Services\SiteBuilder\SiteStaging;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class SiteController extends Controller
 {
@@ -74,9 +77,10 @@ class SiteController extends Controller
     /**
      * Show the website editor.
      */
-    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage): Response
+    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage, DidClient $did): Response
     {
         $primaryDomain = $site->primaryDomain();
+        $site->load('pitchVideo');
         $site->load('lead:id,name,category,city,phone,email,website,description,notes,opening_hours,photo_url,photo_paths,logo_path,site_generation_status,reviews_count,reviews_fetched_at,reviews_fetch_status,reviews_fetch_error');
 
         return Inertia::render('sites/Edit', [
@@ -188,7 +192,7 @@ class SiteController extends Controller
                     'id' => $domain->id,
                     'hostname' => $domain->hostname,
                     'isVerified' => $domain->isVerified(),
-                    'sslActive' => $domain->sslIsActive(),
+                    'sslActive' => $domain->isVerified() && $domain->sslIsActive(),
                     'sslStatus' => $domain->cloudflare_ssl_status,
                     'isPrimary' => $primaryDomain?->is($domain) ?? false,
                     'error' => $domain->check_error,
@@ -196,6 +200,8 @@ class SiteController extends Controller
                     'records' => $verifier->instructions($domain),
                 ]),
             ],
+            'pitchVideo' => $this->pitchVideoProps($site, $did),
+            'pitchVideoOptions' => Inertia::optional(fn () => $this->pitchVideoOptions($did)),
             'pageOptions' => collect(SitePages::OPTIONAL)->map(fn (string $page) => [
                 'value' => $page,
                 'label' => SitePages::PAGE_LABELS[$page],
@@ -276,6 +282,70 @@ class SiteController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Website saved.')]);
 
         return back();
+    }
+
+    /**
+     * The sales video state shown in the website settings.
+     *
+     * @return array<string, mixed>
+     */
+    protected function pitchVideoProps(Site $site, DidClient $did): array
+    {
+        $video = $site->pitchVideo;
+
+        return [
+            'configured' => $did->configured(),
+            'canWriteScript' => AiAvailability::anthropicConfigured(),
+            'hasExistingWebsite' => filled($site->lead->website),
+            'video' => $video === null ? null : [
+                'status' => $video->status->value,
+                'script' => $video->script,
+                'presenterId' => $video->presenter_id,
+                'presenterName' => $video->presenter_name,
+                'presenterGender' => $video->presenter_gender,
+                'presenterThumbnailUrl' => $video->presenter_thumbnail_url,
+                'voiceId' => $video->voice_id,
+                'voiceName' => $video->voice_name,
+                'error' => $video->error,
+                'isWatchable' => $video->isWatchable(),
+                'videoUrl' => $video->videoUrl(),
+                'watchUrl' => $video->isWatchable() ? $video->watchUrl() : null,
+                'generatedAt' => $video->generated_at?->toISOString(),
+                'viewsCount' => $video->views_count,
+                'viewedAt' => $video->viewed_at?->toISOString(),
+            ],
+        ];
+    }
+
+    /**
+     * The presenters and voices to choose from, loaded when the video settings open.
+     *
+     * @return array{presenters: list<array<string, mixed>>, voices: list<array<string, mixed>>, defaultVoices: array<string, string|null>, error: string|null}
+     */
+    protected function pitchVideoOptions(DidClient $did): array
+    {
+        $empty = ['presenters' => [], 'voices' => [], 'defaultVoices' => ['male' => null, 'female' => null], 'error' => null];
+
+        if (! $did->configured()) {
+            return $empty;
+        }
+
+        try {
+            $presenters = $did->presenters();
+            $voices = $did->voices();
+        } catch (RuntimeException $exception) {
+            return [...$empty, 'error' => $exception->getMessage()];
+        }
+
+        return [
+            'presenters' => $presenters,
+            'voices' => $voices,
+            'defaultVoices' => [
+                'male' => $did->voiceForGender('male', $voices)['id'] ?? null,
+                'female' => $did->voiceForGender('female', $voices)['id'] ?? null,
+            ],
+            'error' => null,
+        ];
     }
 
     /**

@@ -48,6 +48,7 @@ use App\Http\Controllers\Payments\PaymentAccountController;
 use App\Http\Controllers\Payments\PayPalWebhookController;
 use App\Http\Controllers\Payments\PaystackWebhookController;
 use App\Http\Controllers\Payments\StripeWebhookController;
+use App\Http\Controllers\PitchVideos\PitchVideoPublicController;
 use App\Http\Controllers\Portal\ClientPortalController;
 use App\Http\Controllers\Portal\LeadPortalController;
 use App\Http\Controllers\Portal\PublicWebsiteAuditController;
@@ -75,6 +76,7 @@ use App\Http\Controllers\Sites\SiteExportController;
 use App\Http\Controllers\Sites\SiteHealthController;
 use App\Http\Controllers\Sites\SiteLocaleController;
 use App\Http\Controllers\Sites\SiteMediaController;
+use App\Http\Controllers\Sites\SitePitchVideoController;
 use App\Http\Controllers\Sites\SitePostController;
 use App\Http\Controllers\Sites\SitePreviewController;
 use App\Http\Controllers\Sites\SitePreviewInterestController;
@@ -136,6 +138,8 @@ Route::post('q/{proposal:public_token}/accept', [ProposalPublicController::class
 Route::post('q/{proposal:public_token}/decline', [ProposalPublicController::class, 'decline'])
     ->middleware('throttle:invoice-payments')
     ->name('proposals.public.decline');
+
+Route::get('v/{pitchVideo:public_token}', [PitchVideoPublicController::class, 'show'])->name('pitch-videos.public');
 
 Route::get('report/{lead:website_audit_public_token}', [PublicWebsiteAuditController::class, 'show'])
     ->name('website-audit.public');
@@ -328,6 +332,13 @@ Route::prefix('{current_team}')
             ->middleware('throttle:site-generation')
             ->name('sites.chat.retry');
         Route::put('sites/{site}/preview-access', [SitePreviewSettingsController::class, 'update'])->name('sites.preview-access.update');
+        Route::post('sites/{site}/pitch-video/script', [SitePitchVideoController::class, 'script'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.pitch-video.script');
+        Route::post('sites/{site}/pitch-video', [SitePitchVideoController::class, 'store'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.pitch-video.store');
+        Route::delete('sites/{site}/pitch-video', [SitePitchVideoController::class, 'destroy'])->name('sites.pitch-video.destroy');
         Route::post('sites/{site}/health', [SiteHealthController::class, 'store'])->name('sites.health.store');
         Route::post('sites/{site}/transfer', [SiteTransferController::class, 'store'])->name('sites.transfer.store');
 

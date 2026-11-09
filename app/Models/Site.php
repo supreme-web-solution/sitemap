@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -93,6 +94,16 @@ class Site extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    /**
+     * Get the AI presenter video that introduces the site to the business owner.
+     *
+     * @return HasOne<SitePitchVideo, $this>
+     */
+    public function pitchVideo(): HasOne
+    {
+        return $this->hasOne(SitePitchVideo::class);
     }
 
     /**

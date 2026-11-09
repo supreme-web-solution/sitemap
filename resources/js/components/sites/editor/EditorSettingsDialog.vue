@@ -9,6 +9,7 @@ import {
     ShieldCheck,
     SlidersHorizontal,
     Star,
+    Video,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import type { Component } from 'vue';
@@ -23,6 +24,7 @@ import {
 export type SettingsTab =
     | 'general'
     | 'publish'
+    | 'video'
     | 'access'
     | 'reviews'
     | 'quality'
@@ -57,6 +59,13 @@ const sections: Section[] = [
         label: 'Publish & domains',
         description: 'Custom domains and going live.',
         icon: Globe,
+    },
+    {
+        value: 'video',
+        label: 'Sales video',
+        description:
+            'An AI presenter introduces this website to the business owner. It is added to your emails.',
+        icon: Video,
     },
     {
         value: 'access',

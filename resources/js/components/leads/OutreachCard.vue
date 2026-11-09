@@ -50,13 +50,31 @@ const replyForm = useForm({
     snippet: '',
 });
 
+/** Adds the sales video link after the preview link when the template does not use it. */
+const withVideoLink = (body: string): string => {
+    const videoUrl = props.mergeValues.video_url;
+
+    if (!videoUrl || body.includes(videoUrl)) {
+        return body;
+    }
+
+    const line = `I also recorded a short video for you: ${videoUrl}`;
+    const previewUrl = props.mergeValues.preview_url;
+
+    if (previewUrl && body.includes(previewUrl)) {
+        return body.replace(previewUrl, () => `${previewUrl}\n\n${line}`);
+    }
+
+    return `${body}\n\n${line}`;
+};
+
 const applyTemplate = () => {
     const template = props.templates.find(
         (candidate) => String(candidate.id) === selectedId.value,
     );
 
     form.subject = template ? render(template.subject) : '';
-    form.body = template ? render(template.body) : '';
+    form.body = template ? withVideoLink(render(template.body)) : '';
 };
 
 watch(selectedId, applyTemplate, { immediate: true });

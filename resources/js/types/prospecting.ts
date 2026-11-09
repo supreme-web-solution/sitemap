@@ -126,7 +126,8 @@ export type LeadActivityType =
     | 'client_feedback'
     | 'message_sent'
     | 'message_received'
-    | 'site_edited';
+    | 'site_edited'
+    | 'pitch_video_viewed';
 
 export type LeadActivity = {
     id: number;
@@ -394,6 +395,54 @@ export type SitePublishing = {
     dnsConfigured: boolean;
     cnameTarget?: string | null;
     domains: SiteDomain[];
+};
+
+export type PitchVideo = {
+    status: 'draft' | 'generating' | 'ready' | 'failed';
+    script: string | null;
+    presenterId: string | null;
+    presenterName: string | null;
+    presenterGender: 'male' | 'female' | null;
+    presenterThumbnailUrl: string | null;
+    voiceId: string | null;
+    voiceName: string | null;
+    error: string | null;
+    isWatchable: boolean;
+    videoUrl: string | null;
+    watchUrl: string | null;
+    generatedAt: string | null;
+    viewsCount: number;
+    viewedAt: string | null;
+};
+
+export type PitchVideoPanel = {
+    configured: boolean;
+    canWriteScript: boolean;
+    hasExistingWebsite: boolean;
+    video: PitchVideo | null;
+};
+
+export type PitchPresenter = {
+    id: string;
+    name: string;
+    gender: 'male' | 'female' | null;
+    thumbnail_url: string;
+};
+
+export type PitchVoice = {
+    id: string;
+    name: string;
+    gender: 'male' | 'female' | null;
+    locale: string;
+    provider: string;
+    preview_url: string | null;
+};
+
+export type PitchVideoOptions = {
+    presenters: PitchPresenter[];
+    voices: PitchVoice[];
+    defaultVoices: { male: string | null; female: string | null };
+    error: string | null;
 };
 
 export type SitePost = {

@@ -27,6 +27,7 @@ import SiteClientServicesPanel from '@/components/sites/SiteClientServicesPanel.
 import type { ClientServiceRow } from '@/components/sites/SiteClientServicesPanel.vue';
 import SiteHealthPanel from '@/components/sites/SiteHealthPanel.vue';
 import SiteTransferPanel from '@/components/sites/SiteTransferPanel.vue';
+import SitePitchVideoPanel from '@/components/sites/SitePitchVideoPanel.vue';
 import SitePreviewAccessPanel from '@/components/sites/SitePreviewAccessPanel.vue';
 import SitePostsPanel from '@/components/SitePostsPanel.vue';
 import SitePublishPanel from '@/components/SitePublishPanel.vue';
@@ -48,6 +49,8 @@ import { restore as restoreVersion } from '@/routes/sites/versions';
 import type {
     EditableSite,
     Option,
+    PitchVideoOptions,
+    PitchVideoPanel,
     QualityReport,
     SiteChat,
     SiteCopyField,
@@ -66,6 +69,8 @@ const props = defineProps<{
     pageOptions: Option[];
     posts: SitePost[];
     publishing: SitePublishing;
+    pitchVideo: PitchVideoPanel;
+    pitchVideoOptions?: PitchVideoOptions;
     versions: SiteVersion[];
     reviews: SiteReviewsPanel;
     reviewsStyles: Option[];
@@ -105,6 +110,16 @@ const openSettings = (tab: SettingsTab) => {
         router.reload({ only: ['versions'], preserveState: true, preserveScroll: true });
     }
 };
+
+watch(
+    [settingsOpen, settingsTab, () => props.pitchVideoOptions],
+    ([open, tab, options]) => {
+        if (open && tab === 'video' && options === undefined) {
+            router.reload({ only: ['pitchVideoOptions'] });
+        }
+    },
+    { immediate: true },
+);
 
 onMounted(() => {
     const query = page.url.split('?')[1] ?? '';
@@ -547,6 +562,15 @@ const copyLink = async () => {
                     :team-slug="teamSlug"
                     :linked="clientServices.linked"
                     :attachable="clientServices.attachable"
+                />
+            </template>
+
+            <template #video>
+                <SitePitchVideoPanel
+                    :site-id="site.id"
+                    :team-slug="teamSlug"
+                    :pitch="pitchVideo"
+                    :options="pitchVideoOptions"
                 />
             </template>
 

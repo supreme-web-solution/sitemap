@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Sites;
 
 use App\Models\Site;
+use App\Models\SiteDomain;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -52,6 +53,7 @@ class StoreSiteDomainRequest extends FormRequest
                 $this->notReserved(...),
                 $this->notTheDashboard(...),
                 $this->notAlreadyAdded(...),
+                $this->notConnectedElsewhere(...),
                 $this->withinLimit(...),
             ],
         ];
@@ -98,6 +100,37 @@ class StoreSiteDomainRequest extends FormRequest
         if ($this->site()->domains()->where('hostname', $value)->exists()) {
             $fail('This domain is already added to this website.');
         }
+    }
+
+    /**
+     * A hostname can only belong to one MapMatic website. Visitors always hit the
+     * first verified owner — allowing a second add looked like success but served the wrong site.
+     */
+    protected function notConnectedElsewhere(string $attribute, mixed $value, Closure $fail): void
+    {
+        $existing = SiteDomain::query()
+            ->where('hostname', $value)
+            ->where('site_id', '!=', $this->site()->id)
+            ->with(['site:id,team_id,lead_id', 'site.lead:id,name'])
+            ->first();
+
+        if ($existing === null) {
+            return;
+        }
+
+        $currentTeamId = $this->site()->team_id;
+        $otherTeamId = $existing->site?->team_id;
+        $otherName = $existing->site?->lead?->name ?: __('another website');
+
+        if ($currentTeamId !== null && $currentTeamId === $otherTeamId) {
+            $fail(__('This domain is already connected to :site. Remove it there first, then add it here.', [
+                'site' => $otherName,
+            ]));
+
+            return;
+        }
+
+        $fail(__('This domain is already connected to another website.'));
     }
 
     protected function withinLimit(string $attribute, mixed $value, Closure $fail): void

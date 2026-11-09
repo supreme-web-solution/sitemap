@@ -104,6 +104,15 @@ return [
     ],
 
     /*
+    | D-ID — AI presenter sales video for each website (studio.d-id.com → Account → API key).
+    | Paste the key exactly as D-ID shows it. Leave blank to hide video generation.
+    */
+    'did' => [
+        'api_key' => env('DID_API_KEY'),
+        'base_url' => env('DID_BASE_URL', 'https://api.d-id.com'),
+    ],
+
+    /*
     | Cloudflare for SaaS — automatic HTTPS for customer and branded preview domains.
     | Create an API token with Zone → SSL and Certificates → Edit on the mapmaticapp.com zone.
     | Leave blank in local/dev; domain verification still works without it.

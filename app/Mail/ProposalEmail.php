@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Proposal;
+use App\Models\SitePitchVideo;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
@@ -48,6 +49,17 @@ class ProposalEmail extends Mailable
         return new Content(
             html: 'mail.proposal',
             text: 'mail.proposal-text',
+            with: ['pitchVideo' => $this->pitchVideo()],
         );
+    }
+
+    /**
+     * The client's sales video, when one has been made for their website.
+     */
+    protected function pitchVideo(): ?SitePitchVideo
+    {
+        $video = $this->proposal->lead->site?->pitchVideo;
+
+        return $video?->isWatchable() ? $video : null;
     }
 }

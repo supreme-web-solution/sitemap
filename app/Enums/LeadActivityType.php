@@ -28,6 +28,7 @@ enum LeadActivityType: string
     case SiteEdited = 'site_edited';
     case ProfileEnriched = 'profile_enriched';
     case Workflow = 'workflow';
+    case PitchVideoViewed = 'pitch_video_viewed';
 
     /**
      * Get the display label for the activity type.
@@ -59,6 +60,7 @@ enum LeadActivityType: string
             self::SiteEdited => 'Website edited',
             self::ProfileEnriched => 'Profile enriched',
             self::Workflow => 'Automation',
+            self::PitchVideoViewed => 'Watched the sales video',
         };
     }
 }

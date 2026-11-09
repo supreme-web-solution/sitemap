@@ -166,6 +166,22 @@ test('a domain already live on another website cannot be verified again', functi
         ->and($domain->fresh()->check_error)->toContain('another website');
 });
 
+test('adding a domain already used on another site is rejected', function () {
+    [$site, $user, $args] = domainSite(['name' => 'Second Shop']);
+    [$otherSite] = domainSite(['name' => 'First Shop']);
+    // Same team so the error can name the other site.
+    $otherSite->forceFill(['team_id' => $user->currentTeam->id])->save();
+    $otherSite->lead->forceFill(['team_id' => $user->currentTeam->id])->save();
+
+    SiteDomain::factory()->verified()->for($otherSite)->create(['hostname' => 'shared.client.com']);
+
+    $this->actingAs($user)
+        ->post(route('sites.domains.store', $args), ['hostname' => 'shared.client.com'])
+        ->assertSessionHasErrors(['hostname' => 'This domain is already connected to First Shop. Remove it there first, then add it here.']);
+
+    expect($site->domains()->count())->toBe(0);
+});
+
 test('the dns instructions fit the kind of domain', function () {
     config(['sites.cname_target' => 'edge.sitemap.app', 'sites.server_ip' => '203.0.113.7']);
     $verifier = app(DomainVerifier::class);

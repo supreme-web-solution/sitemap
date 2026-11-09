@@ -45,6 +45,18 @@
                             <td style="padding:16px 32px 0;font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.65;color:#52525b;white-space:pre-line;">{{ $proposal->intro }}</td>
                         </tr>
                     @endif
+                    @if ($pitchVideo ?? null)
+                        <tr>
+                            <td style="padding:24px 32px 0;font-family:Arial, Helvetica, sans-serif;">
+                                <a href="{{ $pitchVideo->watchUrl() }}" style="text-decoration:none;color:#18181b;">
+                                    @if ($pitchVideo->presenter_thumbnail_url)
+                                        <img src="{{ $pitchVideo->presenter_thumbnail_url }}" alt="Watch the video" width="496" style="display:block;width:100%;max-width:496px;height:auto;border-radius:12px;border:1px solid #e4e4e7;">
+                                    @endif
+                                    <span style="display:block;padding-top:10px;font-size:15px;font-weight:700;color:{{ $accent }};">&#9654; Watch a short video about your website</span>
+                                </a>
+                            </td>
+                        </tr>
+                    @endif
                     <tr>
                         <td style="padding:28px 32px 8px;">
                             <table role="presentation" cellpadding="0" cellspacing="0">
