@@ -33,19 +33,24 @@ class SiteContactNotification extends Notification implements ShouldQueue
 
         $mail = (new MailMessage)
             ->subject(__('Message from the :business website', ['business' => $this->lead->name]))
-            ->greeting(__('New website message'))
-            ->line(__(':who sent a message from the :business website.', [
-                'who' => $this->name,
-                'business' => $this->lead->name,
-            ]))
-            ->line(__('From: :name', ['name' => $this->name]))
-            ->line(__('Reply to: :contact', ['contact' => $this->contact]))
-            ->line(__('Message:'))
-            ->line($this->message)
-            ->action(__('Open the lead'), route('leads.edit', [
-                'current_team' => $this->lead->team->slug,
-                'lead' => $this->lead,
-            ]));
+            ->view(['mail.lead-alert', 'mail.lead-alert-text'], [
+                'brand' => $this->lead->team->brand(),
+                'title' => __('New website message'),
+                'intro' => __(':who sent a message from the :business website.', [
+                    'who' => $this->name,
+                    'business' => $this->lead->name,
+                ]),
+                'details' => [
+                    __('From') => $this->name,
+                    __('Reply to') => $this->contact,
+                ],
+                'messageBody' => $this->message,
+                'url' => route('leads.edit', [
+                    'current_team' => $this->lead->team->slug,
+                    'lead' => $this->lead,
+                ]),
+                'cta' => __('Open the lead'),
+            ]);
 
         if (str_contains($this->contact, '@')) {
             $mail->replyTo($this->contact, $this->name);

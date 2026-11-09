@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { Search } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { Head, Link, router, useHttp } from '@inertiajs/vue3';
+import { LoaderCircle, Search, Trash2, Users } from '@lucide/vue';
+import { computed, ref, watch } from 'vue';
 import PaginationBar from '@/components/admin/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogDescription,
+    DialogHeader,
+    DialogScrollContent,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -15,8 +22,19 @@ import {
 } from '@/components/ui/select';
 import { SELECT_ALL, SELECT_DEFAULT } from '@/lib/selectSentinels';
 import { dashboard as adminDashboard } from '@/routes/admin';
-import { index, update } from '@/routes/admin/teams';
+import { edit as editUser } from '@/routes/admin/users';
+import { destroy, index, members as membersRoute, update } from '@/routes/admin/teams';
 import type { AdminTeam, Paginated, PlanOption } from '@/types';
+
+type TeamMember = {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    suspended_at: string | null;
+    email_verified_at: string | null;
+    is_admin: boolean;
+};
 
 const props = defineProps<{
     teams: Paginated<AdminTeam>;
@@ -36,6 +54,13 @@ defineOptions({
 
 const search = ref(props.filters.search);
 const plan = ref(props.filters.plan);
+const membersTeam = ref<AdminTeam | null>(null);
+const members = ref<TeamMember[]>([]);
+const membersError = ref<string | null>(null);
+const membersHttp = useHttp<
+    Record<string, never>,
+    { members: TeamMember[] }
+>({});
 
 const applyFilters = () =>
     router.get(
@@ -61,6 +86,50 @@ const planFilterSelect = computed({
 
 const teamPlanValue = (team: AdminTeam) =>
     team.plan_id ? String(team.plan_id) : SELECT_DEFAULT;
+
+const membersOpen = computed({
+    get: () => membersTeam.value !== null,
+    set: (open: boolean) => {
+        if (!open) {
+            membersTeam.value = null;
+            members.value = [];
+            membersError.value = null;
+        }
+    },
+});
+
+const openMembers = async (team: AdminTeam) => {
+    membersTeam.value = team;
+    members.value = [];
+    membersError.value = null;
+
+    try {
+        const response = await membersHttp.get(membersRoute.url(team.slug));
+        members.value = response?.members ?? [];
+    } catch {
+        membersError.value = 'Could not load members.';
+    }
+};
+
+watch(membersTeam, (team) => {
+    if (!team) {
+        members.value = [];
+        membersError.value = null;
+    }
+});
+
+const remove = (team: AdminTeam) => {
+    if (
+        confirm(
+            `Delete ${team.name}? Members with no other teams will be deleted too. Admins are kept.`,
+        )
+    ) {
+        router.delete(destroy.url(team.slug), { preserveScroll: true });
+    }
+};
+
+const roleLabel = (role: string) =>
+    role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Member';
 </script>
 
 <template>
@@ -71,8 +140,8 @@ const teamPlanValue = (team: AdminTeam) =>
             title="Teams"
             :description="
                 defaultPlan
-                    ? `Teams with no plan use the default plan (${defaultPlan}).`
-                    : 'No default plan is set, so teams without a plan are unlimited.'
+                    ? `Assign a plan per team below. Teams with no plan use the default (${defaultPlan}).`
+                    : 'Assign a plan per team below. No default plan is set, so teams without a plan are unlimited.'
             "
         />
 
@@ -119,6 +188,7 @@ const teamPlanValue = (team: AdminTeam) =>
                         <th class="p-3 font-medium">Leads</th>
                         <th class="p-3 font-medium">Sites</th>
                         <th class="p-3 font-medium">Plan</th>
+                        <th class="p-3 font-medium text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -167,9 +237,32 @@ const teamPlanValue = (team: AdminTeam) =>
                                 </SelectContent>
                             </Select>
                         </td>
+                        <td class="p-3">
+                            <div class="flex flex-wrap items-center justify-end gap-1">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    @click="openMembers(team)"
+                                >
+                                    <Users class="size-3.5" />
+                                    Members
+                                </Button>
+                                <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    aria-label="Delete team"
+                                    @click="remove(team)"
+                                >
+                                    <Trash2 />
+                                </Button>
+                            </div>
+                        </td>
                     </tr>
                     <tr v-if="!teams.data.length">
-                        <td colspan="5" class="p-6 text-center text-muted-foreground">
+                        <td
+                            colspan="6"
+                            class="p-6 text-center text-muted-foreground"
+                        >
                             No teams match.
                         </td>
                     </tr>
@@ -178,5 +271,64 @@ const teamPlanValue = (team: AdminTeam) =>
         </div>
 
         <PaginationBar :paginator="teams" />
+
+        <Dialog v-model:open="membersOpen">
+            <DialogScrollContent class="max-w-lg" data-test="team-members-modal">
+                <DialogHeader>
+                    <DialogTitle>
+                        Members of {{ membersTeam?.name }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Loaded when you open this panel.
+                        {{ membersTeam?.members_count ?? 0 }} on the team.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="grid gap-3">
+                    <div
+                        v-if="membersHttp.processing"
+                        class="flex items-center gap-2 text-sm text-muted-foreground"
+                    >
+                        <LoaderCircle class="size-4 animate-spin" />
+                        Loading members…
+                    </div>
+                    <p v-else-if="membersError" class="text-sm text-rose-600">
+                        {{ membersError }}
+                    </p>
+                    <p
+                        v-else-if="!members.length"
+                        class="text-sm text-muted-foreground"
+                    >
+                        No members on this team.
+                    </p>
+                    <ul v-else class="grid gap-2">
+                        <li
+                            v-for="member in members"
+                            :key="member.id"
+                            class="flex items-start justify-between gap-3 rounded-xl border px-4 py-3"
+                        >
+                            <div class="min-w-0">
+                                <Link
+                                    :href="editUser(member.id)"
+                                    class="truncate text-sm font-medium hover:underline"
+                                >
+                                    {{ member.name }}
+                                </Link>
+                                <p class="truncate text-xs text-muted-foreground">
+                                    {{ member.email }}
+                                </p>
+                            </div>
+                            <div class="shrink-0 text-right text-xs text-muted-foreground">
+                                <p>{{ roleLabel(member.role) }}</p>
+                                <p v-if="member.suspended_at" class="text-rose-600">
+                                    Suspended
+                                </p>
+                                <p v-else-if="member.is_admin">Admin</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </DialogScrollContent>
+        </Dialog>
     </div>
 </template>

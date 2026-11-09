@@ -33,32 +33,37 @@ class PreviewInterestNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $isClaim = $this->intent === 'claim';
+        $this->lead->loadMissing('team');
 
-        $message = (new MailMessage)
+        $isClaim = $this->intent === 'claim';
+        $details = array_filter([
+            __('Name') => $this->visitorName,
+            __('Contact') => $this->visitorContact,
+        ], fn (?string $value) => filled($value));
+
+        $mail = (new MailMessage)
             ->subject($isClaim
                 ? __(':business wants to claim their website', ['business' => $this->lead->name])
                 : __(':business is interested in their website', ['business' => $this->lead->name]))
-            ->greeting($isClaim ? __('New claim request') : __('New preview reply'))
-            ->line($isClaim
-                ? __(':business submitted a claim request from their website preview.', ['business' => $this->lead->name])
-                : __(':business replied from their website preview.', ['business' => $this->lead->name]));
+            ->view(['mail.lead-alert', 'mail.lead-alert-text'], [
+                'brand' => $this->lead->team->brand(),
+                'title' => $isClaim ? __('New claim request') : __('New preview reply'),
+                'intro' => $isClaim
+                    ? __(':business submitted a claim request from their website preview.', ['business' => $this->lead->name])
+                    : __(':business replied from their website preview.', ['business' => $this->lead->name]),
+                'details' => $details,
+                'messageBody' => $this->visitorMessage,
+                'url' => route('leads.edit', [
+                    'current_team' => $this->lead->team->slug,
+                    'lead' => $this->lead->id,
+                ]),
+                'cta' => __('Open the lead'),
+            ]);
 
-        if ($this->visitorName) {
-            $message->line(__('Name: :name', ['name' => $this->visitorName]));
+        if (filled($this->visitorContact) && str_contains($this->visitorContact, '@')) {
+            $mail->replyTo($this->visitorContact, $this->visitorName ?: null);
         }
 
-        if ($this->visitorContact) {
-            $message->line(__('Contact: :contact', ['contact' => $this->visitorContact]));
-        }
-
-        if ($this->visitorMessage) {
-            $message->line(__('Message: :message', ['message' => $this->visitorMessage]));
-        }
-
-        return $message->action(__('Open the lead'), route('leads.edit', [
-            'current_team' => $this->lead->team->slug,
-            'lead' => $this->lead->id,
-        ]));
+        return $mail;
     }
 }

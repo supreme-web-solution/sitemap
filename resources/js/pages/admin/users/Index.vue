@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { LoaderCircle, Plus, Search } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PaginationBar from '@/components/admin/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import PasswordInput from '@/components/PasswordInput.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogDescription,
+    DialogHeader,
+    DialogScrollContent,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -50,6 +58,7 @@ defineOptions({
 
 const search = ref(props.filters.search);
 const status = ref(props.filters.status);
+const creating = ref(false);
 
 const applyFilters = () =>
     router.get(
@@ -57,8 +66,6 @@ const applyFilters = () =>
         { search: search.value || undefined, status: status.value || undefined },
         { preserveState: true, replace: true },
     );
-
-const creating = ref(false);
 
 const form = useForm({
     name: '',
@@ -68,10 +75,29 @@ const form = useForm({
     plan_id: '' as number | '',
 });
 
+watch(creating, (isOpen) => {
+    if (!isOpen) {
+        form.reset();
+        form.clearErrors();
+        form.verified = true;
+    }
+});
+
+const startCreating = () => {
+    form.reset();
+    form.clearErrors();
+    form.verified = true;
+    creating.value = true;
+};
+
 const submit = () => {
     form.transform((data) => ({ ...data, plan_id: data.plan_id || null })).post(
         store.url(),
-        { onSuccess: () => form.reset() },
+        {
+            onSuccess: () => {
+                creating.value = false;
+            },
+        },
     );
 };
 
@@ -120,75 +146,10 @@ const statusFilterSelect = computed({
                 title="Users"
                 description="Create, edit, suspend or sign in as any user."
             />
-            <Button @click="creating = !creating">
+            <Button @click="startCreating">
                 <Plus /> New user
             </Button>
         </div>
-
-        <form
-            v-if="creating"
-            class="grid gap-4 panel p-5 sm:grid-cols-2"
-            data-test="create-user-form"
-            @submit.prevent="submit"
-        >
-            <div class="grid gap-2">
-                <Label for="new-name">Name</Label>
-                <Input id="new-name" v-model="form.name" autocomplete="off" />
-                <InputError :message="form.errors.name" />
-            </div>
-            <div class="grid gap-2">
-                <Label for="new-email">Email</Label>
-                <Input
-                    id="new-email"
-                    v-model="form.email"
-                    type="email"
-                    autocomplete="off"
-                />
-                <InputError :message="form.errors.email" />
-            </div>
-            <div class="grid gap-2">
-                <Label for="new-password">Password</Label>
-                <Input
-                    id="new-password"
-                    v-model="form.password"
-                    type="password"
-                    autocomplete="new-password"
-                />
-                <InputError :message="form.errors.password" />
-            </div>
-            <div class="grid gap-2">
-                <Label>Plan</Label>
-                <Select v-model="planIdSelect">
-                    <SelectTrigger class="w-full" aria-label="Plan">
-                        <SelectValue placeholder="Default plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem :value="SELECT_DEFAULT">Default plan</SelectItem>
-                        <SelectItem
-                            v-for="plan in plans"
-                            :key="plan.id"
-                            :value="String(plan.id)"
-                        >
-                            {{ plan.name }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
-                <InputError :message="form.errors.plan_id" />
-            </div>
-            <label class="flex items-center gap-2 text-sm sm:col-span-2">
-                <input v-model="form.verified" type="checkbox" class="size-4" />
-                Mark the email as verified
-            </label>
-            <div class="flex gap-2 sm:col-span-2">
-                <Button type="submit" :disabled="form.processing">
-                    <LoaderCircle v-if="form.processing" class="animate-spin" />
-                    Create user
-                </Button>
-                <Button type="button" variant="ghost" @click="creating = false"
-                    >Cancel</Button
-                >
-            </div>
-        </form>
 
         <form
             class="flex flex-wrap items-center gap-2"
@@ -360,5 +321,89 @@ const statusFilterSelect = computed({
         </div>
 
         <PaginationBar :paginator="users" />
+
+        <Dialog v-model:open="creating">
+            <DialogScrollContent class="max-w-lg" data-test="create-user-form">
+                <DialogHeader>
+                    <DialogTitle>New user</DialogTitle>
+                    <DialogDescription>
+                        Creates a personal team. Pick a plan for that team, or leave
+                        Default plan so they inherit the platform default.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="submit">
+                    <div class="grid gap-2">
+                        <Label for="new-name">Name</Label>
+                        <Input id="new-name" v-model="form.name" autocomplete="off" />
+                        <InputError :message="form.errors.name" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="new-email">Email</Label>
+                        <Input
+                            id="new-email"
+                            v-model="form.email"
+                            type="email"
+                            autocomplete="off"
+                        />
+                        <InputError :message="form.errors.email" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="new-password">Password</Label>
+                        <PasswordInput
+                            id="new-password"
+                            v-model="form.password"
+                            autocomplete="new-password"
+                        />
+                        <InputError :message="form.errors.password" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label>Plan</Label>
+                        <Select v-model="planIdSelect">
+                            <SelectTrigger class="w-full" aria-label="Plan">
+                                <SelectValue placeholder="Default plan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem :value="SELECT_DEFAULT"
+                                    >Default plan</SelectItem
+                                >
+                                <SelectItem
+                                    v-for="plan in plans"
+                                    :key="plan.id"
+                                    :value="String(plan.id)"
+                                >
+                                    {{ plan.name }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <InputError :message="form.errors.plan_id" />
+                    </div>
+                    <label class="flex items-center gap-2 text-sm sm:col-span-2">
+                        <input
+                            v-model="form.verified"
+                            type="checkbox"
+                            class="size-4"
+                        />
+                        Mark the email as verified
+                    </label>
+                    <div class="flex gap-2 sm:col-span-2">
+                        <Button type="submit" :disabled="form.processing">
+                            <LoaderCircle
+                                v-if="form.processing"
+                                class="animate-spin"
+                            />
+                            Create user
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            @click="creating = false"
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </form>
+            </DialogScrollContent>
+        </Dialog>
     </div>
 </template>

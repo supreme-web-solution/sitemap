@@ -30,24 +30,33 @@ class PreviewCommentNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $message = (new MailMessage)
+        $this->lead->loadMissing('team');
+
+        $details = array_filter([
+            __('From') => $this->authorName,
+            __('Section') => $this->section,
+            __('Contact') => $this->authorContact,
+        ], fn (?string $value) => filled($value));
+
+        $mail = (new MailMessage)
             ->subject(__('Comment on the :business website', ['business' => $this->lead->name]))
-            ->greeting(__('New preview comment'))
-            ->line(__(':who left a comment on the website preview.', ['who' => $this->authorName]));
+            ->view(['mail.lead-alert', 'mail.lead-alert-text'], [
+                'brand' => $this->lead->team->brand(),
+                'title' => __('New preview comment'),
+                'intro' => __(':who left a comment on the website preview.', ['who' => $this->authorName]),
+                'details' => $details,
+                'messageBody' => $this->body,
+                'url' => route('leads.edit', [
+                    'current_team' => $this->lead->team->slug,
+                    'lead' => $this->lead->id,
+                ]),
+                'cta' => __('Open the lead'),
+            ]);
 
-        if ($this->section) {
-            $message->line(__('Section: :section', ['section' => $this->section]));
+        if (filled($this->authorContact) && str_contains($this->authorContact, '@')) {
+            $mail->replyTo($this->authorContact, $this->authorName);
         }
 
-        if ($this->authorContact) {
-            $message->line(__('Contact: :contact', ['contact' => $this->authorContact]));
-        }
-
-        $message->line($this->body);
-
-        return $message->action(__('Open the lead'), route('leads.edit', [
-            'current_team' => $this->lead->team->slug,
-            'lead' => $this->lead->id,
-        ]));
+        return $mail;
     }
 }

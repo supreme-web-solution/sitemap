@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { LoaderCircle, UserRoundCog } from '@lucide/vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import PasswordInput from '@/components/PasswordInput.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,10 +107,9 @@ const teamPlanValue = (team: UserTeam) =>
                 </div>
                 <div class="grid gap-2">
                     <Label for="password">New password</Label>
-                    <Input
+                    <PasswordInput
                         id="password"
                         v-model="form.password"
-                        type="password"
                         autocomplete="new-password"
                         placeholder="Leave blank to keep the current one"
                     />

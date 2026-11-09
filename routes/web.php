@@ -173,7 +173,9 @@ Route::prefix('admin')
         Route::post('users/{user}/impersonate', [ImpersonationController::class, 'start'])->name('users.impersonate');
 
         Route::get('teams', [AdminTeamController::class, 'index'])->name('teams.index');
+        Route::get('teams/{team}/members', [AdminTeamController::class, 'members'])->name('teams.members');
         Route::put('teams/{team}', [AdminTeamController::class, 'update'])->name('teams.update');
+        Route::delete('teams/{team}', [AdminTeamController::class, 'destroy'])->name('teams.destroy');
 
         Route::get('plans', [AdminPlanController::class, 'index'])->name('plans.index');
         Route::post('plans', [AdminPlanController::class, 'store'])->name('plans.store');
