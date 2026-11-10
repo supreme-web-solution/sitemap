@@ -58,6 +58,7 @@ use App\Http\Controllers\Proposals\ProposalController;
 use App\Http\Controllers\Proposals\ProposalDraftController;
 use App\Http\Controllers\Proposals\ProposalPublicController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Sites\AssistantPublicController;
 use App\Http\Controllers\Sites\ConceptPreviewController;
 use App\Http\Controllers\Sites\DomainAllowedController;
 use App\Http\Controllers\Sites\LeadSiteController;
@@ -65,6 +66,7 @@ use App\Http\Controllers\Sites\PreviewCommentController;
 use App\Http\Controllers\Sites\PreviewSectionViewController;
 use App\Http\Controllers\Sites\PreviewUnlockController;
 use App\Http\Controllers\Sites\SiteAnalyticsController;
+use App\Http\Controllers\Sites\SiteAssistantController;
 use App\Http\Controllers\Sites\SiteChatController;
 use App\Http\Controllers\Sites\SiteConceptController;
 use App\Http\Controllers\Sites\SiteContactController;
@@ -91,6 +93,7 @@ use App\Http\Controllers\Teams\IdealCustomerController;
 use App\Http\Controllers\Teams\PlanChangeController;
 use App\Http\Controllers\Teams\PlanUsageController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Middleware\AllowAssistantCors;
 use App\Http\Middleware\EnsureBrandedPreviewHost;
 use App\Http\Middleware\EnsureTeamMembership;
 use App\Http\Middleware\EnsureUserIsAdmin;
@@ -140,6 +143,20 @@ Route::post('q/{proposal:public_token}/decline', [ProposalPublicController::clas
     ->name('proposals.public.decline');
 
 Route::get('v/{pitchVideo:public_token}', [PitchVideoPublicController::class, 'show'])->name('pitch-videos.public');
+
+Route::middleware(AllowAssistantCors::class)->withoutMiddleware('web')->prefix('assistant')->group(function () {
+    Route::options('{path}', fn () => response()->noContent())->where('path', '.*');
+    Route::get('avatars/{avatar}.svg', [AssistantPublicController::class, 'avatar'])->name('assistant.avatar');
+    Route::get('{key}/config', [AssistantPublicController::class, 'show'])
+        ->middleware('throttle:assistant-config')
+        ->name('assistant.config');
+    Route::post('{key}/chat', [AssistantPublicController::class, 'chat'])
+        ->middleware('throttle:assistant-chat')
+        ->name('assistant.chat');
+    Route::post('{key}/lead', [AssistantPublicController::class, 'lead'])
+        ->middleware('throttle:assistant-lead')
+        ->name('assistant.lead');
+});
 
 Route::get('report/{lead:website_audit_public_token}', [PublicWebsiteAuditController::class, 'show'])
     ->name('website-audit.public');
@@ -339,6 +356,12 @@ Route::prefix('{current_team}')
             ->middleware('throttle:site-edits')
             ->name('sites.pitch-video.store');
         Route::delete('sites/{site}/pitch-video', [SitePitchVideoController::class, 'destroy'])->name('sites.pitch-video.destroy');
+        Route::put('sites/{site}/assistant', [SiteAssistantController::class, 'update'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.assistant.update');
+        Route::post('sites/{site}/assistant/knowledge', [SiteAssistantController::class, 'knowledge'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.assistant.knowledge');
         Route::post('sites/{site}/health', [SiteHealthController::class, 'store'])->name('sites.health.store');
         Route::post('sites/{site}/transfer', [SiteTransferController::class, 'store'])->name('sites.transfer.store');
 

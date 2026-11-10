@@ -37,7 +37,7 @@ class SiteRenderer
      */
     public function render(Site $site, bool $asPreview = false, string $path = '', ?SiteUrls $urls = null, bool $editor = false, bool $asStaging = false, bool $blockIndexing = false): ?string
     {
-        $site->loadMissing(['lead', 'designTemplate']);
+        $site->loadMissing(['lead', 'designTemplate', 'assistant']);
 
         $parsed = SiteLocales::parsePath($site, $path);
         $locale = $parsed['locale'];
@@ -149,6 +149,7 @@ class SiteRenderer
                     ?->publicUrl()
                 : null,
             'commentAction' => $asPreview ? PreviewLink::action('sites.preview.comments', $site) : null,
+            'assistantEmbed' => $editor ? null : $this->assistantEmbed($site),
             'internalPreview' => request()->boolean('internal') || $editor,
             'sectionBeacons' => $asPreview && ! $editor && $site->exists && ! request()->boolean('internal')
                 ? collect(PreviewSectionViewController::KEYS)
@@ -174,6 +175,30 @@ class SiteRenderer
             'whyPoints' => SiteProofPoints::why($lead, $content),
             'areaNames' => SiteProofPoints::areas($lead),
         ])->render();
+    }
+
+    /**
+     * The script tag that adds the AI assistant, or null when the site's assistant is switched off.
+     *
+     * The tag always points at this app, so exported copies of the site keep talking to the same assistant.
+     *
+     * @return array{src: string, key: string}|null
+     */
+    protected function assistantEmbed(Site $site): ?array
+    {
+        $assistant = $site->assistant;
+
+        if ($assistant === null || ! $assistant->enabled) {
+            return null;
+        }
+
+        $path = public_path('widget/assistant.js');
+        $version = is_file($path) ? filemtime($path) : 1;
+
+        return [
+            'src' => rtrim((string) config('app.url'), '/').'/widget/assistant.js?v='.$version,
+            'key' => $assistant->public_key,
+        ];
     }
 
     /**

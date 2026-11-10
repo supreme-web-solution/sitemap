@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
     ArrowLeft,
+    Bot,
     Globe,
     History,
     Lock,
@@ -25,6 +26,7 @@ export type SettingsTab =
     | 'general'
     | 'publish'
     | 'video'
+    | 'assistant'
     | 'access'
     | 'reviews'
     | 'quality'
@@ -66,6 +68,13 @@ const sections: Section[] = [
         description:
             'An AI presenter introduces this website to the business owner. It is added to your emails.',
         icon: Video,
+    },
+    {
+        value: 'assistant',
+        label: 'AI assistant',
+        description:
+            'A talking avatar on the website that answers visitors and collects their details.',
+        icon: Bot,
     },
     {
         value: 'access',

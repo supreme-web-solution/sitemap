@@ -422,6 +422,28 @@ export type PitchVideoPanel = {
     video: PitchVideo | null;
 };
 
+export type AssistantAvatar = {
+    key: string;
+    name: string;
+    gender: 'male' | 'female';
+    imageUrl: string;
+};
+
+export type SiteAssistantSettings = {
+    enabled: boolean;
+    name: string;
+    avatar: string;
+    voice: 'female' | 'male' | 'off';
+    greeting: string | null;
+    knowledge: string;
+    knowledgeGeneratedAt: string | null;
+    messagesCount: number;
+    leadsCount: number;
+    canAnswer: boolean;
+    maxKnowledgeLength: number;
+    avatars: AssistantAvatar[];
+};
+
 export type PitchPresenter = {
     id: string;
     name: string;

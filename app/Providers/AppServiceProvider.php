@@ -149,6 +149,12 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('preview-interest', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
 
+        RateLimiter::for('assistant-config', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+
+        RateLimiter::for('assistant-chat', fn (Request $request) => Limit::perMinute(20)->by($request->ip().'|'.$request->route('key')));
+
+        RateLimiter::for('assistant-lead', fn (Request $request) => Limit::perMinute(5)->by($request->ip().'|'.$request->route('key')));
+
         RateLimiter::for('preview-sections', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
         RateLimiter::for('invoice-payments', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));

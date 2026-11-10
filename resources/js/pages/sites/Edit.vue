@@ -25,6 +25,7 @@ import SiteEditorWorkspace from '@/components/sites/editor/SiteEditorWorkspace.v
 import SiteChatPanel from '@/components/sites/SiteChatPanel.vue';
 import SiteClientServicesPanel from '@/components/sites/SiteClientServicesPanel.vue';
 import type { ClientServiceRow } from '@/components/sites/SiteClientServicesPanel.vue';
+import SiteAssistantPanel from '@/components/sites/SiteAssistantPanel.vue';
 import SiteHealthPanel from '@/components/sites/SiteHealthPanel.vue';
 import SiteTransferPanel from '@/components/sites/SiteTransferPanel.vue';
 import SitePitchVideoPanel from '@/components/sites/SitePitchVideoPanel.vue';
@@ -52,6 +53,7 @@ import type {
     PitchVideoOptions,
     PitchVideoPanel,
     QualityReport,
+    SiteAssistantSettings,
     SiteChat,
     SiteCopyField,
     SiteDesignChoices,
@@ -71,6 +73,7 @@ const props = defineProps<{
     publishing: SitePublishing;
     pitchVideo: PitchVideoPanel;
     pitchVideoOptions?: PitchVideoOptions;
+    assistant: SiteAssistantSettings;
     versions: SiteVersion[];
     reviews: SiteReviewsPanel;
     reviewsStyles: Option[];
@@ -573,6 +576,14 @@ const copyLink = async () => {
                     :team-slug="teamSlug"
                     :pitch="pitchVideo"
                     :options="pitchVideoOptions"
+                />
+            </template>
+
+            <template #assistant>
+                <SiteAssistantPanel
+                    :site-id="site.id"
+                    :team-slug="teamSlug"
+                    :assistant="assistant"
                 />
             </template>
 

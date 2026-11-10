@@ -707,6 +707,10 @@
         @include('sites.partials.editor-bridge')
     @endif
 
+    @if (! empty($assistantEmbed))
+        <script src="{{ $assistantEmbed['src'] }}" data-assistant-key="{{ $assistantEmbed['key'] }}" defer></script>
+    @endif
+
     @if ($asPreview)
             @if (request()->boolean('thanks'))
             <div class="preview-bar" role="status">

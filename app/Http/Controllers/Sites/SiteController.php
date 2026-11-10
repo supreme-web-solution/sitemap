@@ -14,12 +14,15 @@ use App\Models\Lead;
 use App\Models\LeadReview;
 use App\Models\RecurringInvoice;
 use App\Models\Site;
+use App\Models\SiteAssistant;
 use App\Models\SiteChatMessage;
 use App\Models\SiteDomain;
 use App\Models\SitePost;
 use App\Models\SiteVersion;
 use App\Models\Team;
 use App\Services\Ai\AiAvailability;
+use App\Services\Assistant\AssistantAvatars;
+use App\Services\Assistant\AssistantKnowledgeBuilder;
 use App\Services\Billing\UsageMeter;
 use App\Services\Did\DidClient;
 use App\Services\Domains\DomainVerifier;
@@ -77,10 +80,10 @@ class SiteController extends Controller
     /**
      * Show the website editor.
      */
-    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage, DidClient $did): Response
+    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage, DidClient $did, AssistantAvatars $avatars, AssistantKnowledgeBuilder $knowledge): Response
     {
         $primaryDomain = $site->primaryDomain();
-        $site->load('pitchVideo');
+        $site->load('pitchVideo', 'assistant');
         $site->load('lead:id,name,category,city,phone,email,website,description,notes,opening_hours,photo_url,photo_paths,logo_path,site_generation_status,reviews_count,reviews_fetched_at,reviews_fetch_status,reviews_fetch_error');
 
         return Inertia::render('sites/Edit', [
@@ -202,6 +205,7 @@ class SiteController extends Controller
             ],
             'pitchVideo' => $this->pitchVideoProps($site, $did),
             'pitchVideoOptions' => Inertia::optional(fn () => $this->pitchVideoOptions($did)),
+            'assistant' => $this->assistantProps($site, $avatars, $knowledge),
             'pageOptions' => collect(SitePages::OPTIONAL)->map(fn (string $page) => [
                 'value' => $page,
                 'label' => SitePages::PAGE_LABELS[$page],
@@ -282,6 +286,37 @@ class SiteController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Website saved.')]);
 
         return back();
+    }
+
+    /**
+     * The AI assistant state shown in the website settings.
+     *
+     * Until the assistant is saved for the first time, the knowledge base is drafted from the website without storing it.
+     *
+     * @return array<string, mixed>
+     */
+    protected function assistantProps(Site $site, AssistantAvatars $avatars, AssistantKnowledgeBuilder $knowledge): array
+    {
+        $assistant = $site->assistant;
+        $default = AssistantAvatars::DEFAULT;
+
+        return [
+            'enabled' => $assistant?->enabled ?? false,
+            'name' => $assistant?->name ?? $avatars->nameOf($default),
+            'avatar' => $assistant?->avatar ?? $default,
+            'voice' => $assistant?->voice ?? $avatars->genderOf($default),
+            'greeting' => $assistant?->greeting,
+            'knowledge' => $assistant?->knowledge ?? $knowledge->build(Site::query()->with('lead')->findOrFail($site->id)),
+            'knowledgeGeneratedAt' => $assistant?->knowledge_generated_at?->toISOString(),
+            'messagesCount' => $assistant?->messages_count ?? 0,
+            'leadsCount' => $assistant?->leads_count ?? 0,
+            'canAnswer' => AiAvailability::anthropicConfigured(),
+            'maxKnowledgeLength' => SiteAssistant::MAX_KNOWLEDGE_LENGTH,
+            'avatars' => collect($avatars->all())->map(fn (array $avatar) => [
+                ...$avatar,
+                'imageUrl' => route('assistant.avatar', ['avatar' => $avatar['key']], false),
+            ])->all(),
+        ];
     }
 
     /**

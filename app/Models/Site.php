@@ -107,6 +107,16 @@ class Site extends Model
     }
 
     /**
+     * Get the AI chat assistant embedded in the site.
+     *
+     * @return HasOne<SiteAssistant, $this>
+     */
+    public function assistant(): HasOne
+    {
+        return $this->hasOne(SiteAssistant::class);
+    }
+
+    /**
      * Get the AI editing conversation for the site.
      *
      * @return HasMany<SiteChatMessage, $this>
