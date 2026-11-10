@@ -357,6 +357,9 @@ Route::prefix('{current_team}')
         Route::post('sites/{site}/pitch-video/script', [SitePitchVideoController::class, 'script'])
             ->middleware('throttle:site-edits')
             ->name('sites.pitch-video.script');
+        Route::post('sites/{site}/pitch-video/voice-preview', [SitePitchVideoController::class, 'previewVoice'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.pitch-video.voice-preview');
         Route::post('sites/{site}/pitch-video', [SitePitchVideoController::class, 'store'])
             ->middleware('throttle:site-edits')
             ->name('sites.pitch-video.store');

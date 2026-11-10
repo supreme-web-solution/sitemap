@@ -4,6 +4,7 @@ import {
     Bot,
     Globe,
     History,
+    LoaderCircle,
     Lock,
     Newspaper,
     Send,
@@ -47,6 +48,8 @@ const tab = defineModel<SettingsTab>('tab', { required: true });
 defineProps<{
     /** Small count or flag shown next to a section name, e.g. failed checks. */
     badges?: Partial<Record<SettingsTab, string | number>>;
+    /** Spinners for long-running work, e.g. sales video generation. */
+    busy?: Partial<Record<SettingsTab, boolean>>;
 }>();
 
 const sections: Section[] = [
@@ -171,8 +174,13 @@ const current = computed(
                         <span class="flex-1 whitespace-nowrap">{{
                             section.label
                         }}</span>
+                        <LoaderCircle
+                            v-if="busy?.[section.value]"
+                            class="size-3.5 shrink-0 animate-spin text-primary"
+                            aria-label="Working"
+                        />
                         <span
-                            v-if="badges?.[section.value] !== undefined"
+                            v-else-if="badges?.[section.value] !== undefined"
                             class="rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
                         >
                             {{ badges?.[section.value] }}

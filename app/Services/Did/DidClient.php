@@ -24,7 +24,7 @@ class DidClient
     /**
      * Presenter and voice lists change rarely, so they are cached.
      */
-    private const LIST_TTL_HOURS = 6;
+    private const LIST_TTL_HOURS = 24;
 
     /**
      * Most presenters returned to the editor; D-ID lists many outfits per person.

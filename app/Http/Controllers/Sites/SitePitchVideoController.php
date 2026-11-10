@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Sites;
 use App\Enums\PitchVideoStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sites\GeneratePitchVideoRequest;
+use App\Http\Requests\Sites\PreviewPitchVoiceRequest;
 use App\Jobs\CreatePitchVideo;
 use App\Models\Site;
 use App\Models\SitePitchVideo;
 use App\Models\Team;
 use App\Services\Did\DidClient;
 use App\Services\PitchVideos\PitchScriptGenerator;
+use App\Services\PitchVideos\PitchVoicePreview;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +22,26 @@ use RuntimeException;
 
 class SitePitchVideoController extends Controller
 {
+    /**
+     * Play a short sample of a sales-video voice in the settings panel.
+     */
+    public function previewVoice(
+        PreviewPitchVoiceRequest $request,
+        Team $currentTeam,
+        Site $site,
+        PitchVoicePreview $previews,
+    ): JsonResponse {
+        $url = $previews->url($request->validated('voice_id'));
+
+        if ($url === null) {
+            throw ValidationException::withMessages([
+                'voice_id' => __('Voice preview is not available. Check OPENAI_API_KEY.'),
+            ]);
+        }
+
+        return response()->json(['url' => $url]);
+    }
+
     /**
      * Write the presenter's script for this website with AI.
      */

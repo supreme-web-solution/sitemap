@@ -148,6 +148,10 @@ const settingsBadges = computed<Partial<Record<SettingsTab, string | number>>>(
     () => (failedChecks.value > 0 ? { quality: failedChecks.value } : {}),
 );
 
+const settingsBusy = computed<Partial<Record<SettingsTab, boolean>>>(() =>
+    props.pitchVideo.video?.status === 'generating' ? { video: true } : {},
+);
+
 const reloadCanvas = () => workspace.value?.reloadCanvas();
 
 const regenerate = () => {
@@ -476,6 +480,7 @@ const copyLink = async () => {
             v-model:open="settingsOpen"
             v-model:tab="settingsTab"
             :badges="settingsBadges"
+            :busy="settingsBusy"
         >
             <template #general>
                 <section class="panel p-5" data-test="general-settings">

@@ -5,9 +5,9 @@ import {
     Copy,
     ExternalLink,
     LoaderCircle,
+    Pause,
     Play,
     Sparkles,
-    Square,
     Trash2,
     TriangleAlert,
     Video,
@@ -23,6 +23,7 @@ import {
     destroy as removeVideo,
     script as writeScript,
     store as createVideo,
+    voicePreview,
 } from '@/routes/sites/pitch-video';
 import type {
     PitchPresenter,
@@ -58,8 +59,15 @@ const form = useForm({
 });
 
 const voiceTouched = ref(video.value?.voiceId != null);
-const onlyMatchingVoices = ref(true);
+const voiceFilter = ref<'all' | 'male' | 'female'>(
+    video.value?.presenterGender === 'male' ||
+        video.value?.presenterGender === 'female'
+        ? video.value.presenterGender
+        : 'all',
+);
 const writing = ref(false);
+const previewing = ref<string | null>(null);
+const audioEl = ref<HTMLAudioElement | null>(null);
 
 const { start: startPoll, stop: stopPoll } = usePoll(
     4000,
@@ -101,9 +109,13 @@ const presenterGender = computed(
 );
 
 const visibleVoices = computed(() =>
-    onlyMatchingVoices.value && presenterGender.value !== null
-        ? voices.value.filter((voice) => voice.gender === presenterGender.value)
-        : voices.value,
+    voices.value.filter((voice) => {
+        if (voiceFilter.value === 'all') {
+            return true;
+        }
+
+        return voice.gender === voiceFilter.value;
+    }),
 );
 
 const voiceMismatch = computed(
@@ -127,6 +139,10 @@ const matchingVoiceId = (gender: PitchPresenter['gender']): string | null => {
 
 const choosePresenter = (presenter: PitchPresenter) => {
     form.presenter_id = presenter.id;
+
+    if (presenter.gender === 'male' || presenter.gender === 'female') {
+        voiceFilter.value = presenter.gender;
+    }
 
     if (!voiceTouched.value) {
         form.voice_id = matchingVoiceId(presenter.gender) ?? form.voice_id;
@@ -157,34 +173,57 @@ watch(
     { immediate: true },
 );
 
-const playingVoiceId = ref<string | null>(null);
-let audio: HTMLAudioElement | null = null;
-
 const stopAudio = () => {
-    audio?.pause();
-    audio = null;
-    playingVoiceId.value = null;
+    audioEl.value?.pause();
+    audioEl.value = null;
+    previewing.value = null;
 };
 
-const togglePreview = (voice: PitchVoice) => {
-    if (voice.preview_url === null) {
-        return;
-    }
-
-    if (playingVoiceId.value === voice.id) {
+const togglePreview = async (voice: PitchVoice) => {
+    if (previewing.value === voice.id) {
         stopAudio();
 
         return;
     }
 
     stopAudio();
-    audio = new Audio(voice.preview_url);
-    audio.addEventListener('ended', stopAudio);
-    playingVoiceId.value = voice.id;
-    audio.play().catch(() => {
-        toast.error('This voice sample could not be played.');
+    previewing.value = voice.id;
+
+    try {
+        let url = voice.preview_url;
+
+        if (!url) {
+            const response = await fetch(voicePreview.url(routeArgs()), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') ?? '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ voice_id: voice.id }),
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) {
+                throw new Error('preview failed');
+            }
+
+            const data = (await response.json()) as { url: string };
+            url = data.url;
+        }
+
+        const player = new Audio(url);
+        audioEl.value = player;
+        player.onended = stopAudio;
+        await player.play();
+    } catch {
         stopAudio();
-    });
+        toast.error('This voice sample could not be played.');
+    }
 };
 
 onBeforeUnmount(stopAudio);
@@ -402,15 +441,40 @@ const textareaClass =
         </section>
 
         <section class="panel p-5">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <h3 class="text-base font-semibold">2. Choose a voice</h3>
-                <label
-                    v-if="presenterGender"
-                    class="flex items-center gap-2 text-xs text-muted-foreground"
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-semibold">2. Choose a voice</h3>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Preview each voice, then pick the one that fits the
+                        presenter.
+                    </p>
+                </div>
+                <div
+                    class="inline-flex rounded-lg border bg-card p-0.5 text-xs font-medium"
+                    role="group"
+                    aria-label="Voice filter"
                 >
-                    <input v-model="onlyMatchingVoices" type="checkbox" />
-                    Only {{ presenterGender }} voices
-                </label>
+                    <button
+                        v-for="option in [
+                            { id: 'all', label: 'All' },
+                            { id: 'female', label: 'Female' },
+                            { id: 'male', label: 'Male' },
+                        ]"
+                        :key="option.id"
+                        type="button"
+                        :class="[
+                            'rounded-md px-2.5 py-1.5 transition',
+                            voiceFilter === option.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:text-foreground',
+                        ]"
+                        @click="
+                            voiceFilter = option.id as 'all' | 'male' | 'female'
+                        "
+                    >
+                        {{ option.label }}
+                    </button>
+                </div>
             </div>
 
             <div v-if="options === undefined" class="mt-3 grid gap-2">
@@ -418,44 +482,55 @@ const textareaClass =
             </div>
             <ul
                 v-else-if="visibleVoices.length"
-                class="mt-3 grid max-h-64 gap-1.5 overflow-y-auto p-1"
-                role="radiogroup"
+                class="mt-3 grid max-h-72 gap-2 overflow-y-auto p-1"
+                role="listbox"
                 aria-label="Voice"
             >
-                <li
-                    v-for="voice in visibleVoices"
-                    :key="voice.id"
-                    :class="[
-                        'flex items-center gap-2 rounded-lg border px-3 py-2 transition',
-                        form.voice_id === voice.id
-                            ? 'border-primary bg-primary/5'
-                            : 'hover:border-primary/50',
-                    ]"
-                >
-                    <button
-                        type="button"
-                        role="radio"
-                        :aria-checked="form.voice_id === voice.id"
-                        :data-test="`voice-${voice.id}`"
-                        class="flex flex-1 items-center justify-between gap-2 text-left text-sm"
-                        @click="chooseVoice(voice)"
+                <li v-for="voice in visibleVoices" :key="voice.id">
+                    <div
+                        :class="[
+                            'flex items-center gap-3 rounded-xl border px-3 py-2.5 transition',
+                            form.voice_id === voice.id
+                                ? 'border-primary bg-primary/5 shadow-sm'
+                                : 'hover:border-primary/40',
+                        ]"
                     >
-                        <span class="font-medium">{{ voice.name }}</span>
-                        <span class="text-xs text-muted-foreground capitalize">
-                            {{ voice.gender ?? 'voice' }} · {{ voice.locale }}
-                        </span>
-                    </button>
-                    <Button
-                        v-if="voice.preview_url"
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        :aria-label="`Preview ${voice.name}`"
-                        @click="togglePreview(voice)"
-                    >
-                        <Square v-if="playingVoiceId === voice.id" />
-                        <Play v-else />
-                    </Button>
+                        <button
+                            type="button"
+                            role="option"
+                            :aria-selected="form.voice_id === voice.id"
+                            :data-test="`voice-${voice.id}`"
+                            class="min-w-0 flex-1 text-left"
+                            @click="chooseVoice(voice)"
+                        >
+                            <span class="block truncate text-sm font-medium">{{
+                                voice.name
+                            }}</span>
+                            <span
+                                class="block text-xs text-muted-foreground capitalize"
+                            >
+                                {{ voice.gender ?? 'voice' }} ·
+                                {{ voice.locale }}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-foreground transition hover:border-primary hover:text-primary"
+                            :data-test="`voice-preview-${voice.id}`"
+                            :aria-label="
+                                previewing === voice.id
+                                    ? `Stop ${voice.name}`
+                                    : `Preview ${voice.name}`
+                            "
+                            @click="togglePreview(voice)"
+                        >
+                            <Pause
+                                v-if="previewing === voice.id"
+                                class="size-4"
+                            />
+                            <Play v-else class="size-4" />
+                        </button>
+                    </div>
                 </li>
             </ul>
             <p v-else class="mt-3 text-sm text-muted-foreground">

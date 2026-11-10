@@ -16,6 +16,7 @@ use App\Services\Outreach\MergeFieldRenderer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Ai\Audio;
 
 function pitchSite(array $leadAttributes = []): array
 {
@@ -87,6 +88,22 @@ test('the editor loads presenters and voices only when they are asked for', func
             ->reloadOnly('pitchVideoOptions', fn ($reload) => $reload
                 ->where('pitchVideoOptions.defaultVoices.male', 'en-US-GuyNeural')
                 ->where('pitchVideoOptions.defaultVoices.female', 'en-US-JennyNeural')));
+});
+
+test('a sales video voice can be previewed and the sample is cached', function () {
+    fakeDidLists();
+    config(['services.openai.key' => 'openai-key']);
+    Audio::fake(['cGl0Y2gtcHJldmlldw==']);
+    [$user, $site] = pitchSite();
+
+    $this->actingAs($user)
+        ->postJson(pitchRoute('sites.pitch-video.voice-preview', $user, $site), [
+            'voice_id' => 'en-US-JennyNeural',
+        ])
+        ->assertOk()
+        ->assertJsonStructure(['url']);
+
+    expect(Storage::disk('public')->exists('assistant/voice-previews/pitch/en-US-JennyNeural.mp3'))->toBeTrue();
 });
 
 test('ai writes a script for a business that has no website on its listing', function () {

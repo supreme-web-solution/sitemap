@@ -206,9 +206,9 @@ class SiteController extends Controller
                 ]),
             ],
             'pitchVideo' => $this->pitchVideoProps($site, $did),
-            'pitchVideoOptions' => Inertia::optional(fn () => $this->pitchVideoOptions($did)),
+            'pitchVideoOptions' => Inertia::optional(fn () => $this->pitchVideoOptions($did))->once(),
             'assistant' => $this->assistantProps($site, $did, $voices, $knowledge, $talking, $faces),
-            'assistantOptions' => Inertia::optional(fn () => $this->assistantOptions($did)),
+            'assistantOptions' => Inertia::optional(fn () => $this->assistantOptions($did))->once(),
             'pageOptions' => collect(SitePages::OPTIONAL)->map(fn (string $page) => [
                 'value' => $page,
                 'label' => SitePages::PAGE_LABELS[$page],
