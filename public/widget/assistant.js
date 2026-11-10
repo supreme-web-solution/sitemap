@@ -73,6 +73,7 @@
 
         options = options || {};
         options.signal = controller.signal;
+        options.keepalive = true;
         options.headers = Object.assign({ Accept: 'application/json' }, options.headers || {});
 
         return fetch(api + path, options).then(function (response) {
@@ -89,6 +90,10 @@
             clearTimeout(timer);
             throw error;
         });
+    }
+
+    function launcherSide() {
+        return config && config.launcher && config.launcher.side === 'left' ? 'left' : 'right';
     }
 
     function post(path, body) {
@@ -123,13 +128,15 @@
         ':host{all:initial}',
         '*{box-sizing:border-box}',
         '[hidden]{display:none!important}',
-        '.sm{--accent:#2563eb;--on-accent:#fff;--lift:0px;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#18181b}',
-        '.launcher{position:fixed;right:20px;bottom:calc(20px + var(--lift));z-index:2147483000;display:flex;align-items:center;gap:12px;flex-direction:row-reverse}',
+        '.sm{--accent:#2563eb;--on-accent:#fff;--lift:0px;--edge:20px;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#18181b}',
+        '.launcher{position:fixed;right:var(--edge);left:auto;bottom:calc(var(--edge) + var(--lift));z-index:2147483000;display:flex;align-items:center;gap:12px;flex-direction:row-reverse}',
+        '.sm.side-left .launcher{right:auto;left:var(--edge);flex-direction:row}',
         '.bubble{width:72px;height:72px;border-radius:50%;border:3px solid #fff;padding:0;background:#111;cursor:pointer;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.28);position:relative}',
         '.bubble img{width:100%;height:100%;object-fit:cover;display:block}',
         '.bubble::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:3px solid var(--accent);animation:pulse 2.4s ease-out infinite;pointer-events:none}',
         '.teaser{background:#fff;border-radius:14px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:240px;font-size:14px;cursor:pointer;animation:rise .3s ease-out}',
-        '.panel{position:fixed;right:20px;bottom:calc(20px + var(--lift));z-index:2147483001;width:min(920px,calc(100vw - 24px));height:min(580px,calc(100vh - 48px - var(--lift)));background:#0b0b0f;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.45);display:flex;overflow:hidden;animation:rise .25s ease-out;color:#fff}',
+        '.panel{position:fixed;right:var(--edge);left:auto;bottom:calc(var(--edge) + var(--lift));z-index:2147483001;width:min(920px,calc(100vw - 24px));height:min(580px,calc(100vh - 48px - var(--lift)));background:#0b0b0f;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.45);display:flex;overflow:hidden;animation:rise .25s ease-out;color:#fff}',
+        '.sm.side-left .panel{right:auto;left:var(--edge)}',
         '.stage{position:relative;flex:1.15;min-width:0;background:#111;overflow:hidden}',
         '.stage.solo{flex:1}',
         '.stage-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;transform:scale(1.02);transition:transform 4s ease,opacity .35s ease}',
@@ -190,7 +197,7 @@
         '@keyframes live{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}',
         '@keyframes fill{0%,100%{width:18%}50%{width:92%}}',
         '@media (max-width:820px){.panel{flex-direction:column;width:min(420px,calc(100vw - 16px));height:min(720px,calc(100vh - 24px - var(--lift)))}.stage{flex:1.05;min-height:240px}.chat{width:100%;max-width:none;flex:1;border-left:0;border-top:1px solid rgba(255,255,255,.08)}.stage.solo{min-height:100%}}',
-        '@media (max-width:520px){.panel{right:0;bottom:0;width:100vw;max-width:100vw;height:100%;max-height:100%;border-radius:0}.launcher{right:14px;bottom:calc(14px + var(--lift))}}',
+        '@media (max-width:520px){.panel,.sm.side-left .panel{right:0;left:0;bottom:0;width:100vw;max-width:100vw;height:100%;max-height:100%;border-radius:0}.launcher,.sm.side-left .launcher{--edge:14px}}',
         '@media (prefers-reduced-motion:reduce){.bubble::after,.panel,.teaser,.live i,.speaking-bar em,.stage-photo{animation:none;transition:none}}',
     ].join('');
 
@@ -217,11 +224,49 @@
         return node;
     }
 
-    function liftAbovePreviewBar() {
-        var bar = document.querySelector('.preview-bar');
-        var height = bar && getComputedStyle(bar).position === 'fixed' ? bar.offsetHeight : 0;
+    function updateLift() {
+        if (!els.wrap) {
+            return;
+        }
 
-        els.wrap.style.setProperty('--lift', height + 'px');
+        var lift = 0;
+        var bar = document.querySelector('.preview-bar');
+
+        if (bar && getComputedStyle(bar).position === 'fixed' && bar.offsetParent !== null) {
+            lift = Math.max(lift, bar.offsetHeight);
+        }
+
+        // Keep the launcher above the sticky Contact pill when both sit on the right.
+        if (launcherSide() === 'right') {
+            var cta = document.querySelector('.mobile-cta.is-visible');
+
+            if (cta && getComputedStyle(cta).position === 'fixed') {
+                var gap = 12;
+                var edge = window.matchMedia('(max-width:520px)').matches ? 14 : 20;
+                var needed = Math.max(0, window.innerHeight - cta.getBoundingClientRect().top + gap - edge);
+                lift = Math.max(lift, needed);
+            }
+        }
+
+        els.wrap.style.setProperty('--lift', lift + 'px');
+    }
+
+    function watchPageChrome() {
+        updateLift();
+        window.addEventListener('resize', updateLift);
+        window.addEventListener('scroll', updateLift, { passive: true });
+
+        if (typeof MutationObserver === 'undefined') {
+            return;
+        }
+
+        var observer = new MutationObserver(updateLift);
+        observer.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['class', 'style'],
+            subtree: true,
+            childList: true,
+        });
     }
 
     function talkingEnabled() {
@@ -509,14 +554,13 @@
         style.textContent = CSS;
         root.appendChild(style);
 
-        var wrap = el('div', 'sm');
+        var wrap = el('div', 'sm' + (launcherSide() === 'left' ? ' side-left' : ''));
         wrap.style.setProperty('--accent', config.accent);
         wrap.style.setProperty('--on-accent', readableOn(config.accent));
         root.appendChild(wrap);
         els.wrap = wrap;
 
-        liftAbovePreviewBar();
-        window.addEventListener('resize', liftAbovePreviewBar);
+        watchPageChrome();
         renderLauncher();
 
         if (state.open) {
@@ -822,7 +866,8 @@
 
         post('/chat', { message: text, history: history }).then(function (data) {
             typing.remove();
-            reply(data.reply, !!data.ask_for_contact, data);
+            // Text first; audio loads from /speak so ZIP / remote hosts feel as snappy as preview.
+            reply(data.reply, !!data.ask_for_contact, data && data.audio ? data : null);
         }, function (error) {
             typing.remove();
 

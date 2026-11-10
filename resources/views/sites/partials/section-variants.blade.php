@@ -7,7 +7,7 @@
     .hero-v-centered .hero .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; object-fit: cover; opacity: .16; }
     .hero-v-centered .hero::after { display: none; }
 
-    .hero-v-overlay .hero { min-height: 78vh; display: flex; align-items: center; color: #fff; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, #0b1220), #0b1220); }
+    .hero-v-overlay .hero { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; color: #fff; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, #0b1220), #0b1220); }
     .hero-v-overlay .hero .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; object-fit: cover; opacity: 1; }
     .hero-v-overlay .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,12,24,.84) 0%, rgba(8,12,24,.56) 55%, rgba(8,12,24,.26) 100%); }
     .hero-v-overlay .hero .container { grid-template-columns: none; }
@@ -18,30 +18,32 @@
     .hero-v-overlay .btn-secondary { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.7); }
 
     @media (min-width: 900px) {
-        .hero-v-split .hero { min-height: 70vh; display: flex; align-items: center; }
+        .hero-v-split .hero { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; }
         .hero-v-split .hero .container { display: block; grid-template-columns: none; width: 50%; max-width: 50%; margin: 0; padding-left: max(1.25rem, calc((100% - 1140px) / 2 + 1.25rem)); padding-right: 2.5rem; }
         .hero-v-split .hero .hero-image { position: absolute; inset: 0 0 0 auto; width: 46%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; opacity: 1; object-fit: cover; }
     }
     @media (max-width: 899px) {
-        .hero-v-split .hero { display: block; min-height: 0; }
-        .hero-v-split .hero .hero-image { position: relative; inset: auto; width: 100%; height: 260px; margin: 0; clip-path: none; border-radius: 0; box-shadow: none; opacity: 1; object-fit: cover; }
+        .hero-v-split .hero { display: flex; flex-direction: column; justify-content: flex-end; min-height: 100vh; min-height: 100dvh; }
+        .hero-v-split .hero .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; clip-path: none; border-radius: 0; box-shadow: none; opacity: .28; object-fit: cover; }
     }
     .hero-v-split .hero .container { grid-template-columns: none; }
     .hero-v-split .hero::after { display: none; }
 
-    .hero-v-minimal .hero { display: block; min-height: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+    .hero-v-minimal .hero { display: flex; align-items: center; min-height: 100vh; min-height: 100dvh; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
     .hero-v-minimal .hero .hero-image, .hero-v-minimal .hero::after { display: none; }
     .hero-v-minimal .hero .container { padding-top: 7rem; padding-bottom: 5.5rem; grid-template-columns: none; display: block; }
     .hero-v-minimal .hero h1 { font-size: clamp(2.75rem, 7vw, 5.25rem); line-height: 1.02; letter-spacing: -.03em; max-width: min(18ch, 100%); }
     .hero-v-minimal .hero p { max-width: min(34rem, 100%); }
     .hero-v-minimal .hero-eyebrow { padding: 0; background: transparent; border-radius: 0; }
 
-    /* Full-bleed photo band, then copy — not an inset rounded strip. */
+    /* Full-bleed photo band, then copy — fills the viewport. */
     .hero-v-photo-top .hero {
         display: grid;
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto;
-        min-height: 0;
+        grid-template-rows: minmax(0, 1fr) auto;
+        align-items: stretch;
+        min-height: 100vh;
+        min-height: 100dvh;
         padding: 0;
         overflow: hidden;
     }
@@ -65,7 +67,8 @@
         display: block;
         width: 100%;
         max-width: none;
-        height: clamp(300px, 52vw, 620px);
+        height: 100%;
+        min-height: 280px;
         margin: 0;
         clip-path: none;
         border-radius: 0;
@@ -96,11 +99,11 @@
     .hero-v-photo-top .hero .hero-eyebrow { margin-bottom: .85rem; }
     .hero-v-photo-top .hero .hero-actions { margin-top: .25rem; }
     @media (max-width: 640px) {
-        .hero-v-photo-top .hero .hero-image { height: clamp(240px, 68vw, 360px); object-position: center 28%; }
+        .hero-v-photo-top .hero .hero-image { min-height: 220px; object-position: center 28%; }
         .hero-v-photo-top .hero .container { padding-top: 1.75rem; padding-bottom: 3.5rem; }
     }
 
-    .hero-v-card .hero { min-height: 74vh; display: flex; align-items: center; padding: 3.5rem 0; }
+    .hero-v-card .hero { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; padding: 3.5rem 0; }
     .hero-v-card .hero .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; clip-path: none; border-radius: 0; box-shadow: none; opacity: 1; object-fit: cover; }
     .hero-v-card .hero::after { content: ''; position: absolute; inset: 0; background: rgba(8,12,24,.3); }
     .hero-v-card .hero .container { display: block; grid-template-columns: none; width: min(640px, calc(100% - 2.5rem)); max-width: none; margin: 0 auto; padding: 2.5rem; border-radius: var(--radius); background: color-mix(in srgb, var(--bg, var(--cream, #fff)) 94%, transparent); backdrop-filter: blur(6px); box-shadow: 0 30px 60px -24px rgba(0,0,0,.45); }

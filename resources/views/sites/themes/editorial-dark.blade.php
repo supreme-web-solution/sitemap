@@ -4,7 +4,7 @@
     h1, h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 700; letter-spacing: -.01em; }
     h3 { font-weight: 600; }
     .site-header { border-bottom: 1px solid transparent; }
-    .hero { min-height: 82vh; display: flex; align-items: center; background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%), var(--bg); }
+    .hero { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%), var(--bg); }
     .hero-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .38; }
     .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--bg) 10%, rgba(12,10,9,.55) 60%, rgba(12,10,9,.2)); }
     .hero-eyebrow { color: var(--accent); }

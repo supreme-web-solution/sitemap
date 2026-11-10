@@ -35,6 +35,7 @@ class SiteAssistantFactory extends Factory
             'talking_avatar_enabled' => false,
             'simli_face_id' => null,
             'simli_face_name' => null,
+            'launcher_side' => 'right',
             'greeting' => null,
             'knowledge' => "Business: Example Plumbing\nServices: Drain cleaning, leak repair",
             'knowledge_generated_at' => now(),

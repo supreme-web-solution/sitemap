@@ -323,6 +323,9 @@ class SiteController extends Controller
             'simliFaceId' => $assistant?->simli_face_id,
             'simliFaceName' => $assistant?->simli_face_name,
             'simliFaces' => $talking->available() ? $faces->all() : [],
+            'launcherSide' => in_array($assistant?->launcher_side, SiteAssistant::LAUNCHER_SIDES, true)
+                ? $assistant->launcher_side
+                : 'right',
             'greeting' => $assistant?->greeting,
             'knowledge' => $assistant?->knowledge ?? $knowledge->build(Site::query()->with('lead')->findOrFail($site->id)),
             'knowledgeGeneratedAt' => $assistant?->knowledge_generated_at?->toISOString(),

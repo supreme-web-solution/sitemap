@@ -58,6 +58,7 @@ class UpdateSiteAssistantRequest extends FormRequest
                 'string',
                 $talkingAvailable ? Rule::in($faceIds) : null,
             ])),
+            'launcher_side' => ['required', 'string', Rule::in(SiteAssistant::LAUNCHER_SIDES)],
             'greeting' => ['nullable', 'string', 'max:300'],
             'knowledge' => ['nullable', 'string', 'max:'.SiteAssistant::MAX_KNOWLEDGE_LENGTH],
         ];

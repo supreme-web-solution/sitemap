@@ -57,6 +57,11 @@ class AssistantPublicController extends Controller
                 'face_id' => $talkingOn ? $assistant->simli_face_id : null,
                 'session_path' => $talkingOn ? '/session' : null,
             ],
+            'launcher' => [
+                'side' => in_array($assistant->launcher_side, SiteAssistant::LAUNCHER_SIDES, true)
+                    ? $assistant->launcher_side
+                    : 'right',
+            ],
             'accent' => is_string($site->content['accent'] ?? null) ? $site->content['accent'] : '#2563eb',
         ]);
 
@@ -90,7 +95,7 @@ class AssistantPublicController extends Controller
     }
 
     /**
-     * Answer one visitor message, with spoken audio when a voice is configured.
+     * Answer one visitor message quickly as text; the widget loads spoken audio separately.
      */
     public function chat(Request $request, string $key, AssistantResponder $responder): JsonResponse
     {

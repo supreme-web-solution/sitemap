@@ -50,6 +50,7 @@ const form = useForm({
     voice_id: props.assistant.voiceId,
     talking_avatar_enabled: props.assistant.talkingAvatarEnabled,
     simli_face_id: props.assistant.simliFaceId ?? '',
+    launcher_side: props.assistant.launcherSide ?? 'right',
     greeting: props.assistant.greeting ?? '',
     knowledge: props.assistant.knowledge,
 });
@@ -290,6 +291,39 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
                         : 'Switched off. No script is added to the website or to exported files.'
                 }}
             </p>
+
+            <div class="mt-4">
+                <p class="text-sm font-medium">Launcher position</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Where the floating face sits. On the right it lifts above the
+                    Contact button so they do not overlap.
+                </p>
+                <div
+                    class="mt-2 inline-flex rounded-lg border bg-card p-0.5 text-xs font-medium"
+                    role="group"
+                    aria-label="Launcher position"
+                    data-test="assistant-launcher-side"
+                >
+                    <button
+                        v-for="option in [
+                            { id: 'right', label: 'Bottom right' },
+                            { id: 'left', label: 'Bottom left' },
+                        ]"
+                        :key="option.id"
+                        type="button"
+                        :class="[
+                            'rounded-md px-2.5 py-1.5 transition',
+                            form.launcher_side === option.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:text-foreground',
+                        ]"
+                        @click="form.launcher_side = option.id as 'right' | 'left'"
+                    >
+                        {{ option.label }}
+                    </button>
+                </div>
+                <InputError :message="errors.launcher_side" class="mt-2" />
+            </div>
 
             <div
                 v-if="!assistant.didConfigured && !liveMode"

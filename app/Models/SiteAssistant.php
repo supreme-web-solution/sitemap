@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property bool $talking_avatar_enabled
  * @property string|null $simli_face_id
  * @property string|null $simli_face_name
+ * @property string $launcher_side
  * @property string|null $greeting
  * @property string|null $knowledge
  * @property Carbon|null $knowledge_generated_at
@@ -52,6 +53,7 @@ use Illuminate\Support\Carbon;
     'talking_avatar_enabled',
     'simli_face_id',
     'simli_face_name',
+    'launcher_side',
     'greeting',
     'knowledge',
     'knowledge_generated_at',
@@ -65,6 +67,13 @@ class SiteAssistant extends Model
      * The longest knowledge base the assistant reads, in characters.
      */
     public const MAX_KNOWLEDGE_LENGTH = 12000;
+
+    /**
+     * Where the floating launcher may sit on the page.
+     *
+     * @var list<string>
+     */
+    public const LAUNCHER_SIDES = ['right', 'left'];
 
     /**
      * Get the team that owns the assistant.

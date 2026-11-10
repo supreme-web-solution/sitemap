@@ -15,16 +15,14 @@ use Throwable;
  */
 class AssistantResponder
 {
-    public function __construct(protected AssistantSpeech $speech) {}
-
     /**
      * @param  list<array{role: string, content: string}>  $history
-     * @return array{reply: string, ask_for_contact: bool, audio: string|null, audio_mime: string|null}
+     * @return array{reply: string, ask_for_contact: bool, audio: null, audio_mime: null}
      */
     public function reply(SiteAssistant $assistant, string $message, array $history = []): array
     {
         if (! AiAvailability::anthropicConfigured() || $this->overDailyCap($assistant)) {
-            return $this->withSpeech($assistant, $this->fallback());
+            return $this->textOnly($this->fallback());
         }
 
         $assistant->loadMissing('site.lead');
@@ -45,19 +43,34 @@ class AssistantResponder
                 'message' => $exception->getMessage(),
             ]);
 
-            return $this->withSpeech($assistant, $this->fallback());
+            return $this->textOnly($this->fallback());
         }
 
         if ($reply === '') {
-            return $this->withSpeech($assistant, $this->fallback());
+            return $this->textOnly($this->fallback());
         }
 
         $assistant->newQuery()->whereKey($assistant->id)->increment('messages_count');
 
-        return $this->withSpeech($assistant, [
+        return $this->textOnly([
             'reply' => $reply,
             'ask_for_contact' => $askForContact,
         ]);
+    }
+
+    /**
+     * Return the written answer immediately. The widget fetches spoken audio from /speak next.
+     *
+     * @param  array{reply: string, ask_for_contact: bool}  $payload
+     * @return array{reply: string, ask_for_contact: bool, audio: null, audio_mime: null}
+     */
+    protected function textOnly(array $payload): array
+    {
+        return [
+            ...$payload,
+            'audio' => null,
+            'audio_mime' => null,
+        ];
     }
 
     /**
@@ -92,23 +105,6 @@ class AssistantResponder
         }
 
         return $turns;
-    }
-
-    /**
-     * Attach spoken audio for a reply when a voice is configured.
-     *
-     * @param  array{reply: string, ask_for_contact: bool}  $payload
-     * @return array{reply: string, ask_for_contact: bool, audio: string|null, audio_mime: string|null}
-     */
-    public function withSpeech(SiteAssistant $assistant, array $payload): array
-    {
-        $spoken = $this->speech->speak($payload['reply'], $assistant->voice_id);
-
-        return [
-            ...$payload,
-            'audio' => $spoken['base64'] ?? null,
-            'audio_mime' => $spoken['mime'] ?? null,
-        ];
     }
 
     /**

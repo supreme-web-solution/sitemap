@@ -66,6 +66,12 @@
         .nav a::after { content: ''; position: absolute; left: 0; right: 0; bottom: -.28rem; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform .22s ease; }
         .nav a:hover::after, .nav a[aria-current="page"]::after { transform: scaleX(1); }
         .hero { position: relative; overflow: hidden; }
+        .hero:not(.page-hero) {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+        }
         .hero::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 8.5rem; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(8,12,24,.58) 0%, transparent 100%); }
         .hero .container { position: relative; z-index: 1; padding-top: 6rem; padding-bottom: 6rem; }
         .hero-eyebrow { display: inline-flex; align-items: center; gap: .5rem; font-size: .85rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
@@ -708,6 +714,10 @@
     @endif
 
     @if (! empty($assistantEmbed))
+        @if (! empty($assistantEmbed['origin']))
+            <link rel="preconnect" href="{{ $assistantEmbed['origin'] }}" crossorigin>
+            <link rel="dns-prefetch" href="{{ $assistantEmbed['origin'] }}">
+        @endif
         <script src="{{ $assistantEmbed['src'] }}" data-assistant-key="{{ $assistantEmbed['key'] }}" defer></script>
     @endif
 

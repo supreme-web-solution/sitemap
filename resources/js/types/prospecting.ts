@@ -451,6 +451,7 @@ export type SiteAssistantSettings = {
     simliFaceId: string | null;
     simliFaceName: string | null;
     simliFaces: SimliFaceOption[];
+    launcherSide: 'right' | 'left';
     greeting: string | null;
     knowledge: string;
     knowledgeGeneratedAt: string | null;

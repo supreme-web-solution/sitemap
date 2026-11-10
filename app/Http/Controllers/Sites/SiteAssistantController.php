@@ -61,6 +61,7 @@ class SiteAssistantController extends Controller
             'talking_avatar_enabled' => $liveMode,
             'simli_face_id' => $face['id'] ?? null,
             'simli_face_name' => $face['name'] ?? null,
+            'launcher_side' => $data['launcher_side'] ?? 'right',
             'greeting' => filled($data['greeting'] ?? null) ? trim($data['greeting']) : null,
             'knowledge' => filled($data['knowledge'] ?? null) ? trim($data['knowledge']) : null,
         ])->save();

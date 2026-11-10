@@ -195,8 +195,11 @@ class SiteRenderer
         $path = public_path('widget/assistant.js');
         $version = is_file($path) ? filemtime($path) : 1;
 
+        $origin = rtrim((string) config('app.url'), '/');
+
         return [
-            'src' => rtrim((string) config('app.url'), '/').'/widget/assistant.js?v='.$version,
+            'src' => $origin.'/widget/assistant.js?v='.$version,
+            'origin' => $origin,
             'key' => $assistant->public_key,
         ];
     }

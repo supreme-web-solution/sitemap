@@ -50,6 +50,7 @@ function assistantSettings(array $overrides = []): array
         'name' => 'Maya',
         'presenter_id' => 'v2_public_amber@abc',
         'voice_id' => 'nova',
+        'launcher_side' => 'right',
         'greeting' => null,
         'knowledge' => 'Business: Mike Handyman. We fix things.',
         ...$overrides,
@@ -216,8 +217,29 @@ test('the widget loads its photoreal presenter settings with cors headers', func
         ->assertHeader('Access-Control-Allow-Origin', '*')
         ->assertJsonPath('name', 'Amber')
         ->assertJsonPath('voice_on', true)
+        ->assertJsonPath('launcher.side', 'right')
         ->assertJsonPath('presenter.image_url', 'https://cdn.example.com/amber.jpg')
         ->assertJsonPath('greeting', fn ($greeting) => str_contains($greeting, 'Handyman Mike'));
+});
+
+test('saving can place the launcher on the left', function () {
+    fakeAssistantPresenters();
+    [$user, $site] = assistantSite();
+
+    $this->actingAs($user)
+        ->put(assistantRoute('sites.assistant.update', $user, $site), assistantSettings([
+            'launcher_side' => 'left',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assistant = $site->fresh()->assistant;
+
+    expect($assistant->launcher_side)->toBe('left');
+
+    $this->getJson(route('assistant.config', $assistant->public_key))
+        ->assertOk()
+        ->assertJsonPath('launcher.side', 'left');
 });
 
 test('the widget gets nothing once the assistant is switched off or unknown', function () {
@@ -236,7 +258,7 @@ test('browsers can preflight the widget requests', function () {
         ->assertHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
 });
 
-test('a visitor message is answered with text and spoken audio', function () {
+test('a visitor message is answered with text right away so voice can load separately', function () {
     config(['services.anthropic.key' => 'test-key', 'services.openai.key' => 'openai-key']);
     SiteVisitorAssistant::fake([['reply' => 'We are open Monday at eight.', 'ask_for_contact' => false]]);
     Audio::fake(['ZmFrZS1hdWRpby1ieXRlcw==']);
@@ -254,10 +276,15 @@ test('a visitor message is answered with text and spoken audio', function () {
         ->assertOk()
         ->assertJsonPath('reply', 'We are open Monday at eight.')
         ->assertJsonPath('ask_for_contact', false)
-        ->assertJsonPath('audio', 'ZmFrZS1hdWRpby1ieXRlcw==')
-        ->assertJsonPath('audio_mime', 'audio/mpeg');
+        ->assertJsonPath('audio', null)
+        ->assertJsonPath('audio_mime', null);
 
     expect($assistant->fresh()->messages_count)->toBe(1);
+
+    $this->postJson(route('assistant.speak', 'chatkey'), ['text' => 'We are open Monday at eight.'])
+        ->assertOk()
+        ->assertJsonPath('audio', 'ZmFrZS1hdWRpby1ieXRlcw==')
+        ->assertJsonPath('audio_mime', 'audio/mpeg');
 });
 
 test('the assistant offers the contact form when the visitor is ready to book', function () {
