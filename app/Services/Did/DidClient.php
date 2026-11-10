@@ -7,6 +7,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -35,7 +36,7 @@ class DidClient
      */
     public function configured(): bool
     {
-        return filled(config('services.did.api_key'));
+        return filled($this->rawApiKey());
     }
 
     /**
@@ -74,7 +75,7 @@ class DidClient
     public function voices(): array
     {
         return Cache::remember('did.voices', now()->addHours(self::LIST_TTL_HOURS), function (): array {
-            $payload = $this->get('/voices', ['provider' => 'microsoft']);
+            $payload = $this->get('/tts/voices', ['provider' => 'microsoft']);
             $rows = array_is_list($payload) ? $payload : ($payload['voices'] ?? []);
 
             return collect($rows)
@@ -190,6 +191,15 @@ class DidClient
     }
 
     /**
+     * Forget cached presenter / voice lists after a key change.
+     */
+    public function forgetLists(): void
+    {
+        Cache::forget('did.presenters');
+        Cache::forget('did.voices');
+    }
+
+    /**
      * @param  array<string, mixed>  $query
      * @return array<mixed>
      */
@@ -211,8 +221,16 @@ class DidClient
         try {
             $response = $this->client()->{$method}($path, $data)->throw();
         } catch (RequestException $exception) {
-            throw new RuntimeException($this->errorMessage($exception), previous: $exception);
+            $this->logFailure($method, $path, $exception);
+
+            if (in_array($exception->response->status(), [401, 403], true)) {
+                $this->forgetLists();
+            }
+
+            throw new RuntimeException($this->errorMessage($exception, $path), previous: $exception);
         } catch (ConnectionException $exception) {
+            Log::warning('D-ID connection failed.', ['path' => $path, 'message' => $exception->getMessage()]);
+
             throw new RuntimeException(__('Could not reach D-ID.'), previous: $exception);
         }
 
@@ -222,26 +240,77 @@ class DidClient
     private function client(): PendingRequest
     {
         return Http::baseUrl(rtrim((string) config('services.did.base_url'), '/'))
-            ->withHeaders(['Authorization' => 'Basic '.config('services.did.api_key')])
+            ->withHeaders(['Authorization' => 'Basic '.$this->encodedApiKey()])
             ->acceptJson()
             ->asJson()
             ->connectTimeout(5)
             ->timeout(30);
     }
 
-    private function errorMessage(RequestException $exception): string
+    private function rawApiKey(): string
+    {
+        return trim((string) config('services.did.api_key'));
+    }
+
+    /**
+     * D-ID expects Basic auth of base64(username:password).
+     *
+     * Studio keys look like "username:password". Some dashboards also show the
+     * already-encoded token, or the full "Basic …" header value — accept all three.
+     */
+    private function encodedApiKey(): string
+    {
+        $key = $this->rawApiKey();
+
+        if (str_starts_with(strtolower($key), 'basic ')) {
+            $key = trim(substr($key, 6));
+        }
+
+        if (str_contains($key, ':')) {
+            return base64_encode($key);
+        }
+
+        return $key;
+    }
+
+    private function errorMessage(RequestException $exception, string $path): string
     {
         $status = $exception->response->status();
+        $description = (string) (
+            $exception->response->json('description')
+            ?? $exception->response->json('Message')
+            ?? $exception->response->json('message')
+            ?? $exception->response->json('error')
+            ?? ''
+        );
+
+        $listing = str_contains($path, 'presenters') || str_contains($path, 'voices');
+        $denied = str_contains(strtolower($description), 'not authorized')
+            || str_contains(strtolower($description), 'explicit deny');
 
         return match (true) {
-            $status === 401 => __('D-ID rejected the API key. Check DID_API_KEY.'),
+            $status === 401 => __('D-ID rejected the API key. Paste DID_API_KEY exactly from studio.d-id.com → Account → API Keys, then run php artisan config:clear.'),
             $status === 402 => __('Your D-ID account is out of credits.'),
-            $status === 403 => __('D-ID declined this video. The script or presenter was not allowed.'),
+            $status === 403 && $denied => __('D-ID blocked this API key (403). Create a new key at studio.d-id.com → Account → API Keys, make sure the account can use Clips / Creators, paste the full username:password value into DID_API_KEY, then run php artisan config:clear.'),
+            $status === 403 && $listing => __('D-ID refused access to presenters. This API key may not include Clips / V3 Pro Avatars — check the plan on studio.d-id.com.'),
+            $status === 403 => __('D-ID declined this request. :detail', [
+                'detail' => $description !== '' ? $description : __('The script or presenter was not allowed.'),
+            ]),
             $status === 429 => __('D-ID is busy right now. Try again in a minute.'),
-            default => (string) ($exception->response->json('description')
-                ?? $exception->response->json('message')
-                ?? __('D-ID returned an error (:status).', ['status' => $status])),
+            default => $description !== ''
+                ? $description
+                : __('D-ID returned an error (:status).', ['status' => $status]),
         };
+    }
+
+    private function logFailure(string $method, string $path, RequestException $exception): void
+    {
+        Log::warning('D-ID request failed.', [
+            'method' => strtoupper($method),
+            'path' => $path,
+            'status' => $exception->response->status(),
+            'body' => $exception->response->json() ?? $exception->response->body(),
+        ]);
     }
 
     /**

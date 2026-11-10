@@ -41,6 +41,11 @@ function fakeDidLists(): void
             ['presenter_id' => 'v2_public_adam@def', 'name' => 'Adam', 'gender' => 'male', 'thumbnail_url' => 'https://cdn.example.com/adam.jpg'],
             ['presenter_id' => 'v2_public_green@ghi', 'name' => 'Green', 'gender' => 'male', 'thumbnail_url' => 'https://cdn.example.com/green.jpg', 'is_greenscreen' => true],
         ]]),
+        'api.d-id.com/tts/voices*' => Http::response([
+            ['id' => 'en-US-JennyNeural', 'name' => 'Jenny', 'gender' => 'Female', 'provider' => 'microsoft', 'languages' => [['locale' => 'en-US']], 'preview_url' => 'https://cdn.example.com/jenny.mp3'],
+            ['id' => 'en-US-GuyNeural', 'name' => 'Guy', 'gender' => 'Male', 'provider' => 'microsoft', 'languages' => [['locale' => 'en-US']]],
+            ['id' => 'fr-FR-DeniseNeural', 'name' => 'Denise', 'gender' => 'Female', 'provider' => 'microsoft', 'languages' => [['locale' => 'fr-FR']]],
+        ]),
         'api.d-id.com/voices*' => Http::response([
             ['id' => 'en-US-JennyNeural', 'name' => 'Jenny', 'gender' => 'Female', 'provider' => 'microsoft', 'languages' => [['locale' => 'en-US']], 'preview_url' => 'https://cdn.example.com/jenny.mp3'],
             ['id' => 'en-US-GuyNeural', 'name' => 'Guy', 'gender' => 'Male', 'provider' => 'microsoft', 'languages' => [['locale' => 'en-US']]],
