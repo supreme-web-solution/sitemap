@@ -21,8 +21,8 @@ use App\Models\SitePost;
 use App\Models\SiteVersion;
 use App\Models\Team;
 use App\Services\Ai\AiAvailability;
-use App\Services\Assistant\AssistantAvatars;
 use App\Services\Assistant\AssistantKnowledgeBuilder;
+use App\Services\Assistant\AssistantVoices;
 use App\Services\Billing\UsageMeter;
 use App\Services\Did\DidClient;
 use App\Services\Domains\DomainVerifier;
@@ -80,7 +80,7 @@ class SiteController extends Controller
     /**
      * Show the website editor.
      */
-    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage, DidClient $did, AssistantAvatars $avatars, AssistantKnowledgeBuilder $knowledge): Response
+    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage, DidClient $did, AssistantVoices $voices, AssistantKnowledgeBuilder $knowledge): Response
     {
         $primaryDomain = $site->primaryDomain();
         $site->load('pitchVideo', 'assistant');
@@ -205,7 +205,8 @@ class SiteController extends Controller
             ],
             'pitchVideo' => $this->pitchVideoProps($site, $did),
             'pitchVideoOptions' => Inertia::optional(fn () => $this->pitchVideoOptions($did)),
-            'assistant' => $this->assistantProps($site, $avatars, $knowledge),
+            'assistant' => $this->assistantProps($site, $did, $voices, $knowledge),
+            'assistantOptions' => Inertia::optional(fn () => $this->assistantOptions($did)),
             'pageOptions' => collect(SitePages::OPTIONAL)->map(fn (string $page) => [
                 'value' => $page,
                 'label' => SitePages::PAGE_LABELS[$page],
@@ -295,28 +296,49 @@ class SiteController extends Controller
      *
      * @return array<string, mixed>
      */
-    protected function assistantProps(Site $site, AssistantAvatars $avatars, AssistantKnowledgeBuilder $knowledge): array
+    protected function assistantProps(Site $site, DidClient $did, AssistantVoices $voices, AssistantKnowledgeBuilder $knowledge): array
     {
         $assistant = $site->assistant;
-        $default = AssistantAvatars::DEFAULT;
+        $defaultVoice = $voices->forGender('female');
 
         return [
             'enabled' => $assistant?->enabled ?? false,
-            'name' => $assistant?->name ?? $avatars->nameOf($default),
-            'avatar' => $assistant?->avatar ?? $default,
-            'voice' => $assistant?->voice ?? $avatars->genderOf($default),
+            'name' => $assistant?->name ?? 'Maya',
+            'presenterId' => $assistant?->presenter_id,
+            'presenterName' => $assistant?->presenter_name,
+            'presenterGender' => $assistant?->presenter_gender,
+            'presenterThumbnailUrl' => $assistant?->presenter_thumbnail_url,
+            'voiceId' => $assistant?->voice_id ?? $defaultVoice['id'],
+            'voiceName' => $assistant?->voice_name ?? $defaultVoice['name'],
             'greeting' => $assistant?->greeting,
             'knowledge' => $assistant?->knowledge ?? $knowledge->build(Site::query()->with('lead')->findOrFail($site->id)),
             'knowledgeGeneratedAt' => $assistant?->knowledge_generated_at?->toISOString(),
             'messagesCount' => $assistant?->messages_count ?? 0,
             'leadsCount' => $assistant?->leads_count ?? 0,
             'canAnswer' => AiAvailability::anthropicConfigured(),
+            'canSpeak' => AiAvailability::openaiConfigured(),
+            'didConfigured' => $did->configured(),
             'maxKnowledgeLength' => SiteAssistant::MAX_KNOWLEDGE_LENGTH,
-            'avatars' => collect($avatars->all())->map(fn (array $avatar) => [
-                ...$avatar,
-                'imageUrl' => route('assistant.avatar', ['avatar' => $avatar['key']], false),
-            ])->all(),
+            'voices' => $voices->all(),
         ];
+    }
+
+    /**
+     * Photoreal presenters from D-ID, loaded when the assistant settings open.
+     *
+     * @return array{presenters: list<array<string, mixed>>, error: string|null}
+     */
+    protected function assistantOptions(DidClient $did): array
+    {
+        if (! $did->configured()) {
+            return ['presenters' => [], 'error' => null];
+        }
+
+        try {
+            return ['presenters' => $did->presenters(), 'error' => null];
+        } catch (RuntimeException $exception) {
+            return ['presenters' => [], 'error' => $exception->getMessage()];
+        }
     }
 
     /**

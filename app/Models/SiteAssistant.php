@@ -18,8 +18,12 @@ use Illuminate\Support\Carbon;
  * @property string $public_key
  * @property bool $enabled
  * @property string $name
- * @property string $avatar
- * @property string $voice
+ * @property string|null $presenter_id
+ * @property string|null $presenter_name
+ * @property string|null $presenter_gender
+ * @property string|null $presenter_thumbnail_url
+ * @property string $voice_id
+ * @property string|null $voice_name
  * @property string|null $greeting
  * @property string|null $knowledge
  * @property Carbon|null $knowledge_generated_at
@@ -36,8 +40,12 @@ use Illuminate\Support\Carbon;
     'public_key',
     'enabled',
     'name',
-    'avatar',
-    'voice',
+    'presenter_id',
+    'presenter_name',
+    'presenter_gender',
+    'presenter_thumbnail_url',
+    'voice_id',
+    'voice_name',
     'greeting',
     'knowledge',
     'knowledge_generated_at',
@@ -73,9 +81,17 @@ class SiteAssistant extends Model
     }
 
     /**
+     * Whether a photoreal presenter has been chosen.
+     */
+    public function hasPresenter(): bool
+    {
+        return filled($this->presenter_id) && filled($this->presenter_thumbnail_url);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     protected function casts(): array
     {

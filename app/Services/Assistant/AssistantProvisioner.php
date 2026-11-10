@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 class AssistantProvisioner
 {
     public function __construct(
-        protected AssistantAvatars $avatars,
+        protected AssistantVoices $voices,
         protected AssistantKnowledgeBuilder $knowledge,
     ) {}
 
@@ -28,13 +28,15 @@ class AssistantProvisioner
             return $assistant;
         }
 
+        $voice = $this->voices->forGender('female');
+
         $assistant = $site->assistant()->create([
             'team_id' => $site->team_id,
             'public_key' => Str::random(40),
             'enabled' => false,
-            'name' => $this->avatars->nameOf(AssistantAvatars::DEFAULT),
-            'avatar' => AssistantAvatars::DEFAULT,
-            'voice' => $this->avatars->genderOf(AssistantAvatars::DEFAULT),
+            'name' => 'Maya',
+            'voice_id' => $voice['id'],
+            'voice_name' => $voice['name'],
         ]);
 
         $site->setRelation('assistant', $assistant);

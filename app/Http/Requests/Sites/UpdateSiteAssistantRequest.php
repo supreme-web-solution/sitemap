@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Sites;
 
 use App\Models\SiteAssistant;
-use App\Services\Assistant\AssistantAvatars;
+use App\Services\Assistant\AssistantVoices;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,8 +28,8 @@ class UpdateSiteAssistantRequest extends FormRequest
         return [
             'enabled' => ['required', 'boolean'],
             'name' => ['required', 'string', 'max:60'],
-            'avatar' => ['required', 'string', Rule::in(array_column(app(AssistantAvatars::class)->all(), 'key'))],
-            'voice' => ['required', 'string', Rule::in(['female', 'male', 'off'])],
+            'presenter_id' => [Rule::requiredIf(fn () => $this->boolean('enabled')), 'nullable', 'string', 'max:191'],
+            'voice_id' => ['required', 'string', Rule::in(array_column(app(AssistantVoices::class)->all(), 'id'))],
             'greeting' => ['nullable', 'string', 'max:300'],
             'knowledge' => ['nullable', 'string', 'max:'.SiteAssistant::MAX_KNOWLEDGE_LENGTH],
         ];
@@ -44,7 +44,8 @@ class UpdateSiteAssistantRequest extends FormRequest
     {
         return [
             'name.required' => __('Give the assistant a name.'),
-            'avatar.in' => __('Choose one of the avatars.'),
+            'presenter_id.required' => __('Choose a presenter before switching the assistant on.'),
+            'voice_id.in' => __('Choose one of the voices.'),
             'knowledge.max' => __('The knowledge base is too long. Keep it under :max characters.'),
         ];
     }

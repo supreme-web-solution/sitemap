@@ -11,7 +11,9 @@ use App\Notifications\SiteContactNotification;
 use App\Services\Assistant\AssistantKnowledgeBuilder;
 use App\Services\SiteBuilder\SiteRenderer;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Laravel\Ai\Audio;
 
 function assistantSite(array $leadAttributes = []): array
 {
@@ -27,13 +29,26 @@ function assistantRoute(string $name, User $user, Site $site): string
     return route($name, ['current_team' => $user->currentTeam->slug, 'site' => $site->id]);
 }
 
+function fakeAssistantPresenters(): void
+{
+    config(['services.did.api_key' => 'test-key']);
+
+    Http::fake([
+        'api.d-id.com/clips/presenters*' => Http::response(['presenters' => [
+            ['presenter_id' => 'v2_public_amber@abc', 'name' => 'Amber', 'gender' => 'female', 'thumbnail_url' => 'https://cdn.example.com/amber.jpg'],
+            ['presenter_id' => 'v2_public_adam@def', 'name' => 'Adam', 'gender' => 'male', 'thumbnail_url' => 'https://cdn.example.com/adam.jpg'],
+        ]]),
+        'api.d-id.com/voices*' => Http::response([]),
+    ]);
+}
+
 function assistantSettings(array $overrides = []): array
 {
     return [
         'enabled' => true,
         'name' => 'Maya',
-        'avatar' => 'maya',
-        'voice' => 'female',
+        'presenter_id' => 'v2_public_amber@abc',
+        'voice_id' => 'nova',
         'greeting' => null,
         'knowledge' => 'Business: Mike Handyman. We fix things.',
         ...$overrides,
@@ -65,37 +80,59 @@ test('the knowledge base is written from the listing and the website', function 
 });
 
 test('the editor drafts the assistant before it has been saved', function () {
+    fakeAssistantPresenters();
     [$user, $site] = assistantSite(['name' => 'Handyman Mike']);
 
     $this->actingAs($user)
         ->get(route('sites.edit', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]))
         ->assertInertia(fn ($page) => $page
             ->where('assistant.enabled', false)
-            ->where('assistant.avatar', 'maya')
-            ->where('assistant.voice', 'female')
+            ->where('assistant.voiceId', 'nova')
+            ->where('assistant.didConfigured', true)
             ->where('assistant.knowledge', fn ($knowledge) => str_contains($knowledge, 'Handyman Mike'))
-            ->has('assistant.avatars', 6));
+            ->has('assistant.voices'));
 
     expect(SiteAssistant::count())->toBe(0);
 });
 
-test('saving switches the assistant on and keeps the owner edits', function () {
+test('the editor loads presenters when the assistant tab asks for them', function () {
+    fakeAssistantPresenters();
+    [$user, $site] = assistantSite();
+
+    $url = route('sites.edit', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]);
+
+    $this->actingAs($user)->get($url)
+        ->assertInertia(fn ($page) => $page
+            ->reloadOnly('assistantOptions', fn ($reload) => $reload
+                ->has('assistantOptions.presenters', 2)
+                ->where('assistantOptions.presenters.0.name', 'Amber')));
+});
+
+test('saving switches the assistant on with a photoreal presenter and ai voice', function () {
+    fakeAssistantPresenters();
     [$user, $site] = assistantSite();
 
     $this->actingAs($user)
-        ->put(assistantRoute('sites.assistant.update', $user, $site), assistantSettings(['name' => 'Maya B', 'greeting' => 'Welcome!']))
+        ->put(assistantRoute('sites.assistant.update', $user, $site), assistantSettings([
+            'name' => 'Amber',
+            'voice_id' => 'coral',
+            'greeting' => 'Welcome!',
+        ]))
         ->assertRedirect();
 
     $assistant = $site->fresh()->assistant;
 
     expect($assistant->enabled)->toBeTrue()
-        ->and($assistant->name)->toBe('Maya B')
-        ->and($assistant->greeting)->toBe('Welcome!')
-        ->and($assistant->knowledge)->toBe('Business: Mike Handyman. We fix things.')
-        ->and($assistant->public_key)->toHaveLength(40);
+        ->and($assistant->name)->toBe('Amber')
+        ->and($assistant->presenter_id)->toBe('v2_public_amber@abc')
+        ->and($assistant->presenter_thumbnail_url)->toBe('https://cdn.example.com/amber.jpg')
+        ->and($assistant->voice_id)->toBe('coral')
+        ->and($assistant->voice_name)->toBe('Coral')
+        ->and($assistant->greeting)->toBe('Welcome!');
 });
 
 test('switching on with an empty knowledge base writes one from the site', function () {
+    fakeAssistantPresenters();
     [$user, $site] = assistantSite(['name' => 'Handyman Mike']);
 
     $this->actingAs($user)
@@ -103,6 +140,15 @@ test('switching on with an empty knowledge base writes one from the site', funct
         ->assertRedirect();
 
     expect($site->fresh()->assistant->knowledge)->toContain('Handyman Mike');
+});
+
+test('an enabled assistant needs a presenter', function () {
+    fakeAssistantPresenters();
+    [$user, $site] = assistantSite();
+
+    $this->actingAs($user)
+        ->put(assistantRoute('sites.assistant.update', $user, $site), assistantSettings(['presenter_id' => null]))
+        ->assertSessionHasErrors(['presenter_id']);
 });
 
 test('refreshing the knowledge replaces edits with a fresh draft', function () {
@@ -114,14 +160,6 @@ test('refreshing the knowledge replaces edits with a fresh draft', function () {
         ->assertRedirect();
 
     expect($site->fresh()->assistant->knowledge)->toContain('Handyman Mike')->not->toContain('Old notes');
-});
-
-test('the assistant settings are validated', function () {
-    [$user, $site] = assistantSite();
-
-    $this->actingAs($user)
-        ->put(assistantRoute('sites.assistant.update', $user, $site), assistantSettings(['avatar' => 'robot', 'voice' => 'shout', 'name' => '']))
-        ->assertSessionHasErrors(['avatar', 'voice', 'name']);
 });
 
 test('the script tag is only added to the website while the assistant is switched on', function () {
@@ -163,17 +201,22 @@ test('the exported zip carries the assistant script only when it is enabled', fu
     expect($read())->toContain('data-assistant-key="zipkey"');
 });
 
-test('the widget loads its settings from any website with cors headers', function () {
+test('the widget loads its photoreal presenter settings with cors headers', function () {
     [, $site] = assistantSite(['name' => 'Handyman Mike']);
-    SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'livekey', 'name' => 'Maya', 'greeting' => null]);
+    SiteAssistant::factory()->enabled()->create([
+        'site_id' => $site->id,
+        'public_key' => 'livekey',
+        'name' => 'Amber',
+        'voice_id' => 'nova',
+    ]);
 
     $this->getJson(route('assistant.config', 'livekey'))
         ->assertOk()
         ->assertHeader('Access-Control-Allow-Origin', '*')
-        ->assertJsonPath('name', 'Maya')
-        ->assertJsonPath('voice', 'female')
-        ->assertJsonPath('greeting', fn ($greeting) => str_contains($greeting, 'Handyman Mike'))
-        ->assertJsonPath('avatar_url', route('assistant.avatar', 'maya'));
+        ->assertJsonPath('name', 'Amber')
+        ->assertJsonPath('voice_on', true)
+        ->assertJsonPath('presenter.image_url', 'https://cdn.example.com/amber.jpg')
+        ->assertJsonPath('greeting', fn ($greeting) => str_contains($greeting, 'Handyman Mike'));
 });
 
 test('the widget gets nothing once the assistant is switched off or unknown', function () {
@@ -192,18 +235,10 @@ test('browsers can preflight the widget requests', function () {
         ->assertHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
 });
 
-test('avatars are served as svg images', function () {
-    $this->get(route('assistant.avatar', 'priya'))
-        ->assertOk()
-        ->assertHeader('Content-Type', 'image/svg+xml')
-        ->assertSee('id="sm-mouth"', false);
-
-    $this->get('/assistant/avatars/robot.svg')->assertNotFound();
-});
-
-test('a visitor message is answered from the knowledge base', function () {
-    config(['services.anthropic.key' => 'test-key']);
+test('a visitor message is answered with text and spoken audio', function () {
+    config(['services.anthropic.key' => 'test-key', 'services.openai.key' => 'openai-key']);
     SiteVisitorAssistant::fake([['reply' => 'We are open Monday at eight.', 'ask_for_contact' => false]]);
+    Audio::fake(['ZmFrZS1hdWRpby1ieXRlcw==']);
     [, $site] = assistantSite();
     $assistant = SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'chatkey']);
 
@@ -216,7 +251,10 @@ test('a visitor message is answered from the knowledge base', function () {
         ],
     ])
         ->assertOk()
-        ->assertExactJson(['reply' => 'We are open Monday at eight.', 'ask_for_contact' => false]);
+        ->assertJsonPath('reply', 'We are open Monday at eight.')
+        ->assertJsonPath('ask_for_contact', false)
+        ->assertJsonPath('audio', 'ZmFrZS1hdWRpby1ieXRlcw==')
+        ->assertJsonPath('audio_mime', 'audio/mpeg');
 
     expect($assistant->fresh()->messages_count)->toBe(1);
 });
@@ -225,11 +263,12 @@ test('the assistant offers the contact form when the visitor is ready to book', 
     config(['services.anthropic.key' => 'test-key']);
     SiteVisitorAssistant::fake([['reply' => 'Happy to help. Leave your details.', 'ask_for_contact' => true]]);
     [, $site] = assistantSite();
-    SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'bookkey']);
+    SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'bookkey', 'voice_id' => 'off']);
 
     $this->postJson(route('assistant.chat', 'bookkey'), ['message' => 'I want a quote'])
         ->assertOk()
-        ->assertJsonPath('ask_for_contact', true);
+        ->assertJsonPath('ask_for_contact', true)
+        ->assertJsonPath('audio', null);
 });
 
 test('a chat message needs text', function () {
@@ -242,7 +281,7 @@ test('a chat message needs text', function () {
 test('the visitor is asked for their details when the ai is unavailable', function () {
     config(['services.anthropic.key' => null, 'ai.providers.anthropic.key' => null]);
     [, $site] = assistantSite();
-    SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'nokey']);
+    SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'nokey', 'voice_id' => 'off']);
 
     $this->postJson(route('assistant.chat', 'nokey'), ['message' => 'Hi'])
         ->assertOk()
@@ -253,7 +292,7 @@ test('a website that used its daily allowance falls back to taking details', fun
     config(['services.anthropic.key' => 'test-key', 'assistant.daily_message_cap' => 1]);
     SiteVisitorAssistant::fake([['reply' => 'First answer.', 'ask_for_contact' => false]]);
     [, $site] = assistantSite();
-    SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'capkey']);
+    SiteAssistant::factory()->enabled()->create(['site_id' => $site->id, 'public_key' => 'capkey', 'voice_id' => 'off']);
     Cache::flush();
 
     $this->postJson(route('assistant.chat', 'capkey'), ['message' => 'One'])->assertJsonPath('reply', 'First answer.');

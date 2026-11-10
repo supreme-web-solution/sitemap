@@ -422,26 +422,32 @@ export type PitchVideoPanel = {
     video: PitchVideo | null;
 };
 
-export type AssistantAvatar = {
-    key: string;
+export type AssistantVoiceOption = {
+    id: string;
     name: string;
-    gender: 'male' | 'female';
-    imageUrl: string;
+    gender: 'male' | 'female' | null;
+    blurb: string;
 };
 
 export type SiteAssistantSettings = {
     enabled: boolean;
     name: string;
-    avatar: string;
-    voice: 'female' | 'male' | 'off';
+    presenterId: string | null;
+    presenterName: string | null;
+    presenterGender: string | null;
+    presenterThumbnailUrl: string | null;
+    voiceId: string;
+    voiceName: string | null;
     greeting: string | null;
     knowledge: string;
     knowledgeGeneratedAt: string | null;
     messagesCount: number;
     leadsCount: number;
     canAnswer: boolean;
+    canSpeak: boolean;
+    didConfigured: boolean;
     maxKnowledgeLength: number;
-    avatars: AssistantAvatar[];
+    voices: AssistantVoiceOption[];
 };
 
 export type PitchPresenter = {
@@ -449,6 +455,11 @@ export type PitchPresenter = {
     name: string;
     gender: 'male' | 'female' | null;
     thumbnail_url: string;
+};
+
+export type SiteAssistantOptions = {
+    presenters: PitchPresenter[];
+    error: string | null;
 };
 
 export type PitchVoice = {

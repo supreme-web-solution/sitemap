@@ -15,14 +15,16 @@ use Throwable;
  */
 class AssistantResponder
 {
+    public function __construct(protected AssistantSpeech $speech) {}
+
     /**
      * @param  list<array{role: string, content: string}>  $history
-     * @return array{reply: string, ask_for_contact: bool}
+     * @return array{reply: string, ask_for_contact: bool, audio: string|null, audio_mime: string|null}
      */
     public function reply(SiteAssistant $assistant, string $message, array $history = []): array
     {
         if (! AiAvailability::anthropicConfigured() || $this->overDailyCap($assistant)) {
-            return $this->fallback($assistant);
+            return $this->withSpeech($assistant, $this->fallback());
         }
 
         $assistant->loadMissing('site.lead');
@@ -43,16 +45,19 @@ class AssistantResponder
                 'message' => $exception->getMessage(),
             ]);
 
-            return $this->fallback($assistant);
+            return $this->withSpeech($assistant, $this->fallback());
         }
 
         if ($reply === '') {
-            return $this->fallback($assistant);
+            return $this->withSpeech($assistant, $this->fallback());
         }
 
         $assistant->newQuery()->whereKey($assistant->id)->increment('messages_count');
 
-        return ['reply' => $reply, 'ask_for_contact' => $askForContact];
+        return $this->withSpeech($assistant, [
+            'reply' => $reply,
+            'ask_for_contact' => $askForContact,
+        ]);
     }
 
     /**
@@ -90,11 +95,28 @@ class AssistantResponder
     }
 
     /**
+     * Attach spoken audio for a reply when a voice is configured.
+     *
+     * @param  array{reply: string, ask_for_contact: bool}  $payload
+     * @return array{reply: string, ask_for_contact: bool, audio: string|null, audio_mime: string|null}
+     */
+    public function withSpeech(SiteAssistant $assistant, array $payload): array
+    {
+        $spoken = $this->speech->speak($payload['reply'], $assistant->voice_id);
+
+        return [
+            ...$payload,
+            'audio' => $spoken['base64'] ?? null,
+            'audio_mime' => $spoken['mime'] ?? null,
+        ];
+    }
+
+    /**
      * What the visitor hears when the AI cannot answer: take their details so the team can follow up.
      *
      * @return array{reply: string, ask_for_contact: bool}
      */
-    protected function fallback(SiteAssistant $assistant): array
+    protected function fallback(): array
     {
         return [
             'reply' => __("I can't look that up right now, but I'd love for the team to help you. Leave your name and a phone number or email and they'll get back to you."),

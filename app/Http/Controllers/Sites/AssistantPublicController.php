@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Sites;
 use App\Actions\Sites\RecordSiteContact;
 use App\Http\Controllers\Controller;
 use App\Models\SiteAssistant;
-use App\Services\Assistant\AssistantAvatars;
 use App\Services\Assistant\AssistantProvisioner;
 use App\Services\Assistant\AssistantResponder;
+use App\Services\Assistant\AssistantSpeech;
+use App\Services\Assistant\AssistantVoices;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 
 /**
@@ -21,7 +21,7 @@ class AssistantPublicController extends Controller
     /**
      * Get what the widget needs to show itself.
      */
-    public function show(string $key, AssistantProvisioner $provisioner): JsonResponse
+    public function show(string $key, AssistantProvisioner $provisioner, AssistantVoices $voices): JsonResponse
     {
         $assistant = $this->enabledAssistant($key);
         $site = $assistant->site->loadMissing('lead');
@@ -32,14 +32,19 @@ class AssistantPublicController extends Controller
             'greeting' => filled($assistant->greeting)
                 ? $assistant->greeting
                 : $provisioner->defaultGreeting($assistant, $site->lead->name),
-            'voice' => $assistant->voice,
-            'avatar_url' => route('assistant.avatar', ['avatar' => $assistant->avatar]),
+            'voice_id' => $assistant->voice_id,
+            'voice_on' => $voices->isSpoken($assistant->voice_id),
+            'presenter' => [
+                'name' => $assistant->presenter_name,
+                'gender' => $assistant->presenter_gender,
+                'image_url' => $assistant->presenter_thumbnail_url,
+            ],
             'accent' => is_string($site->content['accent'] ?? null) ? $site->content['accent'] : '#2563eb',
         ])->header('Cache-Control', 'public, max-age=60');
     }
 
     /**
-     * Answer one visitor message.
+     * Answer one visitor message, with spoken audio when a voice is configured.
      */
     public function chat(Request $request, string $key, AssistantResponder $responder): JsonResponse
     {
@@ -53,6 +58,25 @@ class AssistantPublicController extends Controller
         ]);
 
         return response()->json($responder->reply($assistant, $data['message'], $data['history'] ?? []));
+    }
+
+    /**
+     * Speak a short line (the greeting) without asking the language model.
+     */
+    public function speak(Request $request, string $key, AssistantSpeech $speech): JsonResponse
+    {
+        $assistant = $this->enabledAssistant($key);
+
+        $data = $request->validate([
+            'text' => ['required', 'string', 'max:'.AssistantSpeech::MAX_LENGTH],
+        ]);
+
+        $spoken = $speech->speak($data['text'], $assistant->voice_id);
+
+        return response()->json([
+            'audio' => $spoken['base64'] ?? null,
+            'audio_mime' => $spoken['mime'] ?? null,
+        ]);
     }
 
     /**
@@ -77,22 +101,6 @@ class AssistantPublicController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /**
-     * Serve an avatar illustration.
-     */
-    public function avatar(string $avatar, AssistantAvatars $avatars): Response
-    {
-        $svg = $avatars->svg($avatar);
-
-        abort_if($svg === null, 404);
-
-        return response($svg, 200, [
-            'Content-Type' => 'image/svg+xml',
-            'Cache-Control' => 'public, max-age=86400',
-            'Access-Control-Allow-Origin' => '*',
-        ]);
-    }
-
     protected function enabledAssistant(string $key): SiteAssistant
     {
         $assistant = SiteAssistant::query()
@@ -101,7 +109,7 @@ class AssistantPublicController extends Controller
             ->with('site.lead', 'site.team')
             ->first();
 
-        abort_if($assistant === null, 404);
+        abort_if($assistant === null || ! $assistant->hasPresenter(), 404);
 
         return $assistant;
     }

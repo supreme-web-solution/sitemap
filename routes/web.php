@@ -146,13 +146,15 @@ Route::get('v/{pitchVideo:public_token}', [PitchVideoPublicController::class, 's
 
 Route::middleware(AllowAssistantCors::class)->withoutMiddleware('web')->prefix('assistant')->group(function () {
     Route::options('{path}', fn () => response()->noContent())->where('path', '.*');
-    Route::get('avatars/{avatar}.svg', [AssistantPublicController::class, 'avatar'])->name('assistant.avatar');
     Route::get('{key}/config', [AssistantPublicController::class, 'show'])
         ->middleware('throttle:assistant-config')
         ->name('assistant.config');
     Route::post('{key}/chat', [AssistantPublicController::class, 'chat'])
         ->middleware('throttle:assistant-chat')
         ->name('assistant.chat');
+    Route::post('{key}/speak', [AssistantPublicController::class, 'speak'])
+        ->middleware('throttle:assistant-chat')
+        ->name('assistant.speak');
     Route::post('{key}/lead', [AssistantPublicController::class, 'lead'])
         ->middleware('throttle:assistant-lead')
         ->name('assistant.lead');
@@ -362,6 +364,9 @@ Route::prefix('{current_team}')
         Route::post('sites/{site}/assistant/knowledge', [SiteAssistantController::class, 'knowledge'])
             ->middleware('throttle:site-edits')
             ->name('sites.assistant.knowledge');
+        Route::post('sites/{site}/assistant/voice-preview', [SiteAssistantController::class, 'previewVoice'])
+            ->middleware('throttle:site-edits')
+            ->name('sites.assistant.voice-preview');
         Route::post('sites/{site}/health', [SiteHealthController::class, 'store'])->name('sites.health.store');
         Route::post('sites/{site}/transfer', [SiteTransferController::class, 'store'])->name('sites.transfer.store');
 

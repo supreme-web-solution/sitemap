@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Site;
 use App\Models\SiteAssistant;
+use App\Services\Assistant\AssistantVoices;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -25,8 +26,12 @@ class SiteAssistantFactory extends Factory
             'public_key' => Str::random(40),
             'enabled' => false,
             'name' => 'Maya',
-            'avatar' => 'maya',
-            'voice' => 'female',
+            'presenter_id' => 'v2_public_amber@abc',
+            'presenter_name' => 'Amber',
+            'presenter_gender' => 'female',
+            'presenter_thumbnail_url' => 'https://cdn.example.com/amber.jpg',
+            'voice_id' => AssistantVoices::DEFAULT,
+            'voice_name' => 'Nova',
             'greeting' => null,
             'knowledge' => "Business: Example Plumbing\nServices: Drain cleaning, leak repair",
             'knowledge_generated_at' => now(),

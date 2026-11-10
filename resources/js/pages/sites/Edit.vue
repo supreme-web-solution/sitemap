@@ -53,6 +53,7 @@ import type {
     PitchVideoOptions,
     PitchVideoPanel,
     QualityReport,
+    SiteAssistantOptions,
     SiteAssistantSettings,
     SiteChat,
     SiteCopyField,
@@ -74,6 +75,7 @@ const props = defineProps<{
     pitchVideo: PitchVideoPanel;
     pitchVideoOptions?: PitchVideoOptions;
     assistant: SiteAssistantSettings;
+    assistantOptions?: SiteAssistantOptions;
     versions: SiteVersion[];
     reviews: SiteReviewsPanel;
     reviewsStyles: Option[];
@@ -115,10 +117,14 @@ const openSettings = (tab: SettingsTab) => {
 };
 
 watch(
-    [settingsOpen, settingsTab, () => props.pitchVideoOptions],
-    ([open, tab, options]) => {
-        if (open && tab === 'video' && options === undefined) {
+    [settingsOpen, settingsTab, () => props.pitchVideoOptions, () => props.assistantOptions],
+    ([open, tab, pitchOptions, assistantOptions]) => {
+        if (open && tab === 'video' && pitchOptions === undefined) {
             router.reload({ only: ['pitchVideoOptions'] });
+        }
+
+        if (open && tab === 'assistant' && assistantOptions === undefined) {
+            router.reload({ only: ['assistantOptions'] });
         }
     },
     { immediate: true },
@@ -584,6 +590,7 @@ const copyLink = async () => {
                     :site-id="site.id"
                     :team-slug="teamSlug"
                     :assistant="assistant"
+                    :options="assistantOptions"
                 />
             </template>
 
