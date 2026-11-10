@@ -58,6 +58,8 @@ class ProposalEmail extends Mailable
      */
     protected function pitchVideo(): ?SitePitchVideo
     {
+        $this->proposal->loadMissing('lead.site.pitchVideo');
+
         $video = $this->proposal->lead->site?->pitchVideo;
 
         return $video?->isWatchable() ? $video : null;

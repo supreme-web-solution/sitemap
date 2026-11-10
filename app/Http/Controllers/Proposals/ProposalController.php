@@ -101,7 +101,9 @@ class ProposalController extends Controller
      */
     public function edit(Team $currentTeam, Proposal $proposal): Response
     {
-        $proposal->load(['items', 'lead:id,name,email']);
+        $proposal->load(['items', 'lead:id,name,email', 'lead.site.pitchVideo']);
+        $site = $proposal->lead->site;
+        $pitchVideo = $site?->pitchVideo;
 
         return Inertia::render('proposals/Edit', [
             'proposal' => [
@@ -122,6 +124,8 @@ class ProposalController extends Controller
                 'viewedAt' => $proposal->viewed_at?->toISOString(),
                 'acceptedAt' => $proposal->accepted_at?->toISOString(),
                 'acceptedName' => $proposal->accepted_name,
+                'hasPitchVideo' => $pitchVideo?->isWatchable() ?? false,
+                'siteId' => $site?->id,
                 'items' => $proposal->items->map(fn (ProposalItem $item) => [
                     'description' => $item->description,
                     'quantity' => $item->quantity,

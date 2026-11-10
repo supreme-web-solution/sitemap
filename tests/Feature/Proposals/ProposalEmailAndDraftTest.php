@@ -5,6 +5,8 @@ use App\Enums\ProposalStatus;
 use App\Mail\ProposalEmail;
 use App\Models\Lead;
 use App\Models\Proposal;
+use App\Models\Site;
+use App\Models\SitePitchVideo;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 
@@ -44,6 +46,25 @@ test('send to me emails a preview without marking the proposal sent', function (
     Mail::assertQueued(ProposalEmail::class, fn (ProposalEmail $mail) => $mail->hasTo('owner@example.com') && $mail->isPreview);
     expect($proposal->fresh()->status)->toBe(ProposalStatus::Draft)
         ->and($proposal->fresh()->sent_at)->toBeNull();
+});
+
+test('the proposal edit page shows whether a sales video is ready', function () {
+    $user = User::factory()->create();
+    $lead = Lead::factory()->for($user->currentTeam)->create(['email' => 'client@example.com']);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+    $proposal = Proposal::factory()->withDefaultItems()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->get(route('proposals.edit', ['current_team' => $user->currentTeam->slug, 'proposal' => $proposal->id]))
+        ->assertInertia(fn ($page) => $page
+            ->where('proposal.hasPitchVideo', false)
+            ->where('proposal.siteId', $site->id));
+
+    SitePitchVideo::factory()->ready()->create(['site_id' => $site->id]);
+
+    $this->actingAs($user)
+        ->get(route('proposals.edit', ['current_team' => $user->currentTeam->slug, 'proposal' => $proposal->id]))
+        ->assertInertia(fn ($page) => $page->where('proposal.hasPitchVideo', true));
 });
 
 test('ai can draft introduction and terms for a proposal', function () {

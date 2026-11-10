@@ -17,6 +17,14 @@ import BillingIntervalSelect from '@/components/forms/BillingIntervalSelect.vue'
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -38,6 +46,7 @@ import {
     update,
 } from '@/routes/proposals';
 import { index as packagesIndex } from '@/routes/packages';
+import { edit as editSite } from '@/routes/sites';
 
 type Row = {
     description: string;
@@ -64,6 +73,8 @@ type ProposalData = {
     viewedAt: string | null;
     acceptedAt: string | null;
     acceptedName: string | null;
+    hasPitchVideo: boolean;
+    siteId: number | null;
     items: {
         description: string;
         quantity: number;
@@ -272,11 +283,41 @@ const routeArgs = computed(() => ({
     proposal: props.proposal?.id ?? 0,
 }));
 
+const confirmSendWithoutVideo = ref(false);
+
 const sendProposal = (email: boolean) =>
     router.post(send.url(routeArgs.value), { email }, { preserveScroll: true });
 
+const emailToClient = () => {
+    if (props.proposal && !props.proposal.hasPitchVideo) {
+        confirmSendWithoutVideo.value = true;
+
+        return;
+    }
+
+    sendProposal(true);
+};
+
+const confirmEmailWithoutVideo = () => {
+    confirmSendWithoutVideo.value = false;
+    sendProposal(true);
+};
+
 const sendPreviewToMe = () =>
     router.post(previewEmail.url(routeArgs.value), {}, { preserveScroll: true });
+
+const siteVideoUrl = computed(() => {
+    if (!props.proposal?.siteId || !teamSlug.value) {
+        return null;
+    }
+
+    return (
+        editSite.url({
+            current_team: teamSlug.value,
+            site: props.proposal.siteId,
+        }) + '?panel=video'
+    );
+});
 
 const drafting = ref(false);
 const draftError = ref<string | null>(null);
@@ -371,6 +412,43 @@ const textareaClass =
 <template>
     <Head :title="proposal ? proposal.number : 'New proposal'" />
 
+    <Dialog v-model:open="confirmSendWithoutVideo">
+        <DialogContent class="sm:max-w-md" data-test="proposal-send-without-video">
+            <DialogHeader>
+                <DialogTitle>Send without a sales video?</DialogTitle>
+                <DialogDescription>
+                    This client’s website does not have a sales video yet.
+                    Emails with the video look stronger. You can create one
+                    first, or send the proposal as it is.
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter class="gap-2 sm:justify-between">
+                <Button
+                    v-if="siteVideoUrl"
+                    variant="outline"
+                    as-child
+                    data-test="proposal-create-video-first"
+                >
+                    <Link :href="siteVideoUrl">Create video first</Link>
+                </Button>
+                <div class="flex flex-wrap justify-end gap-2">
+                    <Button
+                        variant="ghost"
+                        @click="confirmSendWithoutVideo = false"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        data-test="proposal-send-without-video-confirm"
+                        @click="confirmEmailWithoutVideo"
+                    >
+                        Send anyway
+                    </Button>
+                </div>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
     <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-4 md:p-6">
         <Heading
             :title="proposal ? `${proposal.title}` : 'New proposal'"
@@ -391,7 +469,7 @@ const textareaClass =
                         size="sm"
                         :disabled="!proposal.leadEmail"
                         data-test="proposal-send-client"
-                        @click="sendProposal(true)"
+                        @click="emailToClient"
                     >
                         <Send />
                         {{
@@ -417,6 +495,28 @@ const textareaClass =
                 </div>
                 <p v-if="!proposal.leadEmail" class="text-xs text-amber-700">
                     This lead has no email address, so publish the link and share it yourself.
+                </p>
+                <p
+                    v-else-if="proposal.hasPitchVideo"
+                    class="text-xs text-emerald-700 dark:text-emerald-300"
+                    data-test="proposal-video-included"
+                >
+                    The sales video will be included in the email.
+                </p>
+                <p
+                    v-else-if="proposal.siteId"
+                    class="text-xs text-amber-700"
+                    data-test="proposal-video-missing"
+                >
+                    No sales video yet.
+                    <Link
+                        v-if="siteVideoUrl"
+                        :href="siteVideoUrl"
+                        class="font-medium underline"
+                    >
+                        Create one first
+                    </Link>
+                    for a stronger email, or continue without it.
                 </p>
                 <p class="text-xs text-muted-foreground">
                     “Send to me” emails a preview to your inbox without marking the proposal as sent.

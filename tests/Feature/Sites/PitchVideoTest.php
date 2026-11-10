@@ -84,7 +84,7 @@ test('the editor loads presenters and voices only when they are asked for', func
                 ->where('pitchVideoOptions.defaultVoices.female', 'en-US-JennyNeural')));
 });
 
-test('ai writes a script for a business that has no website', function () {
+test('ai writes a script for a business that has no website on its listing', function () {
     config(['services.anthropic.key' => 'test-key']);
     PitchVideoScriptWriter::fake([['script' => 'Hi Mike, we built a free website for your handyman business. Open the link below to see it.']]);
     [$user, $site] = pitchSite(['website' => null]);
@@ -94,10 +94,12 @@ test('ai writes a script for a business that has no website', function () {
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    expect($site->pitchVideo->script)->toContain('free website')
+    expect($site->pitchVideo->script)->toContain('website preview')
+        ->and($site->pitchVideo->script)->not->toContain('free')
         ->and($site->pitchVideo->status)->toBe(PitchVideoStatus::Draft);
 
-    PitchVideoScriptWriter::assertPrompted(fn ($prompt) => str_contains((string) $prompt->prompt, 'no website yet'));
+    PitchVideoScriptWriter::assertPrompted(fn ($prompt) => str_contains((string) $prompt->prompt, 'no website on their listing')
+        && str_contains((string) $prompt->prompt, 'Never call the website free'));
 });
 
 test('the script prompt tells the writer about a current website and its audit issues', function () {
@@ -110,8 +112,21 @@ test('the script prompt tells the writer about a current website and its audit i
 
     $this->actingAs($user)->post(pitchRoute('sites.pitch-video.script', $user, $site))->assertSessionHasNoErrors();
 
-    PitchVideoScriptWriter::assertPrompted(fn ($prompt) => str_contains((string) $prompt->prompt, 'upgrade')
-        && str_contains((string) $prompt->prompt, 'The page takes 9 seconds to load'));
+    PitchVideoScriptWriter::assertPrompted(fn ($prompt) => str_contains((string) $prompt->prompt, 'already have a website')
+        && str_contains((string) $prompt->prompt, 'Do not say they have no website')
+        && str_contains((string) $prompt->prompt, 'The page takes 9 seconds to load')
+        && str_contains((string) $prompt->prompt, 'Never call the website free'));
+});
+
+test('scripts that still say free are cleaned before saving', function () {
+    config(['services.anthropic.key' => 'test-key']);
+    PitchVideoScriptWriter::fake([['script' => 'We built a free website for you, completely free, at no cost.']]);
+    [$user, $site] = pitchSite(['website' => null]);
+
+    $this->actingAs($user)->post(pitchRoute('sites.pitch-video.script', $user, $site))->assertSessionHasNoErrors();
+
+    expect($site->pitchVideo->fresh()->script)->not->toMatch('/\bfree\b/i')
+        ->and($site->pitchVideo->fresh()->script)->not->toMatch('/\bat no cost\b/i');
 });
 
 test('writing a script without an ai key explains what is missing', function () {
@@ -302,11 +317,17 @@ test('the video link is a merge field only once the video is ready', function ()
 test('the proposal email includes the sales video when the client has one', function () {
     $proposal = Proposal::factory()->withDefaultItems()->create()->load(['lead', 'team', 'items']);
     $site = Site::factory()->create(['lead_id' => $proposal->lead_id]);
-    $video = SitePitchVideo::factory()->ready()->create(['site_id' => $site->id]);
+    $video = SitePitchVideo::factory()->ready()->create([
+        'site_id' => $site->id,
+        'presenter_thumbnail_url' => 'https://cdn.example.com/amber.jpg',
+    ]);
 
     $mailable = new ProposalEmail($proposal->fresh(['lead.site.pitchVideo', 'team', 'items']), 'William Victor', 'agency@example.com');
 
     $mailable->assertSeeInHtml($video->watchUrl());
+    $mailable->assertSeeInHtml('https://cdn.example.com/amber.jpg');
+    $mailable->assertSeeInHtml('Watch the video');
+    $mailable->assertSeeInHtml('We also recorded a short video');
     $mailable->assertSeeInText($video->watchUrl());
 });
 
@@ -314,5 +335,6 @@ test('the proposal email has no video block when there is no video', function ()
     $proposal = Proposal::factory()->withDefaultItems()->create()->load(['lead', 'team', 'items']);
 
     (new ProposalEmail($proposal, 'William Victor', 'agency@example.com'))
-        ->assertDontSeeInHtml('Watch a short video');
+        ->assertDontSeeInHtml('Watch the video')
+        ->assertDontSeeInHtml('We also recorded a short video');
 });

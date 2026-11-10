@@ -124,8 +124,10 @@ watch(
 onMounted(() => {
     const query = page.url.split('?')[1] ?? '';
 
-    if (new URLSearchParams(query).get('panel') === 'quality') {
-        openSettings('quality');
+    const panel = new URLSearchParams(query).get('panel');
+
+    if (panel === 'quality' || panel === 'video') {
+        openSettings(panel);
     }
 });
 

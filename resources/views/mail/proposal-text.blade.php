@@ -11,13 +11,16 @@ Hi {{ $proposal->lead->name }},
 @if ($proposal->valid_until)
 It stays open until {{ $proposal->valid_until->toFormattedDateString() }}.
 @endif
+@if ($pitchVideo ?? null)
+We also recorded a short video that walks through the website we built for you.
+@endif
 
 @if (filled($proposal->intro))
 {{ $proposal->intro }}
 
 @endif
 @if ($pitchVideo ?? null)
-Watch a short video about your website:
+Watch the video about your website:
 {{ $pitchVideo->watchUrl() }}
 
 @endif

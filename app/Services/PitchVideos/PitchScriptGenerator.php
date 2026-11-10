@@ -50,6 +50,7 @@ class PitchScriptGenerator
         }
 
         $script = trim((string) preg_replace('#https?://\S+#i', '', $script));
+        $script = $this->stripFreeClaims($script);
 
         if ($script === '') {
             throw ValidationException::withMessages([
@@ -63,20 +64,26 @@ class PitchScriptGenerator
     protected function systemPrompt(): string
     {
         return <<<'PROMPT'
-You write the spoken script for a short sales video. An AI presenter reads it to the owner of a local business to introduce a free website that was built for them.
+You write the spoken script for a short sales video. An AI presenter reads it to the owner of a local business. The agency already built a custom website preview for them. The preview is free to look at; launching and keeping the site live is a paid service. Never say the website itself is free, complimentary, no-cost, or a gift.
 
 Return JSON only with:
-- script: what the presenter says, 80 to 120 words (about 40 seconds), plain spoken sentences.
+- script: what the presenter says, 90 to 130 words (about 45 seconds), plain spoken sentences.
+
+Goal: make the owner curious enough to open the preview and reply. Sound like a capable local agency partner, not a cold sales call.
 
 Structure:
-1. Greet the business by name and say who the message is from (the agency).
-2. Say a website has already been built for them, and name one or two specific things it features (services, headline, or location).
-3. If the business already has a website, mention one real weakness from the audit notes in a polite, constructive way and say the new site fixes it. If it has no website, say customers searching in their town cannot find them online yet and this gives them a home on the web.
-4. Close by telling them to open the link in the email to see the website, and that replying to the email is the easiest way to get it live.
+1. Greet them by first name or business name and say who the message is from (the agency).
+2. Lead with a concrete reason this matters for their business in their town (calls, trust, looking professional, winning jobs from people who search).
+3. Tell them a custom website preview is already built for them. Name one or two specific details from the preview (headline, services, or city).
+4. Then use the website status notes:
+   - If they have no website: say their Google listing does not show a website of their own yet. Do NOT say customers cannot find them at all — they may still appear on Google Maps. Explain that a real website makes it easier to get contacted, show services, and look more established than a listing alone.
+   - If they already have a website: politely name one real weakness from the audit notes (or keep the comparison general if none are listed) and say the new preview is built to fix that and make contacting them easier.
+5. Close with a clear next step: open the link in the email to see the preview, and reply if they want it live. Do not invent a price, discount, or deadline.
 
 Rules:
-- Speak directly to the owner. Warm, confident, human, not salesy or pushy.
-- Use only the facts provided. Never invent statistics, awards, prices, guarantees, or customer counts.
+- Speak directly to the owner. Warm, confident, specific, and convincing. Short sentences. No filler like "pretty cool" or "something special".
+- Use only the facts provided. Never invent statistics, awards, prices, guarantees, reviews counts beyond what is given, or customer numbers.
+- Never say free, complimentary, no charge, on the house, or gift. Prefer "preview", "already built for you to review", or "ready for you to look at".
 - No URLs, no emojis, no markdown, no stage directions, no sound effects, no placeholders.
 - Write numbers and ratings the way they are spoken.
 - Do not mention AI, avatars, or that the presenter is not a real person.
@@ -94,6 +101,7 @@ PROMPT;
             'Business: '.$lead->name,
             'Category: '.($lead->category ?: 'local business'),
             'City: '.($lead->city ?: 'unknown'),
+            'Pricing: launching and keeping the website live is paid. The preview is free to review only. Never call the website free.',
         ];
 
         if ($lead->rating !== null && (float) $lead->rating >= 4.0 && $lead->reviews_count > 0) {
@@ -126,8 +134,13 @@ PROMPT;
     {
         $lead = $site->lead;
 
+        // Only treat as "no website" when the Google/Maps listing has no website URL.
         if (blank($lead->website)) {
-            return ['Current website: none. The business has no website yet.'];
+            return [
+                'Website status: no website on their listing. Pitch owning a real website, not "being found online".',
+                'Do not claim customers cannot find them — they may still appear on Google Maps.',
+                'Angle: a listing alone makes it harder to show services, build trust, and get contacted. This preview gives them a proper site ready to review.',
+            ];
         }
 
         $issues = collect($lead->website_audit['checks'] ?? [])
@@ -137,7 +150,10 @@ PROMPT;
             ->take(3)
             ->all();
 
-        $points = ['Current website: they already have one, so pitch the new website as an upgrade.'];
+        $points = [
+            'Website status: they already have a website ('.$lead->website.'), so pitch this preview as a clearer, stronger upgrade.',
+            'Do not say they have no website.',
+        ];
 
         foreach ($issues as $issue) {
             $points[] = 'Audit note: '.$issue;
@@ -148,5 +164,28 @@ PROMPT;
         }
 
         return $points;
+    }
+
+    /**
+     * Last-line defense against the model calling the paid website free.
+     */
+    protected function stripFreeClaims(string $script): string
+    {
+        $replacements = [
+            '/\bcompletely free\b/iu' => 'ready for you to review',
+            '/\btotally free\b/iu' => 'ready for you to review',
+            '/\ba free website\b/iu' => 'a website preview',
+            '/\bfree website\b/iu' => 'website preview',
+            '/\bfor free\b/iu' => 'to review',
+            '/\bat no cost\b/iu' => 'to review',
+            '/\bno[- ]cost\b/iu' => 'preview',
+            '/\bcomplimentary\b/iu' => 'custom',
+        ];
+
+        foreach ($replacements as $pattern => $replacement) {
+            $script = (string) preg_replace($pattern, $replacement, $script);
+        }
+
+        return trim(preg_replace('/\s{2,}/', ' ', $script) ?? $script);
     }
 }

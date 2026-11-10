@@ -45,7 +45,7 @@ class ProposalActionController extends Controller
             $owner = $currentTeam->owner();
 
             Mail::to($lead->email)->queue(new ProposalEmail(
-                $proposal->loadMissing(['lead', 'team', 'items']),
+                $proposal->loadMissing(['lead.site.pitchVideo', 'team', 'items']),
                 $owner instanceof User ? $owner->name : $request->user()->name,
                 $currentTeam->contactEmail() ?? $request->user()->email,
             ));
@@ -88,7 +88,7 @@ class ProposalActionController extends Controller
         $owner = $currentTeam->owner();
 
         Mail::to($user->email)->queue(new ProposalEmail(
-            $proposal->loadMissing(['lead', 'team', 'items']),
+            $proposal->loadMissing(['lead.site.pitchVideo', 'team', 'items']),
             $owner instanceof User ? $owner->name : $user->name,
             $currentTeam->contactEmail() ?? $user->email,
             isPreview: true,

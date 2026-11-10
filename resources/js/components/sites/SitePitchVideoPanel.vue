@@ -490,12 +490,15 @@ const textareaClass =
             </div>
             <p class="mt-1 text-sm text-muted-foreground">
                 <template v-if="pitch.hasExistingWebsite">
-                    This business already has a website, so the script pitches
-                    this one as an upgrade.
+                    Their listing already has a website, so the script pitches
+                    this preview as an upgrade. It will not call the site free —
+                    launching it is paid.
                 </template>
                 <template v-else>
-                    This business has no website yet, so the script pitches
-                    getting them online.
+                    Their Google listing shows no website, so the script pitches
+                    owning a real site. It will not claim they are invisible
+                    online, and it will not call the site free — launching it is
+                    paid.
                 </template>
                 Edit it freely before you create the video.
             </p>

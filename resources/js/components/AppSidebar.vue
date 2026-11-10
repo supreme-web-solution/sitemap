@@ -42,7 +42,11 @@ import {
     SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import { dashboard as adminDashboard, aiCredits as adminAiCredits } from '@/routes/admin';
+import {
+    dashboard as adminDashboard,
+    aiCredits as adminAiCredits,
+    cloudflareHostnames as adminCloudflareHostnames,
+} from '@/routes/admin';
 import { index as adminPlansIndex } from '@/routes/admin/plans';
 import { index as adminTeamsIndex } from '@/routes/admin/teams';
 import { index as adminUsersIndex } from '@/routes/admin/users';
@@ -251,6 +255,11 @@ const deliverItems = computed<NavItem[]>(() => {
 const adminItems: NavItem[] = [
     { title: 'Overview', href: adminDashboard().url, icon: ShieldCheck, exact: true },
     { title: 'AI credits', href: adminAiCredits().url, icon: CircleAlert },
+    {
+        title: 'Cloudflare hostnames',
+        href: adminCloudflareHostnames().url,
+        icon: Globe,
+    },
     { title: 'Users', href: adminUsersIndex().url, icon: Users },
     { title: 'Teams', href: adminTeamsIndex().url, icon: Users },
     { title: 'Plans', href: adminPlansIndex().url, icon: Layers },

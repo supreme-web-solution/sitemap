@@ -3,6 +3,7 @@
     $client = $proposal->lead->name;
     $url = $proposal->publicUrl();
     $accent = $brand['color'] ?: '#18181b';
+    $hasVideo = ($pitchVideo ?? null) !== null;
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -38,6 +39,9 @@
                             @if ($proposal->valid_until)
                                 It stays open until {{ $proposal->valid_until->toFormattedDateString() }}.
                             @endif
+                            @if ($hasVideo)
+                                We also recorded a short video that walks through the website we built for you.
+                            @endif
                         </td>
                     </tr>
                     @if (filled($proposal->intro))
@@ -45,15 +49,48 @@
                             <td style="padding:16px 32px 0;font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.65;color:#52525b;white-space:pre-line;">{{ $proposal->intro }}</td>
                         </tr>
                     @endif
-                    @if ($pitchVideo ?? null)
+                    @if ($hasVideo)
                         <tr>
                             <td style="padding:24px 32px 0;font-family:Arial, Helvetica, sans-serif;">
-                                <a href="{{ $pitchVideo->watchUrl() }}" style="text-decoration:none;color:#18181b;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e4e4e7;border-radius:14px;overflow:hidden;">
                                     @if ($pitchVideo->presenter_thumbnail_url)
-                                        <img src="{{ $pitchVideo->presenter_thumbnail_url }}" alt="Watch the video" width="496" style="display:block;width:100%;max-width:496px;height:auto;border-radius:12px;border:1px solid #e4e4e7;">
+                                        <tr>
+                                            <td style="padding:0;line-height:0;background:#111111;">
+                                                <a href="{{ $pitchVideo->watchUrl() }}" style="display:block;text-decoration:none;">
+                                                    <img
+                                                        src="{{ $pitchVideo->presenter_thumbnail_url }}"
+                                                        alt="Watch the video about your website"
+                                                        width="496"
+                                                        style="display:block;width:100%;max-width:496px;height:auto;border:0;"
+                                                    >
+                                                </a>
+                                            </td>
+                                        </tr>
                                     @endif
-                                    <span style="display:block;padding-top:10px;font-size:15px;font-weight:700;color:{{ $accent }};">&#9654; Watch a short video about your website</span>
-                                </a>
+                                    <tr>
+                                        <td style="background:#111111;padding:16px 18px;">
+                                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                                <tr>
+                                                    <td width="44" valign="middle" style="padding-right:12px;">
+                                                        <a href="{{ $pitchVideo->watchUrl() }}" style="text-decoration:none;">
+                                                            <span style="display:inline-block;width:40px;height:40px;line-height:40px;text-align:center;border-radius:999px;background:{{ $accent }};color:#ffffff;font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:700;">&#9654;</span>
+                                                        </a>
+                                                    </td>
+                                                    <td valign="middle">
+                                                        <a href="{{ $pitchVideo->watchUrl() }}" style="text-decoration:none;color:#ffffff;">
+                                                            <span style="display:block;font-family:Arial, Helvetica, sans-serif;font-size:15px;font-weight:700;line-height:1.3;color:#ffffff;">
+                                                                Watch the video
+                                                            </span>
+                                                            <span style="display:block;padding-top:2px;font-family:Arial, Helvetica, sans-serif;font-size:13px;line-height:1.4;color:#a1a1aa;">
+                                                                About your website · opens in your browser
+                                                            </span>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                         </tr>
                     @endif
@@ -72,7 +109,11 @@
                     </tr>
                     <tr>
                         <td style="padding:8px 32px 0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.6;color:#52525b;">
-                            Review the offer, ask questions, and accept when you’re ready.
+                            @if ($hasVideo)
+                                Watch the video, review the offer, ask questions, and accept when you’re ready.
+                            @else
+                                Review the offer, ask questions, and accept when you’re ready.
+                            @endif
                         </td>
                     </tr>
                     <tr>
