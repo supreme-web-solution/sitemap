@@ -34,6 +34,10 @@
     var speaking = false;
     var currentAudio = null;
     var mouthTimer = 0;
+    var simliClient = null;
+    var simliStarting = null;
+    var simliFailed = false;
+    var SimliSdk = null;
 
     function loadState() {
         try {
@@ -128,8 +132,12 @@
         '.panel{position:fixed;right:20px;bottom:calc(20px + var(--lift));z-index:2147483001;width:min(920px,calc(100vw - 24px));height:min(580px,calc(100vh - 48px - var(--lift)));background:#0b0b0f;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.45);display:flex;overflow:hidden;animation:rise .25s ease-out;color:#fff}',
         '.stage{position:relative;flex:1.15;min-width:0;background:#111;overflow:hidden}',
         '.stage.solo{flex:1}',
-        '.stage-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;transform:scale(1.02);transition:transform 4s ease}',
+        '.stage-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;transform:scale(1.02);transition:transform 4s ease,opacity .35s ease}',
         '.stage.talking .stage-photo{transform:scale(1.05)}',
+        '.stage.live-talk .stage-photo{opacity:0;pointer-events:none}',
+        '.stage-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;background:#111;opacity:0;transition:opacity .35s ease}',
+        '.stage.live-talk .stage-video{opacity:1}',
+        '.stage-audio{display:none}',
         '.stage-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.05) 40%,rgba(0,0,0,.72) 100%);pointer-events:none}',
         '.stage-ring{position:absolute;inset:18px;border-radius:18px;border:1px solid rgba(255,255,255,.12);pointer-events:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}',
         '.stage.talking .stage-ring{border-color:rgba(255,255,255,.35);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 40px color-mix(in srgb,var(--accent) 35%,transparent)}',
@@ -215,10 +223,18 @@
         els.wrap.style.setProperty('--lift', height + 'px');
     }
 
+    function talkingEnabled() {
+        return !!(config.talking_avatar && config.talking_avatar.enabled && !simliFailed && !state.muted);
+    }
+
     function stopSpeaking() {
         if (currentAudio) {
             currentAudio.pause();
             currentAudio = null;
+        }
+
+        if (simliClient && typeof simliClient.ClearBuffer === 'function') {
+            try { simliClient.ClearBuffer(); } catch (e) { /* ignore */ }
         }
 
         speaking = false;
@@ -239,7 +255,181 @@
         speaking = true;
     }
 
-    function playAudio(base64, mime) {
+    function setLiveTalk(on) {
+        if (!els.stage) {
+            return;
+        }
+
+        els.stage.classList.toggle('live-talk', !!on);
+    }
+
+    function stopSimli() {
+        setLiveTalk(false);
+
+        if (!simliClient) {
+            return Promise.resolve();
+        }
+
+        var client = simliClient;
+        simliClient = null;
+        simliStarting = null;
+
+        try {
+            return Promise.resolve(client.stop()).catch(function () { /* ignore */ });
+        } catch (e) {
+            return Promise.resolve();
+        }
+    }
+
+    function base64ToBytes(base64) {
+        var binary = atob(base64);
+        var bytes = new Uint8Array(binary.length);
+
+        for (var i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+
+        return bytes;
+    }
+
+    function audioBufferToPcm16(buffer) {
+        var sampleRate = 16000;
+        var length = Math.max(1, Math.floor(buffer.duration * sampleRate));
+        var offline = new OfflineAudioContext(1, length, sampleRate);
+        var source = offline.createBufferSource();
+        source.buffer = buffer;
+        source.connect(offline.destination);
+        source.start(0);
+
+        return offline.startRendering().then(function (rendered) {
+            var channel = rendered.getChannelData(0);
+            var pcm = new Uint8Array(channel.length * 2);
+            var view = new DataView(pcm.buffer);
+
+            for (var i = 0; i < channel.length; i++) {
+                var sample = Math.max(-1, Math.min(1, channel[i]));
+                view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+            }
+
+            return pcm;
+        });
+    }
+
+    function decodeToPcm16(base64, mime) {
+        var bytes = base64ToBytes(base64);
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        return ctx.decodeAudioData(bytes.buffer.slice(0)).then(function (buffer) {
+            return audioBufferToPcm16(buffer).finally(function () {
+                return ctx.close();
+            });
+        });
+    }
+
+    function loadSimliSdk() {
+        if (SimliSdk) {
+            return Promise.resolve(SimliSdk);
+        }
+
+        return import('https://esm.sh/simli-client@3').then(function (mod) {
+            SimliSdk = mod;
+
+            return SimliSdk;
+        });
+    }
+
+    function ensureSimli() {
+        if (!talkingEnabled() || !els.stageVideo || !els.stageAudio) {
+            return Promise.resolve(null);
+        }
+
+        if (simliClient) {
+            return Promise.resolve(simliClient);
+        }
+
+        if (simliStarting) {
+            return simliStarting;
+        }
+
+        simliStarting = loadSimliSdk().then(function (sdk) {
+            return post('/session', {}).then(function (data) {
+                if (!data.session_token) {
+                    throw new Error(data.error || 'No Simli session');
+                }
+
+                var Client = sdk.SimliClient;
+                var LogLevel = sdk.LogLevel || { INFO: 1 };
+                var client = new Client(
+                    data.session_token,
+                    els.stageVideo,
+                    els.stageAudio,
+                    null,
+                    LogLevel.INFO
+                );
+
+                client.on('stop', function () {
+                    if (simliClient === client) {
+                        simliClient = null;
+                        setLiveTalk(false);
+                    }
+                });
+
+                client.on('error', function () {
+                    simliFailed = true;
+                    setLiveTalk(false);
+                });
+
+                return client.start().then(function () {
+                    simliClient = client;
+                    setLiveTalk(true);
+
+                    return client;
+                });
+            });
+        }).catch(function () {
+            simliFailed = true;
+            simliClient = null;
+            setLiveTalk(false);
+
+            return null;
+        }).finally(function () {
+            simliStarting = null;
+        });
+
+        return simliStarting;
+    }
+
+    function playThroughSimli(base64, mime) {
+        return ensureSimli().then(function (client) {
+            if (!client) {
+                return playAudioLocal(base64, mime);
+            }
+
+            return decodeToPcm16(base64, mime).then(function (pcm) {
+                startTalkingVisual();
+                setLiveTalk(true);
+                client.sendAudioData(pcm);
+
+                var seconds = Math.max(1.2, pcm.length / 2 / 16000);
+
+                return new Promise(function (resolve) {
+                    setTimeout(function () {
+                        speaking = false;
+
+                        if (els.stage) {
+                            els.stage.classList.remove('talking');
+                        }
+
+                        resolve();
+                    }, seconds * 1000 + 400);
+                });
+            }).catch(function () {
+                return playAudioLocal(base64, mime);
+            });
+        });
+    }
+
+    function playAudioLocal(base64, mime) {
         stopSpeaking();
 
         if (state.muted || !base64) {
@@ -261,6 +451,18 @@
                 resolve();
             });
         });
+    }
+
+    function playAudio(base64, mime) {
+        if (!base64) {
+            return Promise.resolve();
+        }
+
+        if (talkingEnabled()) {
+            return playThroughSimli(base64, mime);
+        }
+
+        return playAudioLocal(base64, mime);
     }
 
     function speakText(text, preloaded) {
@@ -359,6 +561,22 @@
         photo.src = faceUrl();
         photo.alt = config.name;
         stage.appendChild(photo);
+
+        var video = document.createElement('video');
+        video.className = 'stage-video';
+        video.setAttribute('playsinline', '');
+        video.setAttribute('autoplay', '');
+        video.muted = false;
+        stage.appendChild(video);
+
+        var stageAudio = document.createElement('audio');
+        stageAudio.className = 'stage-audio';
+        stageAudio.setAttribute('autoplay', '');
+        stage.appendChild(stageAudio);
+
+        els.stageVideo = video;
+        els.stageAudio = stageAudio;
+
         stage.appendChild(el('div', 'stage-shade'));
         stage.appendChild(el('div', 'stage-ring'));
 
@@ -381,6 +599,9 @@
 
             if (state.muted) {
                 stopSpeaking();
+                stopSimli();
+            } else {
+                simliFailed = false;
             }
 
             paintMute();
@@ -472,11 +693,14 @@
         state.open = false;
         saveState();
         stopSpeaking();
+        stopSimli();
 
         if (els.panel) {
             els.panel.remove();
             els.panel = null;
             els.stage = null;
+            els.stageVideo = null;
+            els.stageAudio = null;
         }
 
         els.launcher.hidden = false;

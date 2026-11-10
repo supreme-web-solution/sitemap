@@ -113,6 +113,15 @@ return [
     ],
 
     /*
+    | Simli — live lip-synced talking avatars for the website assistant.
+    | Create a key at app.simli.com. Leave blank to keep still-photo mode only.
+    */
+    'simli' => [
+        'api_key' => env('SIMLI_API_KEY'),
+        'base_url' => env('SIMLI_BASE_URL', 'https://api.simli.ai'),
+    ],
+
+    /*
     | Cloudflare for SaaS — automatic HTTPS for customer and branded preview domains.
     | Create an API token with Zone → SSL and Certificates → Edit on the mapmaticapp.com zone.
     | Leave blank in local/dev; domain verification still works without it.

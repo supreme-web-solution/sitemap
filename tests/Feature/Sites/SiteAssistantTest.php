@@ -9,6 +9,7 @@ use App\Models\SiteAssistant;
 use App\Models\User;
 use App\Notifications\SiteContactNotification;
 use App\Services\Assistant\AssistantKnowledgeBuilder;
+use App\Services\Simli\SimliFaces;
 use App\Services\SiteBuilder\SiteRenderer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -337,4 +338,109 @@ test('details are required and bots are ignored', function () {
 
     expect($assistant->fresh()->leads_count)->toBe(0);
     Notification::assertNothingSent();
+});
+
+test('the talking avatar toggle stays hidden until the platform flag and simli key are set', function () {
+    fakeAssistantPresenters();
+    config(['assistant.talking_avatar_available' => false, 'services.simli.api_key' => null]);
+    [$user, $site] = assistantSite();
+
+    $this->actingAs($user)
+        ->get(route('sites.edit', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]))
+        ->assertInertia(fn ($page) => $page
+            ->where('assistant.talkingAvatarAvailable', false)
+            ->where('assistant.simliFaces', []));
+});
+
+test('the editor shows talking faces when the platform enables them', function () {
+    fakeAssistantPresenters();
+    config(['assistant.talking_avatar_available' => true, 'services.simli.api_key' => 'simli-test']);
+    [$user, $site] = assistantSite();
+
+    $this->actingAs($user)
+        ->get(route('sites.edit', ['current_team' => $user->currentTeam->slug, 'site' => $site->id]))
+        ->assertInertia(fn ($page) => $page
+            ->where('assistant.talkingAvatarAvailable', true)
+            ->has('assistant.simliFaces')
+            ->where('assistant.simliFaces.0.id', SimliFaces::DEFAULT));
+});
+
+test('saving can turn on the talking avatar with a simli face', function () {
+    fakeAssistantPresenters();
+    config(['assistant.talking_avatar_available' => true, 'services.simli.api_key' => 'simli-test']);
+    [$user, $site] = assistantSite();
+
+    $this->actingAs($user)
+        ->put(assistantRoute('sites.assistant.update', $user, $site), assistantSettings([
+            'talking_avatar_enabled' => true,
+            'simli_face_id' => SimliFaces::DEFAULT,
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assistant = $site->fresh()->assistant;
+
+    expect($assistant->talking_avatar_enabled)->toBeTrue()
+        ->and($assistant->simli_face_id)->toBe(SimliFaces::DEFAULT)
+        ->and($assistant->simli_face_name)->toBe('Anna');
+});
+
+test('the widget config exposes talking avatar only when it is active', function () {
+    config(['assistant.talking_avatar_available' => true, 'services.simli.api_key' => 'simli-test']);
+    [, $site] = assistantSite();
+    SiteAssistant::factory()->enabled()->create([
+        'site_id' => $site->id,
+        'public_key' => 'talkkey',
+        'talking_avatar_enabled' => true,
+        'simli_face_id' => SimliFaces::DEFAULT,
+        'simli_face_name' => 'Anna',
+    ]);
+
+    $this->getJson(route('assistant.config', 'talkkey'))
+        ->assertOk()
+        ->assertJsonPath('talking_avatar.enabled', true)
+        ->assertJsonPath('talking_avatar.face_id', SimliFaces::DEFAULT)
+        ->assertJsonPath('talking_avatar.session_path', '/session');
+});
+
+test('the widget falls back to still mode when the admin kill switch is off', function () {
+    config(['assistant.talking_avatar_available' => false, 'services.simli.api_key' => 'simli-test']);
+    [, $site] = assistantSite();
+    SiteAssistant::factory()->enabled()->create([
+        'site_id' => $site->id,
+        'public_key' => 'stillkey',
+        'talking_avatar_enabled' => true,
+        'simli_face_id' => SimliFaces::DEFAULT,
+    ]);
+
+    $this->getJson(route('assistant.config', 'stillkey'))
+        ->assertOk()
+        ->assertJsonPath('talking_avatar.enabled', false)
+        ->assertJsonPath('talking_avatar.face_id', null);
+
+    $this->postJson(route('assistant.session', 'stillkey'))->assertNotFound();
+});
+
+test('the widget can mint a simli session token without exposing the api key', function () {
+    config(['assistant.talking_avatar_available' => true, 'services.simli.api_key' => 'simli-secret']);
+    Http::fake([
+        'api.simli.ai/compose/token' => Http::response(['session_token' => 'sess_abc']),
+        'api.simli.ai/compose/ice' => Http::response([['urls' => ['stun:stun.l.google.com:19302']]]),
+    ]);
+    [, $site] = assistantSite();
+    SiteAssistant::factory()->enabled()->create([
+        'site_id' => $site->id,
+        'public_key' => 'sesskey',
+        'talking_avatar_enabled' => true,
+        'simli_face_id' => SimliFaces::DEFAULT,
+    ]);
+
+    $this->postJson(route('assistant.session', 'sesskey'))
+        ->assertOk()
+        ->assertJsonPath('session_token', 'sess_abc')
+        ->assertJsonMissing(['api_key' => 'simli-secret']);
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.simli.ai/compose/token'
+        && $request->hasHeader('x-simli-api-key', 'simli-secret')
+        && $request['faceId'] === SimliFaces::DEFAULT);
 });

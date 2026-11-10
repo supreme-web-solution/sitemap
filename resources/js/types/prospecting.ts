@@ -429,6 +429,14 @@ export type AssistantVoiceOption = {
     blurb: string;
 };
 
+export type SimliFaceOption = {
+    id: string;
+    name: string;
+    gender: string;
+    style: string;
+    image_url: string;
+};
+
 export type SiteAssistantSettings = {
     enabled: boolean;
     name: string;
@@ -438,6 +446,11 @@ export type SiteAssistantSettings = {
     presenterThumbnailUrl: string | null;
     voiceId: string;
     voiceName: string | null;
+    talkingAvatarAvailable: boolean;
+    talkingAvatarEnabled: boolean;
+    simliFaceId: string | null;
+    simliFaceName: string | null;
+    simliFaces: SimliFaceOption[];
     greeting: string | null;
     knowledge: string;
     knowledgeGeneratedAt: string | null;

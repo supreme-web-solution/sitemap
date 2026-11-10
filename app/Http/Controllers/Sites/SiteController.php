@@ -23,11 +23,13 @@ use App\Models\Team;
 use App\Services\Ai\AiAvailability;
 use App\Services\Assistant\AssistantKnowledgeBuilder;
 use App\Services\Assistant\AssistantVoices;
+use App\Services\Assistant\TalkingAvatarGate;
 use App\Services\Billing\UsageMeter;
 use App\Services\Did\DidClient;
 use App\Services\Domains\DomainVerifier;
 use App\Services\Media\SiteImageStorage;
 use App\Services\Preview\PreviewLink;
+use App\Services\Simli\SimliFaces;
 use App\Services\SiteBuilder\SectionVariants;
 use App\Services\SiteBuilder\SiteChatMessagePresenter;
 use App\Services\SiteBuilder\SiteContentSchema;
@@ -80,7 +82,7 @@ class SiteController extends Controller
     /**
      * Show the website editor.
      */
-    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage, DidClient $did, AssistantVoices $voices, AssistantKnowledgeBuilder $knowledge): Response
+    public function edit(Team $currentTeam, Site $site, SiteQualityChecker $quality, DomainVerifier $verifier, UsageMeter $usage, DidClient $did, AssistantVoices $voices, AssistantKnowledgeBuilder $knowledge, TalkingAvatarGate $talking, SimliFaces $faces): Response
     {
         $primaryDomain = $site->primaryDomain();
         $site->load('pitchVideo', 'assistant');
@@ -205,7 +207,7 @@ class SiteController extends Controller
             ],
             'pitchVideo' => $this->pitchVideoProps($site, $did),
             'pitchVideoOptions' => Inertia::optional(fn () => $this->pitchVideoOptions($did)),
-            'assistant' => $this->assistantProps($site, $did, $voices, $knowledge),
+            'assistant' => $this->assistantProps($site, $did, $voices, $knowledge, $talking, $faces),
             'assistantOptions' => Inertia::optional(fn () => $this->assistantOptions($did)),
             'pageOptions' => collect(SitePages::OPTIONAL)->map(fn (string $page) => [
                 'value' => $page,
@@ -296,8 +298,14 @@ class SiteController extends Controller
      *
      * @return array<string, mixed>
      */
-    protected function assistantProps(Site $site, DidClient $did, AssistantVoices $voices, AssistantKnowledgeBuilder $knowledge): array
-    {
+    protected function assistantProps(
+        Site $site,
+        DidClient $did,
+        AssistantVoices $voices,
+        AssistantKnowledgeBuilder $knowledge,
+        TalkingAvatarGate $talking,
+        SimliFaces $faces,
+    ): array {
         $assistant = $site->assistant;
         $defaultVoice = $voices->forGender('female');
 
@@ -310,6 +318,11 @@ class SiteController extends Controller
             'presenterThumbnailUrl' => $assistant?->presenter_thumbnail_url,
             'voiceId' => $assistant?->voice_id ?? $defaultVoice['id'],
             'voiceName' => $assistant?->voice_name ?? $defaultVoice['name'],
+            'talkingAvatarAvailable' => $talking->available(),
+            'talkingAvatarEnabled' => $assistant?->talking_avatar_enabled ?? false,
+            'simliFaceId' => $assistant?->simli_face_id,
+            'simliFaceName' => $assistant?->simli_face_name,
+            'simliFaces' => $talking->available() ? $faces->all() : [],
             'greeting' => $assistant?->greeting,
             'knowledge' => $assistant?->knowledge ?? $knowledge->build(Site::query()->with('lead')->findOrFail($site->id)),
             'knowledgeGeneratedAt' => $assistant?->knowledge_generated_at?->toISOString(),

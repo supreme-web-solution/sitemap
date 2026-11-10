@@ -9,9 +9,13 @@ use App\Services\Assistant\AssistantProvisioner;
 use App\Services\Assistant\AssistantResponder;
 use App\Services\Assistant\AssistantSpeech;
 use App\Services\Assistant\AssistantVoices;
+use App\Services\Assistant\TalkingAvatarGate;
+use App\Services\Simli\SimliClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use RuntimeException;
+use Throwable;
 
 /**
  * The public endpoints the website assistant widget talks to from a visitor's browser.
@@ -21,10 +25,15 @@ class AssistantPublicController extends Controller
     /**
      * Get what the widget needs to show itself.
      */
-    public function show(string $key, AssistantProvisioner $provisioner, AssistantVoices $voices): JsonResponse
-    {
+    public function show(
+        string $key,
+        AssistantProvisioner $provisioner,
+        AssistantVoices $voices,
+        TalkingAvatarGate $talking,
+    ): JsonResponse {
         $assistant = $this->enabledAssistant($key);
         $site = $assistant->site->loadMissing('lead');
+        $talkingOn = $talking->activeFor($assistant);
 
         return response()->json([
             'name' => $assistant->name,
@@ -39,8 +48,35 @@ class AssistantPublicController extends Controller
                 'gender' => $assistant->presenter_gender,
                 'image_url' => $assistant->presenter_thumbnail_url,
             ],
+            'talking_avatar' => [
+                'enabled' => $talkingOn,
+                'face_id' => $talkingOn ? $assistant->simli_face_id : null,
+                'session_path' => $talkingOn ? '/session' : null,
+            ],
             'accent' => is_string($site->content['accent'] ?? null) ? $site->content['accent'] : '#2563eb',
         ])->header('Cache-Control', 'public, max-age=60');
+    }
+
+    /**
+     * Mint a short-lived Simli session for the live talking face (API key stays server-side).
+     */
+    public function session(string $key, TalkingAvatarGate $talking, SimliClient $simli): JsonResponse
+    {
+        $assistant = $this->enabledAssistant($key);
+
+        abort_unless($talking->activeFor($assistant), 404);
+
+        try {
+            $session = $simli->session((string) $assistant->simli_face_id);
+        } catch (RuntimeException $exception) {
+            return response()->json(['error' => $exception->getMessage()], 502);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json(['error' => __('Talking avatar is unavailable right now.')], 502);
+        }
+
+        return response()->json($session);
     }
 
     /**

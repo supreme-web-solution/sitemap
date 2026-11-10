@@ -4,11 +4,12 @@ import {
     Bot,
     LoaderCircle,
     MessageSquare,
+    Pause,
     Play,
     RefreshCw,
-    Square,
     TriangleAlert,
     Users,
+    Video,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
@@ -46,14 +47,29 @@ const form = useForm({
     name: props.assistant.name,
     presenter_id: props.assistant.presenterId ?? '',
     voice_id: props.assistant.voiceId,
+    talking_avatar_enabled: props.assistant.talkingAvatarEnabled,
+    simli_face_id: props.assistant.simliFaceId ?? '',
     greeting: props.assistant.greeting ?? '',
     knowledge: props.assistant.knowledge,
 });
 
 const voiceTouched = ref(false);
+const voiceFilter = ref<'all' | 'male' | 'female'>('all');
 const refreshing = ref(false);
 const previewing = ref<string | null>(null);
 const audio = ref<HTMLAudioElement | null>(null);
+
+const filteredVoices = computed(() =>
+    props.assistant.voices.filter((voice) => {
+        if (voiceFilter.value === 'all' || voice.id === 'off') {
+            return true;
+        }
+
+        return voice.gender === voiceFilter.value;
+    }),
+);
+
+const simliFaces = computed(() => props.assistant.simliFaces ?? []);
 
 const presenters = computed(() => props.options?.presenters ?? []);
 const selectedPresenter = computed<PitchPresenter | null>(
@@ -95,6 +111,16 @@ const choosePresenter = (presenter: PitchPresenter) => {
 
         if (match) {
             form.voice_id = match.id;
+        }
+    }
+
+    if (!form.simli_face_id && presenter.gender) {
+        const face = simliFaces.value.find(
+            (option) => option.gender === presenter.gender,
+        );
+
+        if (face) {
+            form.simli_face_id = face.id;
         }
     }
 };
@@ -383,37 +409,66 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
         </section>
 
         <section class="panel p-5">
-            <h3 class="text-base font-semibold">2. Choose a voice</h3>
-            <p class="mt-1 text-sm text-muted-foreground">
-                Natural AI voices. Preview each one, then pick the voice that
-                fits the presenter.
-            </p>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-base font-semibold">2. Choose a voice</h3>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Natural AI voices. Preview each one, then pick the voice
+                        that fits the presenter.
+                    </p>
+                </div>
+                <div
+                    class="inline-flex rounded-lg border bg-card p-0.5 text-xs font-medium"
+                    role="group"
+                    aria-label="Voice filter"
+                >
+                    <button
+                        v-for="option in [
+                            { id: 'all', label: 'All' },
+                            { id: 'female', label: 'Female' },
+                            { id: 'male', label: 'Male' },
+                        ]"
+                        :key="option.id"
+                        type="button"
+                        :class="[
+                            'rounded-md px-2.5 py-1.5 transition',
+                            voiceFilter === option.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:text-foreground',
+                        ]"
+                        @click="
+                            voiceFilter = option.id as 'all' | 'male' | 'female'
+                        "
+                    >
+                        {{ option.label }}
+                    </button>
+                </div>
+            </div>
 
             <ul
-                class="mt-3 grid max-h-72 gap-1.5 overflow-y-auto p-1"
-                role="radiogroup"
+                class="mt-3 grid max-h-72 gap-2 overflow-y-auto p-1"
+                role="listbox"
                 aria-label="Voice"
             >
-                <li
-                    v-for="voice in assistant.voices"
-                    :key="voice.id"
-                    :class="[
-                        'flex items-center gap-2 rounded-lg border px-3 py-2 transition',
-                        form.voice_id === voice.id
-                            ? 'border-primary bg-primary/5'
-                            : 'hover:border-primary/40',
-                    ]"
-                >
-                    <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
-                        <input
-                            v-model="form.voice_id"
-                            type="radio"
-                            name="assistant-voice"
-                            :value="voice.id"
-                            class="mt-0.5"
-                            @change="voiceTouched = true"
-                        />
-                        <span class="min-w-0">
+                <li v-for="voice in filteredVoices" :key="voice.id">
+                    <div
+                        :class="[
+                            'flex items-center gap-3 rounded-xl border px-3 py-2.5 transition',
+                            form.voice_id === voice.id
+                                ? 'border-primary bg-primary/5 shadow-sm'
+                                : 'hover:border-primary/40',
+                        ]"
+                    >
+                        <button
+                            type="button"
+                            role="option"
+                            :aria-selected="form.voice_id === voice.id"
+                            class="min-w-0 flex-1 text-left"
+                            @click="
+                                form.voice_id = voice.id;
+                                voiceTouched = true;
+                            "
+                        >
                             <span class="block truncate text-sm font-medium">{{
                                 voice.name
                             }}</span>
@@ -423,23 +478,106 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
                                     · {{ voice.gender }}</template
                                 >
                             </span>
-                        </span>
-                    </label>
-                    <Button
-                        v-if="voice.id !== 'off' && assistant.canSpeak"
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        :data-test="`assistant-voice-preview-${voice.id}`"
-                        @click="previewVoice(voice.id)"
-                    >
-                        <Square v-if="previewing === voice.id" />
-                        <Play v-else />
-                        {{ previewing === voice.id ? 'Stop' : 'Preview' }}
-                    </Button>
+                        </button>
+                        <button
+                            v-if="voice.id !== 'off' && assistant.canSpeak"
+                            type="button"
+                            class="inline-flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-foreground transition hover:border-primary hover:text-primary"
+                            :data-test="`assistant-voice-preview-${voice.id}`"
+                            :aria-label="
+                                previewing === voice.id
+                                    ? `Stop ${voice.name}`
+                                    : `Preview ${voice.name}`
+                            "
+                            @click="previewVoice(voice.id)"
+                        >
+                            <Pause
+                                v-if="previewing === voice.id"
+                                class="size-4"
+                            />
+                            <Play v-else class="size-4" />
+                        </button>
+                    </div>
                 </li>
             </ul>
             <InputError :message="errors.voice_id" class="mt-2" />
+        </section>
+
+        <section
+            v-if="assistant.talkingAvatarAvailable"
+            class="panel p-5"
+            data-test="talking-avatar-panel"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-3">
+                    <Video class="mt-0.5 size-5 text-primary" />
+                    <div>
+                        <h3 class="text-base font-semibold">
+                            Talking avatar (live lip-sync)
+                        </h3>
+                        <p class="mt-1 max-w-xl text-sm text-muted-foreground">
+                            When on, visitors see a real talking face powered by
+                            Simli. Uses stream minutes (~$0.01/min). Off keeps
+                            the still photo + voice (free).
+                        </p>
+                    </div>
+                </div>
+                <Switch
+                    :model-value="form.talking_avatar_enabled"
+                    aria-label="Enable live talking avatar"
+                    data-test="talking-avatar-enabled"
+                    @update:model-value="
+                        (value: boolean) =>
+                            (form.talking_avatar_enabled = value === true)
+                    "
+                />
+            </div>
+
+            <div v-if="form.talking_avatar_enabled" class="mt-4">
+                <p class="text-sm font-medium">Choose a talking face</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Separate from the still presenter above. Pick a Simli face
+                    that matches the look you want when speaking.
+                </p>
+                <div
+                    class="mt-3 grid max-h-72 grid-cols-3 gap-3 overflow-y-auto p-1 sm:grid-cols-4"
+                    role="listbox"
+                    aria-label="Talking face"
+                >
+                    <button
+                        v-for="face in simliFaces"
+                        :key="face.id"
+                        type="button"
+                        role="option"
+                        :aria-selected="form.simli_face_id === face.id"
+                        :data-test="`simli-face-${face.id}`"
+                        :class="[
+                            'overflow-hidden rounded-lg border text-left transition',
+                            form.simli_face_id === face.id
+                                ? 'border-primary ring-2 ring-primary/30'
+                                : 'hover:border-primary/50',
+                        ]"
+                        @click="form.simli_face_id = face.id"
+                    >
+                        <img
+                            :src="face.image_url"
+                            :alt="face.name"
+                            loading="lazy"
+                            class="aspect-square w-full object-cover object-top"
+                        />
+                        <span class="flex items-center justify-between px-2 py-1.5">
+                            <span class="truncate text-xs font-medium">{{
+                                face.name
+                            }}</span>
+                            <span
+                                class="text-[10px] text-muted-foreground capitalize"
+                                >{{ face.gender }}</span
+                            >
+                        </span>
+                    </button>
+                </div>
+                <InputError :message="errors.simli_face_id" class="mt-2" />
+            </div>
         </section>
 
         <section class="panel p-5">

@@ -10,7 +10,9 @@ use App\Models\Team;
 use App\Services\Assistant\AssistantProvisioner;
 use App\Services\Assistant\AssistantSpeech;
 use App\Services\Assistant\AssistantVoices;
+use App\Services\Assistant\TalkingAvatarGate;
 use App\Services\Did\DidClient;
+use App\Services\Simli\SimliFaces;
 use App\Services\SiteBuilder\SiteCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,12 +32,19 @@ class SiteAssistantController extends Controller
         AssistantProvisioner $provisioner,
         DidClient $did,
         AssistantVoices $voices,
+        TalkingAvatarGate $talking,
+        SimliFaces $faces,
     ): RedirectResponse {
         $assistant = $provisioner->for($site);
         $data = $request->validated();
         $voice = $voices->find($data['voice_id']);
         $presenter = filled($data['presenter_id'] ?? null)
             ? $this->findPresenter($did, (string) $data['presenter_id'])
+            : null;
+
+        $wantTalking = (bool) ($data['talking_avatar_enabled'] ?? false);
+        $face = filled($data['simli_face_id'] ?? null)
+            ? $faces->find((string) $data['simli_face_id'])
             : null;
 
         $assistant->forceFill([
@@ -47,6 +56,9 @@ class SiteAssistantController extends Controller
             'presenter_thumbnail_url' => $presenter['thumbnail_url'] ?? null,
             'voice_id' => $voice['id'],
             'voice_name' => $voice['name'],
+            'talking_avatar_enabled' => $talking->available() && $wantTalking && $face !== null,
+            'simli_face_id' => $face['id'] ?? null,
+            'simli_face_name' => $face['name'] ?? null,
             'greeting' => filled($data['greeting'] ?? null) ? trim($data['greeting']) : null,
             'knowledge' => filled($data['knowledge'] ?? null) ? trim($data['knowledge']) : null,
         ])->save();

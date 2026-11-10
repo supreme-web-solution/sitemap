@@ -155,6 +155,9 @@ Route::middleware(AllowAssistantCors::class)->withoutMiddleware('web')->prefix('
     Route::post('{key}/speak', [AssistantPublicController::class, 'speak'])
         ->middleware('throttle:assistant-chat')
         ->name('assistant.speak');
+    Route::post('{key}/session', [AssistantPublicController::class, 'session'])
+        ->middleware('throttle:assistant-chat')
+        ->name('assistant.session');
     Route::post('{key}/lead', [AssistantPublicController::class, 'lead'])
         ->middleware('throttle:assistant-lead')
         ->name('assistant.lead');

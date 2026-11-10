@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $presenter_thumbnail_url
  * @property string $voice_id
  * @property string|null $voice_name
+ * @property bool $talking_avatar_enabled
+ * @property string|null $simli_face_id
+ * @property string|null $simli_face_name
  * @property string|null $greeting
  * @property string|null $knowledge
  * @property Carbon|null $knowledge_generated_at
@@ -46,6 +49,9 @@ use Illuminate\Support\Carbon;
     'presenter_thumbnail_url',
     'voice_id',
     'voice_name',
+    'talking_avatar_enabled',
+    'simli_face_id',
+    'simli_face_name',
     'greeting',
     'knowledge',
     'knowledge_generated_at',
@@ -97,6 +103,7 @@ class SiteAssistant extends Model
     {
         return [
             'enabled' => 'boolean',
+            'talking_avatar_enabled' => 'boolean',
             'knowledge_generated_at' => 'datetime',
         ];
     }
