@@ -374,6 +374,7 @@ test('saving can turn on the talking avatar with a simli face', function () {
         ->put(assistantRoute('sites.assistant.update', $user, $site), assistantSettings([
             'talking_avatar_enabled' => true,
             'simli_face_id' => SimliFaces::DEFAULT,
+            'presenter_id' => null,
         ]))
         ->assertRedirect()
         ->assertSessionHasNoErrors();
@@ -398,9 +399,16 @@ test('the widget config exposes talking avatar only when it is active', function
 
     $this->getJson(route('assistant.config', 'talkkey'))
         ->assertOk()
+        ->assertHeaderContains('Cache-Control', 'no-cache')
+        ->assertHeaderContains('Cache-Control', 'must-revalidate')
         ->assertJsonPath('talking_avatar.enabled', true)
         ->assertJsonPath('talking_avatar.face_id', SimliFaces::DEFAULT)
-        ->assertJsonPath('talking_avatar.session_path', '/session');
+        ->assertJsonPath('talking_avatar.session_path', '/session')
+        ->assertJsonPath('presenter.name', 'Anna')
+        ->assertJsonPath(
+            'presenter.image_url',
+            'https://mintcdn.com/simli/C8pXSe7OQG-XmRnX/images/trinity2/'.SimliFaces::DEFAULT.'.jpg',
+        );
 });
 
 test('the widget falls back to still mode when the admin kill switch is off', function () {

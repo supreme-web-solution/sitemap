@@ -143,6 +143,7 @@
         '.stage.talking .stage-ring{border-color:rgba(255,255,255,.35);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 40px color-mix(in srgb,var(--accent) 35%,transparent)}',
         '.live{position:absolute;top:18px;left:18px;display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.45);backdrop-filter:blur(8px);font-size:12px;font-weight:600;letter-spacing:.02em}',
         '.live i{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:live 1.6s infinite}',
+        '.connecting{position:absolute;top:18px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);font-size:12px;font-weight:600}',
         '.stage-meta{position:absolute;left:18px;right:18px;bottom:18px}',
         '.stage-meta b{display:block;font-size:22px;line-height:1.15;text-shadow:0 2px 12px rgba(0,0,0,.45)}',
         '.stage-meta span{display:block;margin-top:4px;font-size:13px;opacity:.88}',
@@ -399,6 +400,26 @@
         return simliStarting;
     }
 
+    function setConnecting(on) {
+        if (els.connecting) {
+            els.connecting.hidden = !on;
+        }
+    }
+
+    /**
+     * Start the live video session as soon as the panel opens, so the face is
+     * already moving by the time the greeting or first answer is spoken.
+     */
+    function warmUpSimli() {
+        setConnecting(true);
+
+        return ensureSimli().then(function () {
+            setConnecting(false);
+        }, function () {
+            setConnecting(false);
+        });
+    }
+
     function playThroughSimli(base64, mime) {
         return ensureSimli().then(function (client) {
             if (!client) {
@@ -503,6 +524,10 @@
         }
 
         document.body.appendChild(host);
+
+        if (talkingEnabled()) {
+            loadSimliSdk().catch(function () { /* still mode will be used */ });
+        }
     }
 
     function faceUrl() {
@@ -583,6 +608,11 @@
         var live = el('div', 'live');
         live.innerHTML = '<i></i><span>Live</span>';
         stage.appendChild(live);
+
+        var connecting = el('div', 'connecting', 'Connecting live video\u2026');
+        connecting.hidden = true;
+        stage.appendChild(connecting);
+        els.connecting = connecting;
 
         var tools = el('div', 'stage-tools');
         var mute = el('button', 'icon-btn');
@@ -672,6 +702,10 @@
         els.log = log;
         els.foot = foot;
         els.wrap.appendChild(panel);
+
+        if (talkingEnabled()) {
+            warmUpSimli();
+        }
 
         if (state.history.length) {
             state.history.forEach(function (turn) {

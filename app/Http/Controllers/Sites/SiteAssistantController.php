@@ -47,16 +47,18 @@ class SiteAssistantController extends Controller
             ? $faces->find((string) $data['simli_face_id'])
             : null;
 
+        $liveMode = $talking->available() && $wantTalking && $face !== null;
+
         $assistant->forceFill([
             'enabled' => $data['enabled'],
             'name' => trim($data['name']),
-            'presenter_id' => $presenter['id'] ?? null,
-            'presenter_name' => $presenter['name'] ?? null,
-            'presenter_gender' => $presenter['gender'] ?? null,
-            'presenter_thumbnail_url' => $presenter['thumbnail_url'] ?? null,
+            'presenter_id' => $presenter['id'] ?? ($liveMode ? $assistant->presenter_id : null),
+            'presenter_name' => $presenter['name'] ?? ($liveMode ? $assistant->presenter_name : null),
+            'presenter_gender' => $presenter['gender'] ?? ($liveMode ? $assistant->presenter_gender : null),
+            'presenter_thumbnail_url' => $presenter['thumbnail_url'] ?? ($liveMode ? $assistant->presenter_thumbnail_url : null),
             'voice_id' => $voice['id'],
             'voice_name' => $voice['name'],
-            'talking_avatar_enabled' => $talking->available() && $wantTalking && $face !== null,
+            'talking_avatar_enabled' => $liveMode,
             'simli_face_id' => $face['id'] ?? null,
             'simli_face_name' => $face['name'] ?? null,
             'greeting' => filled($data['greeting'] ?? null) ? trim($data['greeting']) : null,

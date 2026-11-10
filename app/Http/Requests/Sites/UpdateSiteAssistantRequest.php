@@ -39,11 +39,17 @@ class UpdateSiteAssistantRequest extends FormRequest
     {
         $talkingAvailable = app(TalkingAvatarGate::class)->available();
         $faceIds = array_column(app(SimliFaces::class)->all(), 'id');
+        $liveMode = fn (): bool => $talkingAvailable && $this->boolean('talking_avatar_enabled');
 
         return [
             'enabled' => ['required', 'boolean'],
             'name' => ['required', 'string', 'max:60'],
-            'presenter_id' => [Rule::requiredIf(fn () => $this->boolean('enabled')), 'nullable', 'string', 'max:191'],
+            'presenter_id' => [
+                Rule::requiredIf(fn () => $this->boolean('enabled') && ! $liveMode()),
+                'nullable',
+                'string',
+                'max:191',
+            ],
             'voice_id' => ['required', 'string', Rule::in(array_column(app(AssistantVoices::class)->all(), 'id'))],
             'talking_avatar_enabled' => ['sometimes', 'boolean'],
             'simli_face_id' => array_values(array_filter([

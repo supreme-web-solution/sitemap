@@ -25,6 +25,7 @@ import {
 } from '@/routes/sites/assistant';
 import type {
     PitchPresenter,
+    SimliFaceOption,
     SiteAssistantOptions,
     SiteAssistantSettings,
 } from '@/types';
@@ -89,30 +90,44 @@ const selectedPresenter = computed<PitchPresenter | null>(
 );
 
 const isLive = computed(() => props.assistant.enabled);
+const liveMode = computed(
+    () =>
+        props.assistant.talkingAvatarAvailable &&
+        form.talking_avatar_enabled === true,
+);
+const selectedSimliFace = computed(
+    () =>
+        simliFaces.value.find((face) => face.id === form.simli_face_id) ?? null,
+);
 const routeArgs = () => ({ current_team: props.teamSlug, site: props.siteId });
 
-const choosePresenter = (presenter: PitchPresenter) => {
+const matchVoiceToGender = (gender: string | null | undefined) => {
+    if (voiceTouched.value || !gender) {
+        return;
+    }
+
+    const match = props.assistant.voices.find(
+        (voice) => voice.gender === gender && voice.id !== 'off',
+    );
+
+    if (match) {
+        form.voice_id = match.id;
+    }
+};
+
+const applyDisplayName = (name: string, previousName: string | null) => {
     if (
-        selectedPresenter.value &&
-        form.name.trim() === selectedPresenter.value.name
+        (previousName && form.name.trim() === previousName) ||
+        !form.name.trim()
     ) {
-        form.name = presenter.name;
-    } else if (!form.name.trim()) {
-        form.name = presenter.name;
+        form.name = name;
     }
+};
 
+const choosePresenter = (presenter: PitchPresenter) => {
+    applyDisplayName(presenter.name, selectedPresenter.value?.name ?? null);
     form.presenter_id = presenter.id;
-
-    if (!voiceTouched.value) {
-        const match = props.assistant.voices.find(
-            (voice) =>
-                voice.gender === presenter.gender && voice.id !== 'off',
-        );
-
-        if (match) {
-            form.voice_id = match.id;
-        }
-    }
+    matchVoiceToGender(presenter.gender);
 
     if (!form.simli_face_id && presenter.gender) {
         const face = simliFaces.value.find(
@@ -121,6 +136,30 @@ const choosePresenter = (presenter: PitchPresenter) => {
 
         if (face) {
             form.simli_face_id = face.id;
+        }
+    }
+};
+
+const chooseSimliFace = (face: SimliFaceOption) => {
+    applyDisplayName(face.name, selectedSimliFace.value?.name ?? null);
+    form.simli_face_id = face.id;
+    matchVoiceToGender(face.gender);
+};
+
+const setTalkingAvatar = (enabled: boolean) => {
+    form.talking_avatar_enabled = enabled;
+
+    if (enabled && !form.simli_face_id) {
+        const gender =
+            selectedPresenter.value?.gender ??
+            props.assistant.presenterGender ??
+            'female';
+        const face =
+            simliFaces.value.find((option) => option.gender === gender) ??
+            simliFaces.value[0];
+
+        if (face) {
+            chooseSimliFace(face);
         }
     }
 };
@@ -224,9 +263,9 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
                             Show the AI sales assistant on this website
                         </h3>
                         <p class="mt-1 max-w-xl text-sm text-muted-foreground">
-                            A photoreal presenter appears on the website, answers
-                            visitor questions like a sales representative, speaks
-                            with an AI voice, and can collect their details.
+                            A sales representative on the website that answers
+                            questions, speaks with an AI voice, and can collect
+                            visitor details.
                         </p>
                     </div>
                 </div>
@@ -253,7 +292,7 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
             </p>
 
             <div
-                v-if="!assistant.didConfigured"
+                v-if="!assistant.didConfigured && !liveMode"
                 class="mt-3 flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
             >
                 <TriangleAlert class="mt-0.5 size-4 shrink-0" />
@@ -313,11 +352,118 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
             </dl>
         </section>
 
-        <section class="panel p-5">
+        <section
+            v-if="assistant.talkingAvatarAvailable"
+            class="panel p-5"
+            data-test="talking-avatar-panel"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-3">
+                    <Video class="mt-0.5 size-5 text-primary" />
+                    <div>
+                        <h3 class="text-base font-semibold">
+                            How the assistant looks
+                        </h3>
+                        <p class="mt-1 max-w-xl text-sm text-muted-foreground">
+                            <template v-if="liveMode">
+                                Live talking face (Simli). The visitor sees this
+                                person speak with lip-sync. Uses stream minutes
+                                (~$0.01/min).
+                            </template>
+                            <template v-else>
+                                Still photo mode (free). Turn this on for a live
+                                talking face with lip-sync (~$0.01/min).
+                            </template>
+                        </p>
+                    </div>
+                </div>
+                <Switch
+                    :model-value="form.talking_avatar_enabled"
+                    aria-label="Enable live talking avatar"
+                    data-test="talking-avatar-enabled"
+                    @update:model-value="
+                        (value: boolean) => setTalkingAvatar(value === true)
+                    "
+                />
+            </div>
+        </section>
+
+        <section v-if="liveMode" class="panel p-5">
+            <h3 class="text-base font-semibold">1. Choose the talking face</h3>
+            <p class="mt-1 text-sm text-muted-foreground">
+                This is the person visitors see and hear. Voice below is what
+                they speak with.
+            </p>
+            <div
+                class="mt-3 grid max-h-80 grid-cols-3 gap-3 overflow-y-auto p-1 sm:grid-cols-4"
+                role="listbox"
+                aria-label="Talking face"
+            >
+                <button
+                    v-for="face in simliFaces"
+                    :key="face.id"
+                    type="button"
+                    role="option"
+                    :aria-selected="form.simli_face_id === face.id"
+                    :data-test="`simli-face-${face.id}`"
+                    :class="[
+                        'overflow-hidden rounded-lg border text-left transition',
+                        form.simli_face_id === face.id
+                            ? 'border-primary ring-2 ring-primary/30'
+                            : 'hover:border-primary/50',
+                    ]"
+                    @click="chooseSimliFace(face)"
+                >
+                    <img
+                        :src="face.image_url"
+                        :alt="face.name"
+                        loading="lazy"
+                        class="aspect-square w-full object-cover object-top"
+                    />
+                    <span class="flex items-center justify-between px-2 py-1.5">
+                        <span class="truncate text-xs font-medium">{{
+                            face.name
+                        }}</span>
+                        <span
+                            class="text-[10px] text-muted-foreground capitalize"
+                            >{{ face.gender }}</span
+                        >
+                    </span>
+                </button>
+            </div>
+            <InputError :message="errors.simli_face_id" class="mt-2" />
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                <label class="grid gap-1.5 text-sm font-medium">
+                    Display name
+                    <Input
+                        v-model="form.name"
+                        maxlength="60"
+                        data-test="assistant-name"
+                    />
+                    <InputError :message="errors.name" />
+                </label>
+
+                <label class="grid gap-1.5 text-sm font-medium">
+                    Greeting
+                    <textarea
+                        v-model="form.greeting"
+                        rows="2"
+                        maxlength="300"
+                        :class="fieldClass"
+                        placeholder="Leave empty for a default welcome."
+                        data-test="assistant-greeting"
+                    />
+                    <InputError :message="errors.greeting" />
+                </label>
+            </div>
+        </section>
+
+        <section v-else class="panel p-5">
             <h3 class="text-base font-semibold">1. Choose a presenter</h3>
             <p class="mt-1 text-sm text-muted-foreground">
-                Photoreal faces from D-ID. The visitor sees this person large on
-                the left; chat sits on the right and can be collapsed.
+                Photoreal still faces. The visitor sees this person large on the
+                left; chat sits on the right and can be collapsed.
             </p>
 
             <div
@@ -413,8 +559,14 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
                 <div>
                     <h3 class="text-base font-semibold">2. Choose a voice</h3>
                     <p class="mt-1 text-sm text-muted-foreground">
-                        Natural AI voices. Preview each one, then pick the voice
-                        that fits the presenter.
+                        <template v-if="liveMode">
+                            This is the voice the talking face speaks with.
+                            Preview, then pick one that fits.
+                        </template>
+                        <template v-else>
+                            Natural AI voices. Preview each one, then pick the
+                            voice that fits the presenter.
+                        </template>
                     </p>
                 </div>
                 <div
@@ -501,83 +653,6 @@ const reloadOptions = () => router.reload({ only: ['assistantOptions'] });
                 </li>
             </ul>
             <InputError :message="errors.voice_id" class="mt-2" />
-        </section>
-
-        <section
-            v-if="assistant.talkingAvatarAvailable"
-            class="panel p-5"
-            data-test="talking-avatar-panel"
-        >
-            <div class="flex items-start justify-between gap-4">
-                <div class="flex items-start gap-3">
-                    <Video class="mt-0.5 size-5 text-primary" />
-                    <div>
-                        <h3 class="text-base font-semibold">
-                            Talking avatar (live lip-sync)
-                        </h3>
-                        <p class="mt-1 max-w-xl text-sm text-muted-foreground">
-                            When on, visitors see a real talking face powered by
-                            Simli. Uses stream minutes (~$0.01/min). Off keeps
-                            the still photo + voice (free).
-                        </p>
-                    </div>
-                </div>
-                <Switch
-                    :model-value="form.talking_avatar_enabled"
-                    aria-label="Enable live talking avatar"
-                    data-test="talking-avatar-enabled"
-                    @update:model-value="
-                        (value: boolean) =>
-                            (form.talking_avatar_enabled = value === true)
-                    "
-                />
-            </div>
-
-            <div v-if="form.talking_avatar_enabled" class="mt-4">
-                <p class="text-sm font-medium">Choose a talking face</p>
-                <p class="mt-1 text-xs text-muted-foreground">
-                    Separate from the still presenter above. Pick a Simli face
-                    that matches the look you want when speaking.
-                </p>
-                <div
-                    class="mt-3 grid max-h-72 grid-cols-3 gap-3 overflow-y-auto p-1 sm:grid-cols-4"
-                    role="listbox"
-                    aria-label="Talking face"
-                >
-                    <button
-                        v-for="face in simliFaces"
-                        :key="face.id"
-                        type="button"
-                        role="option"
-                        :aria-selected="form.simli_face_id === face.id"
-                        :data-test="`simli-face-${face.id}`"
-                        :class="[
-                            'overflow-hidden rounded-lg border text-left transition',
-                            form.simli_face_id === face.id
-                                ? 'border-primary ring-2 ring-primary/30'
-                                : 'hover:border-primary/50',
-                        ]"
-                        @click="form.simli_face_id = face.id"
-                    >
-                        <img
-                            :src="face.image_url"
-                            :alt="face.name"
-                            loading="lazy"
-                            class="aspect-square w-full object-cover object-top"
-                        />
-                        <span class="flex items-center justify-between px-2 py-1.5">
-                            <span class="truncate text-xs font-medium">{{
-                                face.name
-                            }}</span>
-                            <span
-                                class="text-[10px] text-muted-foreground capitalize"
-                                >{{ face.gender }}</span
-                            >
-                        </span>
-                    </button>
-                </div>
-                <InputError :message="errors.simli_face_id" class="mt-2" />
-            </div>
         </section>
 
         <section class="panel p-5">

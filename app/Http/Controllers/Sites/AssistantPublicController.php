@@ -11,6 +11,7 @@ use App\Services\Assistant\AssistantSpeech;
 use App\Services\Assistant\AssistantVoices;
 use App\Services\Assistant\TalkingAvatarGate;
 use App\Services\Simli\SimliClient;
+use App\Services\Simli\SimliFaces;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -26,16 +27,19 @@ class AssistantPublicController extends Controller
      * Get what the widget needs to show itself.
      */
     public function show(
+        Request $request,
         string $key,
         AssistantProvisioner $provisioner,
         AssistantVoices $voices,
         TalkingAvatarGate $talking,
+        SimliFaces $faces,
     ): JsonResponse {
         $assistant = $this->enabledAssistant($key);
         $site = $assistant->site->loadMissing('lead');
         $talkingOn = $talking->activeFor($assistant);
+        $face = $talkingOn ? $faces->find((string) $assistant->simli_face_id) : null;
 
-        return response()->json([
+        $response = response()->json([
             'name' => $assistant->name,
             'business' => $site->lead->name,
             'greeting' => filled($assistant->greeting)
@@ -44,9 +48,9 @@ class AssistantPublicController extends Controller
             'voice_id' => $assistant->voice_id,
             'voice_on' => $voices->isSpoken($assistant->voice_id),
             'presenter' => [
-                'name' => $assistant->presenter_name,
-                'gender' => $assistant->presenter_gender,
-                'image_url' => $assistant->presenter_thumbnail_url,
+                'name' => $face['name'] ?? $assistant->presenter_name,
+                'gender' => $face['gender'] ?? $assistant->presenter_gender,
+                'image_url' => $face['image_url'] ?? $assistant->presenter_thumbnail_url,
             ],
             'talking_avatar' => [
                 'enabled' => $talkingOn,
@@ -54,7 +58,13 @@ class AssistantPublicController extends Controller
                 'session_path' => $talkingOn ? '/session' : null,
             ],
             'accent' => is_string($site->content['accent'] ?? null) ? $site->content['accent'] : '#2563eb',
-        ])->header('Cache-Control', 'public, max-age=60');
+        ]);
+
+        $response->setEtag(md5((string) $response->getContent()));
+        $response->headers->set('Cache-Control', 'no-cache, must-revalidate');
+        $response->isNotModified($request);
+
+        return $response;
     }
 
     /**
@@ -145,7 +155,11 @@ class AssistantPublicController extends Controller
             ->with('site.lead', 'site.team')
             ->first();
 
-        abort_if($assistant === null || ! $assistant->hasPresenter(), 404);
+        abort_if(
+            $assistant === null
+                || (! $assistant->hasPresenter() && ! app(TalkingAvatarGate::class)->activeFor($assistant)),
+            404,
+        );
 
         return $assistant;
     }
