@@ -45,6 +45,9 @@ test('a finished lead search updates the web thread', function () {
         'keyword' => 'window repair',
         'location' => 'Lagos, Nigeria',
         'notify_command_center' => true,
+        'leads_created_count' => 3,
+        'leads_updated_count' => 1,
+        'results_count' => 4,
     ]);
 
     Lead::factory()->count(3)->create(['team_id' => $team->id, 'lead_search_id' => $search->id]);

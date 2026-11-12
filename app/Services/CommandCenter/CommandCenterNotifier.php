@@ -81,16 +81,30 @@ class CommandCenterNotifier
             return;
         }
 
-        $saved = $search->leads()->count();
+        $created = $search->leads_created_count;
+        $updated = $search->leads_updated_count;
 
-        $this->notify($team, $user, $saved > 0
-            ? __('Your search for :label is complete — :count new lead(s) were added to your pipeline.', [
+        if ($created > 0) {
+            $this->notify($team, $user, __('Your search for :label is complete — :count new lead(s) were added to your pipeline.', [
                 'label' => $label,
-                'count' => $saved,
-            ])
-            : __('Your search for :label is complete, but no new leads matched (they may already be in your pipeline or have been filtered out).', [
-                'label' => $label,
+                'count' => $created,
             ]));
+
+            return;
+        }
+
+        if ($updated > 0) {
+            $this->notify($team, $user, __('Your search for :label is complete — :count lead(s) were already in your pipeline and were refreshed.', [
+                'label' => $label,
+                'count' => $updated,
+            ]));
+
+            return;
+        }
+
+        $this->notify($team, $user, __('Your search for :label is complete, but no new leads matched (they may already be in your pipeline or have been filtered out).', [
+            'label' => $label,
+        ]));
     }
 
     /**

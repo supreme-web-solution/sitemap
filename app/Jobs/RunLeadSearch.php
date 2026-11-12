@@ -16,6 +16,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -82,6 +83,12 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $isFirstAttempt = blank($search->provider_job_id);
+
+        if ($isFirstAttempt) {
+            Log::info('[lead-search] Started', $this->logContext($search));
+        }
+
         try {
             $result = $search->provider_job_id
                 ? $leadFinder->poll($search->provider_job_id)
@@ -118,16 +125,32 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
      */
     protected function complete(LeadSearch $search, LeadFinderResult $result, StoreLeadsFromListings $storeLeads): void
     {
-        DB::transaction(function () use ($search, $result, $storeLeads) {
-            $storeLeads->handle($search, $result->listings);
+        /** @var array{found: int, created: int, updated: int, skipped_confirmed: int} $stats */
+        $stats = [];
+
+        DB::transaction(function () use ($search, $result, $storeLeads, &$stats) {
+            $stats = $storeLeads->handle($search, $result->listings);
 
             $search->update([
                 'status' => LeadSearchStatus::Completed,
                 'provider_job_id' => $result->providerJobId,
-                'results_count' => count($result->listings),
+                'results_count' => $stats['found'],
+                'leads_created_count' => $stats['created'],
+                'leads_updated_count' => $stats['updated'],
                 'completed_at' => now(),
             ]);
         });
+
+        $search->refresh();
+
+        Log::info('[lead-search] Completed', [
+            ...$this->logContext($search),
+            'provider_listings' => $stats['found'],
+            'leads_created' => $stats['created'],
+            'leads_updated' => $stats['updated'],
+            'skipped_confirmed' => $stats['skipped_confirmed'],
+            'seconds' => $search->created_at?->diffInSeconds($search->completed_at ?? now()),
+        ]);
 
         app(CommandCenterNotifier::class)->leadSearchFinished($search);
     }
@@ -169,6 +192,30 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
         $creditLog->finish($event, 'Search marked failed');
 
         $search->markAsFailed($userError);
+
+        Log::info('[lead-search] Failed', [
+            ...$this->logContext($search->fresh()),
+            'error' => $userError,
+            'provider_detail' => $providerDetail,
+        ]);
+    }
+
+    /**
+     * Shared context for lead-search log lines.
+     *
+     * @return array<string, mixed>
+     */
+    protected function logContext(LeadSearch $search): array
+    {
+        return [
+            'lead_search_id' => $search->id,
+            'team_id' => $search->team_id,
+            'keyword' => $search->keyword,
+            'location' => $search->location,
+            'place_url' => $search->place_url,
+            'max_results' => $search->max_results,
+            'status' => $search->status->value,
+        ];
     }
 
     /**

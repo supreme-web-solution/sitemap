@@ -4,6 +4,7 @@ use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
 use App\Mail\OutreachEmail;
 use App\Models\Lead;
+use App\Models\LeadSearch;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -141,6 +142,53 @@ test('leads can be filtered by tier and by follow-ups that are due', function ()
     $this->actingAs($user)
         ->get(route('leads.index', ['current_team' => $team->slug, 'sort' => 'score']))
         ->assertInertia(fn (Assert $page) => $page->where('leads.data.0.id', $hot->id));
+});
+
+test('leads can be filtered to a search and sorted with newest results first', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    $search = LeadSearch::factory()->completed()->create([
+        'team_id' => $team->id,
+        'keyword' => 'construction',
+        'location' => 'texas',
+        'leads_created_count' => 1,
+        'leads_updated_count' => 1,
+        'results_count' => 2,
+    ]);
+
+    $older = Lead::factory()->for($team)->create([
+        'name' => 'Older Hit',
+        'lead_search_id' => $search->id,
+        'opportunity_score' => 99,
+    ]);
+    $newer = Lead::factory()->for($team)->create([
+        'name' => 'Newer Hit',
+        'lead_search_id' => $search->id,
+        'opportunity_score' => 10,
+    ]);
+    Lead::factory()->for($team)->create([
+        'name' => 'Other Search Lead',
+        'opportunity_score' => 50,
+    ]);
+
+    $older->forceFill(['updated_at' => now()->subHour()])->saveQuietly();
+    $newer->forceFill(['updated_at' => now()])->saveQuietly();
+
+    $this->actingAs($user)
+        ->get(route('leads.index', [
+            'current_team' => $team->slug,
+            'search_id' => $search->id,
+            'sort' => 'newest',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('leads.data', 2)
+            ->where('leads.data.0.id', $newer->id)
+            ->where('leads.data.1.id', $older->id)
+            ->where('filters.search_id', $search->id)
+            ->where('searches.0.leadsCreatedCount', 1)
+            ->where('searches.0.leadsUpdatedCount', 1));
 });
 
 test('the leads csv export respects filters, team ownership and neutralises formulas', function () {

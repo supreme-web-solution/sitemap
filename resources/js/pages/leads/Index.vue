@@ -106,6 +106,7 @@ const props = defineProps<{
         follow_up: string | null;
         assigned: string | null;
         ideal: string | null;
+        search_id: number | null;
     };
     websiteFilters: Option[];
     members: { id: number; name: string }[];
@@ -317,6 +318,63 @@ watch(
 
 const searchStatusSnapshot = ref<Record<number, string>>({});
 
+const searchResultSummary = (search: LeadSearch) => {
+    const created = search.leadsCreatedCount ?? 0;
+    const updated = search.leadsUpdatedCount ?? 0;
+
+    if (created > 0 && updated > 0) {
+        return `${created} new · ${updated} already listed`;
+    }
+
+    if (created > 0) {
+        return `${created} new`;
+    }
+
+    if (updated > 0) {
+        return `${updated} already listed`;
+    }
+
+    return 'no matches';
+};
+
+const searchCompletionToast = (search: LeadSearch) => {
+    const created = search.leadsCreatedCount ?? 0;
+    const updated = search.leadsUpdatedCount ?? 0;
+    const label = searchLabel(search);
+
+    if (created > 0 && updated > 0) {
+        return `${label} — ${created} new, ${updated} already in your list`;
+    }
+
+    if (created > 0) {
+        return `${label} — ${created} new lead${created === 1 ? '' : 's'} added`;
+    }
+
+    if (updated > 0) {
+        return `${label} — ${updated} already in your list (refreshed)`;
+    }
+
+    return `${label} — no new matches`;
+};
+
+const searchText = ref(props.filters.search ?? '');
+const statusFilter = ref<string>(props.filters.status ?? 'all');
+const tierFilter = ref<string>(props.filters.tier ?? 'all');
+const sortOrder = ref<string>(props.filters.sort ?? 'score');
+const dueOnly = ref(props.filters.follow_up === 'due');
+const idealOnly = ref(Boolean(props.filters.ideal));
+const assignedFilter = ref<string>(props.filters.assigned ?? 'all');
+const searchIdFilter = ref<number | null>(props.filters.search_id ?? null);
+
+const viewSearchResults = (search: LeadSearch) => {
+    if (search.status !== 'completed') {
+        return;
+    }
+
+    searchIdFilter.value = search.id;
+    sortOrder.value = 'newest';
+};
+
 watch(
     () => props.searches,
     (searches) => {
@@ -333,11 +391,8 @@ watch(
                 (previous === 'pending' || previous === 'running') &&
                 current === 'completed'
             ) {
-                toast.success(
-                    search.resultsCount > 0
-                        ? `${searchLabel(search)} — ${search.resultsCount} lead${search.resultsCount === 1 ? '' : 's'} added`
-                        : `${searchLabel(search)} — no new matches`,
-                );
+                toast.success(searchCompletionToast(search));
+                viewSearchResults(search);
             }
 
             if (
@@ -357,14 +412,6 @@ watch(
     { deep: true, immediate: true },
 );
 
-const searchText = ref(props.filters.search ?? '');
-const statusFilter = ref<string>(props.filters.status ?? 'all');
-const tierFilter = ref<string>(props.filters.tier ?? 'all');
-const sortOrder = ref<string>(props.filters.sort ?? 'score');
-const dueOnly = ref(props.filters.follow_up === 'due');
-const idealOnly = ref(Boolean(props.filters.ideal));
-const assignedFilter = ref<string>(props.filters.assigned ?? 'all');
-
 const sortOptions = [
     { value: 'score', label: 'Best opportunity' },
     { value: 'reviews', label: 'Most reviews' },
@@ -379,6 +426,29 @@ const tiers = [
     { value: 'cold', label: 'Cold' },
 ];
 
+const rankingLabel = computed(() => {
+    if (sortOrder.value === 'newest') {
+        return 'newest first';
+    }
+
+    if (sortOrder.value === 'reviews') {
+        return 'most reviews';
+    }
+
+    if (sortOrder.value === 'follow_up') {
+        return 'follow-up date';
+    }
+
+    return 'ranked by opportunity';
+});
+
+const activeSearchFilter = computed(() =>
+    searchIdFilter.value === null
+        ? null
+        : (props.searches.find((search) => search.id === searchIdFilter.value) ??
+          null),
+);
+
 const activeQuery = computed(() => ({
     search: searchText.value || undefined,
     status: statusFilter.value === 'all' ? undefined : statusFilter.value,
@@ -387,6 +457,7 @@ const activeQuery = computed(() => ({
     follow_up: dueOnly.value ? 'due' : undefined,
     assigned: assignedFilter.value === 'all' ? undefined : assignedFilter.value,
     ideal: idealOnly.value ? '1' : undefined,
+    search_id: searchIdFilter.value ?? undefined,
 }));
 
 const activeFilterCount = computed(
@@ -397,11 +468,15 @@ const activeFilterCount = computed(
 );
 
 const leadsDescription = computed(() => {
-    if (activeFilterCount.value > 0) {
-        return `${props.leads.total} match your filters · ranked by opportunity`;
+    if (activeSearchFilter.value) {
+        return `${props.leads.total} from ${searchLabel(activeSearchFilter.value)} · ${rankingLabel.value}`;
     }
 
-    return `${props.leads.total} businesses · ranked by opportunity`;
+    if (activeFilterCount.value > 0) {
+        return `${props.leads.total} match your filters · ${rankingLabel.value}`;
+    }
+
+    return `${props.leads.total} businesses · ${rankingLabel.value}`;
 });
 
 const clearFilters = () => {
@@ -411,6 +486,8 @@ const clearFilters = () => {
     assignedFilter.value = 'all';
     dueOnly.value = false;
     idealOnly.value = false;
+    searchIdFilter.value = null;
+    sortOrder.value = 'score';
 };
 
 const selectedLeadIds = ref<number[]>([]);
@@ -551,7 +628,15 @@ const debouncedApplyFilters = useDebounceFn(applyFilters, 350);
 
 watch(searchText, debouncedApplyFilters);
 watch(
-    [statusFilter, tierFilter, sortOrder, dueOnly, idealOnly, assignedFilter],
+    [
+        statusFilter,
+        tierFilter,
+        sortOrder,
+        dueOnly,
+        idealOnly,
+        assignedFilter,
+        searchIdFilter,
+    ],
     applyFilters,
 );
 
@@ -769,24 +854,55 @@ const onPickDesign = (lead: Lead) => {
             class="flex flex-col gap-2"
         >
             <div class="flex flex-wrap gap-2">
-                <Badge
+                <button
                     v-for="search in visibleSearches"
                     :key="search.id"
-                    :variant="searchStatusVariant(search.status)"
-                    class="gap-1.5 py-1"
+                    type="button"
+                    class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    :disabled="search.status !== 'completed'"
+                    :aria-pressed="searchIdFilter === search.id"
+                    :data-test="`lead-search-pill-${search.id}`"
+                    @click="viewSearchResults(search)"
                 >
-                    <LoaderCircle
-                        v-if="
-                            search.status === 'pending' ||
-                            search.status === 'running'
+                    <Badge
+                        :variant="
+                            searchIdFilter === search.id
+                                ? 'default'
+                                : searchStatusVariant(search.status)
                         "
-                        class="animate-spin"
-                    />
-                    {{ searchLabel(search) }}
-                    <span v-if="search.status === 'completed'">
-                        ({{ search.resultsCount }} found)
-                    </span>
-                </Badge>
+                        class="gap-1.5 py-1"
+                        :class="
+                            search.status === 'completed'
+                                ? 'cursor-pointer'
+                                : 'cursor-default'
+                        "
+                    >
+                        <LoaderCircle
+                            v-if="
+                                search.status === 'pending' ||
+                                search.status === 'running'
+                            "
+                            class="animate-spin"
+                        />
+                        {{ searchLabel(search) }}
+                        <span v-if="search.status === 'completed'">
+                            ({{ searchResultSummary(search) }})
+                        </span>
+                    </Badge>
+                </button>
+                <Button
+                    v-if="searchIdFilter !== null"
+                    size="sm"
+                    variant="ghost"
+                    data-test="clear-search-filter"
+                    @click="
+                        searchIdFilter = null;
+                        sortOrder = 'score';
+                    "
+                >
+                    <X class="size-3.5" />
+                    Show all leads
+                </Button>
             </div>
         </div>
 

@@ -11,6 +11,7 @@ use App\Services\Ai\AiCreditLog;
 use App\Services\LeadFinder\LeadFinder;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Build a Mindcase Google Maps place row.
@@ -110,6 +111,8 @@ test('a completed search stores open businesses as team leads', function () {
     expect($search->fresh())
         ->status->toBe(LeadSearchStatus::Completed)
         ->results_count->toBe(1)
+        ->leads_created_count->toBe(1)
+        ->leads_updated_count->toBe(0)
         ->provider_job_id->toBe('job-1')
         ->completed_at->not->toBeNull();
 
@@ -187,6 +190,7 @@ test('finding a business again refreshes its details but keeps its pipeline stag
         'reviews_count' => 100,
         'status' => LeadStatus::Contacted,
         'notes' => 'Called on Monday',
+        'lead_search_id' => null,
     ]);
 
     runLeadSearch($search);
@@ -194,8 +198,59 @@ test('finding a business again refreshes its details but keeps its pipeline stag
     expect($existing->fresh())
         ->reviews_count->toBe(150)
         ->status->toBe(LeadStatus::Contacted)
-        ->notes->toBe('Called on Monday');
+        ->notes->toBe('Called on Monday')
+        ->lead_search_id->toBe($search->id);
     expect(Lead::count())->toBe(1);
+    expect($search->fresh())
+        ->results_count->toBe(1)
+        ->leads_created_count->toBe(0)
+        ->leads_updated_count->toBe(1);
+});
+
+test('lead search start and completion are logged with created versus refreshed counts', function () {
+    Log::spy();
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'job_id' => 'job-log',
+            'status' => 'completed',
+            'data' => [
+                mindcasePlace(),
+                mindcasePlace([
+                    'placeId' => 'ChIJ-existing',
+                    'businessName' => 'Existing Plumbing',
+                ]),
+            ],
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->create([
+        'keyword' => 'construction',
+        'location' => 'texas',
+    ]);
+    Lead::factory()->create([
+        'team_id' => $search->team_id,
+        'place_id' => 'ChIJ-existing',
+        'name' => 'Existing Plumbing',
+    ]);
+
+    runLeadSearch($search);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context = []) => $message === '[lead-search] Started'
+            && $context['lead_search_id'] === $search->id
+            && $context['keyword'] === 'construction'
+            && $context['location'] === 'texas');
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context = []) => $message === '[lead-search] Completed'
+            && $context['provider_listings'] === 2
+            && $context['leads_created'] === 1
+            && $context['leads_updated'] === 1);
+
+    expect($search->fresh())
+        ->leads_created_count->toBe(1)
+        ->leads_updated_count->toBe(1);
 });
 
 test('a pasted maps link is looked up directly', function () {

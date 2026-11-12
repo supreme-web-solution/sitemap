@@ -265,7 +265,8 @@ class Lead extends Model
             ->when(($filters['follow_up'] ?? null) === 'due', fn (Builder $query) => $query
                 ->whereDate('next_follow_up_at', '<=', today())
                 ->whereNotIn('status', [LeadStatus::Won, LeadStatus::Lost]))
-            ->when($filters['assigned'] ?? null, fn (Builder $query, string $assigned) => $query->where('assigned_user_id', (int) $assigned));
+            ->when($filters['assigned'] ?? null, fn (Builder $query, string $assigned) => $query->where('assigned_user_id', (int) $assigned))
+            ->when($filters['search_id'] ?? null, fn (Builder $query, string $searchId) => $query->where('lead_search_id', (int) $searchId));
     }
 
     /**
@@ -278,7 +279,7 @@ class Lead extends Model
     {
         match ($sort) {
             'reviews' => $query->orderByDesc('reviews_count'),
-            'newest' => $query,
+            'newest' => $query->orderByDesc('updated_at'),
             'follow_up' => $query
                 ->orderByRaw('CASE WHEN next_follow_up_at IS NULL THEN 1 ELSE 0 END')
                 ->orderBy('next_follow_up_at'),

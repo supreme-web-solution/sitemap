@@ -54,6 +54,8 @@ class StoreLeadsFromListings
             ->pluck('place_id')
             ->all();
 
+        $now = now();
+
         $rows = $listings
             ->reject(fn (BusinessListing $listing) => in_array($listing->placeId, $confirmedPlaceIds, true))
             ->map(fn (BusinessListing $listing) => [
@@ -84,6 +86,8 @@ class StoreLeadsFromListings
                 'listing_photo_urls' => $listing->photoUrls === [] ? null : json_encode($listing->photoUrls),
                 'maps_url' => $listing->mapsUrl,
                 'status' => LeadStatus::New->value,
+                'created_at' => $now,
+                'updated_at' => $now,
             ])
             ->values();
 

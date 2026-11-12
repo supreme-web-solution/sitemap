@@ -39,13 +39,20 @@ class LeadFilterRequest extends FormRequest
             'follow_up' => ['nullable', Rule::in(['due'])],
             'assigned' => ['nullable', 'integer'],
             'ideal' => ['nullable', Rule::in(['1', 'true'])],
+            'search_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('lead_searches', 'id')->where(
+                    fn ($query) => $query->where('team_id', $this->route('current_team')->id),
+                ),
+            ],
         ];
     }
 
     /**
      * Get the validated filters with absent values removed.
      *
-     * @return array{status?: string, search?: string, sort?: string, tier?: string, follow_up?: string, assigned?: string, ideal?: string}
+     * @return array{status?: string, search?: string, sort?: string, tier?: string, follow_up?: string, assigned?: string, ideal?: string, search_id?: string}
      */
     public function filters(): array
     {

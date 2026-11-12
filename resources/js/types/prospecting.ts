@@ -286,6 +286,8 @@ export type LeadSearch = {
     placeUrl: string | null;
     status: 'pending' | 'running' | 'completed' | 'failed';
     resultsCount: number;
+    leadsCreatedCount: number;
+    leadsUpdatedCount: number;
     error: string | null;
     createdAt: string;
 };
