@@ -16,6 +16,7 @@ use App\Support\Queues;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
@@ -131,19 +132,39 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
         /** @var array{found: int, created: int, updated: int, skipped_confirmed: int, skipped_limit: int, remaining_before: int|null} $stats */
         $stats = [];
 
-        DB::transaction(function () use ($search, $result, $storeLeads, &$stats) {
-            $stats = $storeLeads->handle($search, $result->listings);
+        try {
+            DB::transaction(function () use ($search, $result, $storeLeads, &$stats) {
+                $stats = $storeLeads->handle($search, $result->listings);
 
-            $search->update([
-                'status' => LeadSearchStatus::Completed,
-                'provider_job_id' => $result->providerJobId,
-                'results_count' => $stats['found'],
-                'leads_created_count' => $stats['created'],
-                'leads_updated_count' => $stats['updated'],
-                'leads_skipped_limit_count' => $stats['skipped_limit'],
-                'completed_at' => now(),
+                $search->update([
+                    'status' => LeadSearchStatus::Completed,
+                    'provider_job_id' => $result->providerJobId,
+                    'results_count' => $stats['found'],
+                    'leads_created_count' => $stats['created'],
+                    'leads_updated_count' => $stats['updated'],
+                    'leads_skipped_limit_count' => $stats['skipped_limit'],
+                    'completed_at' => now(),
+                ]);
+            });
+        } catch (QueryException $exception) {
+            Log::error('[lead-search] Store failed', [
+                ...$this->logContext($search),
+                'listings' => count($result->listings),
+                'sql_state' => $exception->errorInfo[0] ?? null,
+                'driver_code' => $exception->errorInfo[1] ?? null,
+                'error' => $exception->errorInfo[2]
+                    ?? Str::before($exception->getMessage(), ' (Connection:'),
             ]);
-        });
+
+            $this->failSearch(
+                $search,
+                'The search finished but the results could not be saved. Please try again.',
+                app(AiCreditLog::class),
+                $exception->errorInfo[2] ?? 'Database error while storing leads',
+            );
+
+            return;
+        }
 
         $search->refresh();
 

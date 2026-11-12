@@ -9,6 +9,7 @@ use App\Models\Lead;
 use App\Models\LeadSearch;
 use App\Services\Ai\AiCreditLog;
 use App\Services\LeadFinder\LeadFinder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -52,6 +53,91 @@ function runLeadSearch(LeadSearch $search): RunLeadSearch
 
     return $job;
 }
+
+test('a database failure while storing leads is logged without dumping the full sql', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'job_id' => 'job-store-fail',
+            'status' => 'completed',
+            'data' => [mindcasePlace(['placeId' => 'ChIJ-store-fail'])],
+        ]),
+    ]);
+
+    Log::spy();
+
+    $search = LeadSearch::factory()->create([
+        'keyword' => 'handyman',
+        'location' => 'Dallas, Texas',
+    ]);
+
+    $previous = new PDOException('SQLSTATE[22001]: String data, right truncated: 1406 Data too long for column \'website\' at row 11');
+    $previous->errorInfo = ['22001', 1406, "Data too long for column 'website' at row 11"];
+
+    $store = Mockery::mock(StoreLeadsFromListings::class);
+    $store->shouldReceive('handle')->once()->andThrow(new QueryException(
+        'mysql',
+        'insert into `leads` (`website`, `social_links`) values (?, ?) /* '.str_repeat('noise', 200).' */',
+        [],
+        $previous,
+    ));
+
+    $job = (new RunLeadSearch($search))->withFakeQueueInteractions();
+    $job->handle(app(LeadFinder::class), $store, app(AiCreditLog::class));
+
+    expect($search->fresh())
+        ->status->toBe(LeadSearchStatus::Failed)
+        ->error->toBe('The search finished but the results could not be saved. Please try again.');
+
+    Log::shouldHaveReceived('error')
+        ->withArgs(function (string $message, array $context = []) {
+            if ($message !== '[lead-search] Store failed') {
+                return false;
+            }
+
+            expect($context['error'] ?? '')->toBe("Data too long for column 'website' at row 11")
+                ->and($context['error'])->not->toContain('insert into')
+                ->and($context['error'])->not->toContain('social_links')
+                ->and($context['listings'])->toBe(1);
+
+            return true;
+        });
+});
+
+test('a completed search stores long website urls without failing the batch', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+
+    $longWebsite = 'https://example.test/path?'.str_repeat('q=1&', 400).'end=1';
+
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'job_id' => 'job-long-website',
+            'status' => 'completed',
+            'truncated' => false,
+            'data' => [
+                mindcasePlace([
+                    'placeId' => 'ChIJ-long-website',
+                    'businessName' => 'Long URL Handyman',
+                    'website' => $longWebsite,
+                    'address' => str_repeat('123 Very Long Street Name Suite 400, ', 20).'Austin, TX 78701',
+                ]),
+            ],
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->create();
+
+    runLeadSearch($search);
+
+    $lead = $search->team->leads()->sole();
+
+    expect($lead->name)->toBe('Long URL Handyman')
+        ->and(strlen((string) $lead->website))->toBeLessThanOrEqual(2048)
+        ->and(strlen((string) $lead->address))->toBeLessThanOrEqual(2048)
+        ->and($lead->website)->toStartWith('https://example.test/path?');
+});
 
 test('a completed search stores listing extras from the provider row', function () {
     config(['services.mindcase.key' => 'mk_test_key']);

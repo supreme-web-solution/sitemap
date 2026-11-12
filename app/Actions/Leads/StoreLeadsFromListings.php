@@ -11,6 +11,7 @@ use App\Models\Lead;
 use App\Models\LeadSearch;
 use App\Services\Billing\UsageMeter;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class StoreLeadsFromListings
 {
@@ -28,6 +29,30 @@ class StoreLeadsFromListings
         'lead_search_id', 'name', 'category', 'phone', 'additional_phones', 'email', 'social_links', 'website', 'address', 'city', 'neighborhood',
         'located_in', 'state', 'country', 'latitude', 'longitude', 'rating', 'reviews_count', 'opening_hours', 'description',
         'listing_services', 'photo_url', 'listing_photo_urls', 'maps_url', 'updated_at',
+    ];
+
+    /**
+     * Max lengths for listing fields before they hit the database.
+     *
+     * VARCHAR columns stay at 255. Long URL/address fields use text and are
+     * still capped so a bad provider row cannot blow up an upsert batch.
+     */
+    protected const FIELD_LIMITS = [
+        'place_id' => 255,
+        'name' => 255,
+        'category' => 255,
+        'phone' => 255,
+        'email' => 255,
+        'website' => 2048,
+        'address' => 2048,
+        'city' => 255,
+        'neighborhood' => 255,
+        'located_in' => 255,
+        'state' => 255,
+        'country' => 255,
+        'photo_url' => 2048,
+        'maps_url' => 2048,
+        'description' => 65000,
     ];
 
     /**
@@ -59,37 +84,8 @@ class StoreLeadsFromListings
 
         $rows = $listings
             ->reject(fn (BusinessListing $listing) => in_array($listing->placeId, $confirmedPlaceIds, true))
-            ->map(fn (BusinessListing $listing) => [
-                'team_id' => $search->team_id,
-                'lead_search_id' => $search->id,
-                'place_id' => $listing->placeId,
-                'name' => $listing->name,
-                'category' => $listing->category,
-                'phone' => $listing->phone,
-                'additional_phones' => $listing->additionalPhones === [] ? null : json_encode($listing->additionalPhones),
-                'email' => $listing->email,
-                'social_links' => $listing->socialLinks === [] ? null : json_encode($listing->socialLinks),
-                'website' => $listing->website,
-                'address' => $listing->address,
-                'city' => $listing->city,
-                'neighborhood' => $listing->neighborhood,
-                'located_in' => $listing->locatedIn,
-                'state' => $listing->state,
-                'country' => $listing->country,
-                'latitude' => $listing->latitude,
-                'longitude' => $listing->longitude,
-                'rating' => $listing->rating,
-                'reviews_count' => $listing->reviewsCount,
-                'opening_hours' => $listing->openingHours === null ? null : json_encode($listing->openingHours),
-                'description' => $listing->description,
-                'listing_services' => $listing->services === [] ? null : json_encode($listing->services),
-                'photo_url' => $listing->photoUrl,
-                'listing_photo_urls' => $listing->photoUrls === [] ? null : json_encode($listing->photoUrls),
-                'maps_url' => $listing->mapsUrl,
-                'status' => LeadStatus::New->value,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ])
+            ->map(fn (BusinessListing $listing) => $this->rowFromListing($search, $listing, $now))
+            ->filter(fn (array $row) => filled($row['place_id']) && filled($row['name']))
             ->values();
 
         $candidateCount = $rows->count();
@@ -123,6 +119,59 @@ class StoreLeadsFromListings
             'skipped_limit' => $skippedLimit,
             'remaining_before' => $remainingBefore,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function rowFromListing(LeadSearch $search, BusinessListing $listing, mixed $now): array
+    {
+        return [
+            'team_id' => $search->team_id,
+            'lead_search_id' => $search->id,
+            'place_id' => $this->limitString($listing->placeId, self::FIELD_LIMITS['place_id']),
+            'name' => $this->limitString($listing->name, self::FIELD_LIMITS['name']),
+            'category' => $this->limitString($listing->category, self::FIELD_LIMITS['category']),
+            'phone' => $this->limitString($listing->phone, self::FIELD_LIMITS['phone']),
+            'additional_phones' => $listing->additionalPhones === [] ? null : json_encode($listing->additionalPhones),
+            'email' => $this->limitString($listing->email, self::FIELD_LIMITS['email']),
+            'social_links' => $listing->socialLinks === [] ? null : json_encode($listing->socialLinks),
+            'website' => $this->limitString($listing->website, self::FIELD_LIMITS['website']),
+            'address' => $this->limitString($listing->address, self::FIELD_LIMITS['address']),
+            'city' => $this->limitString($listing->city, self::FIELD_LIMITS['city']),
+            'neighborhood' => $this->limitString($listing->neighborhood, self::FIELD_LIMITS['neighborhood']),
+            'located_in' => $this->limitString($listing->locatedIn, self::FIELD_LIMITS['located_in']),
+            'state' => $this->limitString($listing->state, self::FIELD_LIMITS['state']),
+            'country' => $this->limitString($listing->country, self::FIELD_LIMITS['country']),
+            'latitude' => $listing->latitude,
+            'longitude' => $listing->longitude,
+            'rating' => $listing->rating,
+            'reviews_count' => $listing->reviewsCount,
+            'opening_hours' => $listing->openingHours === null ? null : json_encode($listing->openingHours),
+            'description' => $this->limitString($listing->description, self::FIELD_LIMITS['description']),
+            'listing_services' => $listing->services === [] ? null : json_encode($listing->services),
+            'photo_url' => $this->limitString($listing->photoUrl, self::FIELD_LIMITS['photo_url']),
+            'listing_photo_urls' => $listing->photoUrls === [] ? null : json_encode($listing->photoUrls),
+            'maps_url' => $this->limitString($listing->mapsUrl, self::FIELD_LIMITS['maps_url']),
+            'status' => LeadStatus::New->value,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+    }
+
+    protected function limitString(?string $value, int $max): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        return Str::limit($value, $max, '');
     }
 
     /**

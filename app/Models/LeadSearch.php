@@ -124,6 +124,7 @@ class LeadSearch extends Model
             'the search timed out. please try again.',
             'the search could not be completed.',
             'the search could not be completed. please try again.',
+            'the search finished but the results could not be saved. please try again.',
         ];
 
         if (in_array($normalized, $allowed, true)) {
