@@ -24,6 +24,7 @@ import { toast } from 'vue-sonner';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PaginationBar from '@/components/PaginationBar.vue';
+import SuggestInput from '@/components/SuggestInput.vue';
 import LeadQuickActions from '@/components/leads/LeadQuickActions.vue';
 import SiteBuildBar from '@/components/leads/SiteBuildBar.vue';
 import LeadStageControls from '@/components/leads/LeadStageControls.vue';
@@ -118,11 +119,6 @@ const props = defineProps<{
     searchSuggestions: {
         keywords: string[];
         locations: string[];
-    };
-    leadUsage: {
-        used: number;
-        limit: number | null;
-        remaining: number | null;
     };
 }>();
 
@@ -399,10 +395,6 @@ const dismissSearch = (search: LeadSearch, event: Event) => {
         },
     );
 };
-
-const atLeadLimit = computed(
-    () => props.leadUsage.remaining !== null && props.leadUsage.remaining <= 0,
-);
 
 const searchText = ref(props.filters.search ?? '');
 const statusFilter = ref<string>(props.filters.status ?? 'all');
@@ -1026,66 +1018,27 @@ const onPickDesign = (lead: Lead) => {
                     class="grid gap-4 sm:grid-cols-2"
                     @submit.prevent="submitSearch"
                 >
-                    <Alert
-                        v-if="atLeadLimit"
-                        class="sm:col-span-2 border-amber-500/30 bg-amber-500/5"
-                        data-test="lead-limit-warning"
-                    >
-                        <AlertTitle>Lead plan is full</AlertTitle>
-                        <AlertDescription>
-                            You are using
-                            {{ leadUsage.used }}
-                            of
-                            {{ leadUsage.limit }}
-                            leads. New searches can still refresh businesses you
-                            already have, but new ones will not be added until
-                            you delete leads or upgrade.
-                        </AlertDescription>
-                    </Alert>
-
                     <div class="grid gap-2 sm:col-span-1">
                         <Label for="keyword">Industry or keyword</Label>
-                        <Input
+                        <SuggestInput
                             id="keyword"
                             v-model="searchForm.keyword"
-                            list="lead-search-keywords"
+                            :options="searchSuggestions.keywords"
                             placeholder="e.g. plumber"
                             required
                         />
-                        <datalist id="lead-search-keywords">
-                            <option
-                                v-for="keyword in searchSuggestions.keywords"
-                                :key="keyword"
-                                :value="keyword"
-                            />
-                        </datalist>
-                        <p class="text-xs text-muted-foreground">
-                            Type freely or pick a common trade from the list.
-                        </p>
                         <InputError :message="searchForm.errors.keyword" />
                     </div>
 
                     <div class="grid gap-2 sm:col-span-1">
                         <Label for="location">Location</Label>
-                        <Input
+                        <SuggestInput
                             id="location"
                             v-model="searchForm.location"
-                            list="lead-search-locations"
+                            :options="searchSuggestions.locations"
                             placeholder="e.g. Dallas, Texas"
                             required
                         />
-                        <datalist id="lead-search-locations">
-                            <option
-                                v-for="location in searchSuggestions.locations"
-                                :key="location"
-                                :value="location"
-                            />
-                        </datalist>
-                        <p class="text-xs text-muted-foreground">
-                            Use City, Region (Dallas, Texas or London, United
-                            Kingdom). Pick from the list or type any city
-                            worldwide.
-                        </p>
                         <InputError :message="searchForm.errors.location" />
                     </div>
 
@@ -1093,11 +1046,12 @@ const onPickDesign = (lead: Lead) => {
                         <Label for="extra-locations"
                             >More cities (optional)</Label
                         >
-                        <Input
+                        <SuggestInput
                             id="extra-locations"
                             v-model="extraLocations"
-                            list="lead-search-locations"
-                            placeholder="Houston, Texas — same keyword, comma-separated"
+                            :options="searchSuggestions.locations"
+                            append
+                            placeholder="Houston, Texas — same keyword"
                         />
                     </div>
 

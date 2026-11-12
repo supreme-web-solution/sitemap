@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Leads;
 use App\Actions\Leads\DeleteLead;
 use App\Enums\LeadActivityType;
 use App\Enums\LeadStatus;
-use App\Enums\UsageMetric;
 use App\Enums\WebsiteFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Leads\LeadFilterRequest;
@@ -14,7 +13,6 @@ use App\Http\Resources\LeadResource;
 use App\Models\Lead;
 use App\Models\LeadSearch;
 use App\Models\Team;
-use App\Services\Billing\UsageMeter;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,7 +22,7 @@ class LeadController extends Controller
     /**
      * Display the team's leads and recent searches.
      */
-    public function index(LeadFilterRequest $request, Team $currentTeam, UsageMeter $usage): Response
+    public function index(LeadFilterRequest $request, Team $currentTeam): Response
     {
         $filters = $request->filters();
 
@@ -40,9 +38,6 @@ class LeadController extends Controller
             ->paginate(25)
             ->withQueryString()
             ->through(fn (Lead $lead) => LeadResource::make($lead)->resolve());
-
-        $leadsUsed = $usage->used($currentTeam, UsageMetric::Leads);
-        $leadsLimit = $usage->limit($currentTeam, UsageMetric::Leads);
 
         return Inertia::render('leads/Index', [
             'leads' => $leads,
@@ -67,11 +62,6 @@ class LeadController extends Controller
             'searchSuggestions' => [
                 'keywords' => config('lead-search.keywords'),
                 'locations' => config('lead-search.locations'),
-            ],
-            'leadUsage' => [
-                'used' => $leadsUsed,
-                'limit' => $leadsLimit,
-                'remaining' => $leadsLimit === null ? null : max(0, $leadsLimit - $leadsUsed),
             ],
             'savedSearches' => $currentTeam->savedLeadSearches()
                 ->latest('updated_at')
