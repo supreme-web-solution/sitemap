@@ -7,6 +7,7 @@ use App\Enums\UsageMetric;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Leads\StoreLeadSearchRequest;
 use App\Jobs\RunLeadSearch;
+use App\Models\LeadSearch;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use Illuminate\Http\RedirectResponse;
@@ -49,5 +50,17 @@ class LeadSearchController extends Controller
         )]);
 
         return to_route('leads.index', ['current_team' => $currentTeam->slug]);
+    }
+
+    /**
+     * Remove a search from the recent-search list.
+     */
+    public function destroy(Team $currentTeam, LeadSearch $leadSearch): RedirectResponse
+    {
+        abort_unless($leadSearch->team_id === $currentTeam->id, 404);
+
+        $leadSearch->delete();
+
+        return back();
     }
 }

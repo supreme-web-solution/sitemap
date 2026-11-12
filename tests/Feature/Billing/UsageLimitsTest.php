@@ -4,7 +4,10 @@ use App\Actions\Leads\StoreLeadsFromListings;
 use App\Data\BusinessListing;
 use App\Enums\PlanFeature;
 use App\Enums\UsageMetric;
+use App\Enums\WebsiteFilter;
 use App\Exceptions\PlanLimitException;
+use App\Jobs\GenerateLeadSite;
+use App\Jobs\RunLeadSearch;
 use App\Models\Lead;
 use App\Models\LeadSearch;
 use App\Models\Plan;
@@ -94,13 +97,13 @@ test('features locked by the plan are refused', function () {
 test('starting a lead search past the cap redirects back with a message and does not queue work', function () {
     Bus::fake();
     [$user, $team] = teamOnPlan(['lead_searches' => 1]);
-    $payload = ['keyword' => 'plumbers', 'location' => 'Austin, TX', 'website_filter' => App\Enums\WebsiteFilter::AllPlaces->value, 'max_results' => 20];
+    $payload = ['keyword' => 'plumbers', 'location' => 'Austin, TX', 'website_filter' => WebsiteFilter::AllPlaces->value, 'max_results' => 20];
 
     $this->actingAs($user)->post(route('lead-searches.store', ['current_team' => $team->slug]), $payload)->assertRedirect();
     $this->actingAs($user)->from('/back')->post(route('lead-searches.store', ['current_team' => $team->slug]), $payload)->assertRedirect('/back');
 
     expect(LeadSearch::count())->toBe(1);
-    Bus::assertDispatchedTimes(App\Jobs\RunLeadSearch::class, 1);
+    Bus::assertDispatchedTimes(RunLeadSearch::class, 1);
 });
 
 test('generating a site past the cap is refused', function () {
@@ -131,7 +134,7 @@ test('regenerating an existing website is not blocked by the website total', fun
 
     $this->actingAs($user)->post(route('leads.site.store', ['current_team' => $team->slug, 'lead' => $site->lead_id]));
 
-    Bus::assertDispatched(App\Jobs\GenerateLeadSite::class);
+    Bus::assertDispatched(GenerateLeadSite::class);
 });
 
 test('outreach emails are counted and capped but logged contacts are free', function () {
@@ -155,10 +158,31 @@ test('new leads from a search are trimmed to the remaining lead allowance but ex
 
     $listing = fn (string $id, string $name) => new BusinessListing(placeId: $id, name: $name);
 
-    app(StoreLeadsFromListings::class)->handle($search, [
+    $stats = app(StoreLeadsFromListings::class)->handle($search, [
         $listing('new-1', 'One'), $listing('existing-1', 'Fresh Name'), $listing('new-2', 'Two'), $listing('new-3', 'Three'),
     ]);
 
     expect($team->leads()->count())->toBe(3)
-        ->and($team->leads()->where('place_id', 'existing-1')->value('name'))->toBe('Fresh Name');
+        ->and($team->leads()->where('place_id', 'existing-1')->value('name'))->toBe('Fresh Name')
+        ->and($stats['created'])->toBe(2)
+        ->and($stats['updated'])->toBe(1)
+        ->and($stats['skipped_limit'])->toBe(1)
+        ->and($stats['remaining_before'])->toBe(2);
+});
+
+test('a full lead plan skips every new listing and reports the skipped count', function () {
+    [, $team] = teamOnPlan(['leads' => 1]);
+    Lead::factory()->for($team)->create(['place_id' => 'already-there']);
+    $search = LeadSearch::factory()->for($team)->create();
+
+    $stats = app(StoreLeadsFromListings::class)->handle($search, [
+        new BusinessListing(placeId: 'new-a', name: 'A'),
+        new BusinessListing(placeId: 'new-b', name: 'B'),
+    ]);
+
+    expect($team->leads()->count())->toBe(1)
+        ->and($stats['created'])->toBe(0)
+        ->and($stats['updated'])->toBe(0)
+        ->and($stats['skipped_limit'])->toBe(2)
+        ->and($stats['remaining_before'])->toBe(0);
 });

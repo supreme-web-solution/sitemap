@@ -188,7 +188,12 @@ test('leads can be filtered to a search and sorted with newest results first', f
             ->where('leads.data.1.id', $older->id)
             ->where('filters.search_id', $search->id)
             ->where('searches.0.leadsCreatedCount', 1)
-            ->where('searches.0.leadsUpdatedCount', 1));
+            ->where('searches.0.leadsUpdatedCount', 1)
+            ->has('searchSuggestions.keywords')
+            ->has('searchSuggestions.locations')
+            ->has('leadUsage.used')
+            ->has('leadUsage.limit')
+            ->has('leadUsage.remaining'));
 });
 
 test('the leads csv export respects filters, team ownership and neutralises formulas', function () {

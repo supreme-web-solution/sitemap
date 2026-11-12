@@ -250,11 +250,26 @@ readonly class MapsPlaceRow
             return null;
         }
 
-        $normalized = array_filter(
-            $decoded,
-            fn ($hours, $day) => is_string($day) && is_string($hours),
-            ARRAY_FILTER_USE_BOTH,
-        );
+        $normalized = [];
+
+        foreach ($decoded as $day => $hours) {
+            if (is_string($day) && is_string($hours) && trim($hours) !== '') {
+                $normalized[$day] = trim($hours);
+
+                continue;
+            }
+
+            if (! is_array($hours)) {
+                continue;
+            }
+
+            $label = self::string($hours, 'day', 'Day');
+            $range = self::string($hours, 'hours', 'Hours');
+
+            if ($label !== null && $range !== null) {
+                $normalized[$label] = $range;
+            }
+        }
 
         return $normalized === [] ? null : $normalized;
     }

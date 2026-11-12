@@ -58,7 +58,10 @@ import {
 } from '@/components/ui/tooltip';
 import { leadStatuses } from '@/lib/leadStatus';
 import { store as storeImport } from '@/routes/lead-imports';
-import { store as storeSearch } from '@/routes/lead-searches';
+import {
+    destroy as destroySearch,
+    store as storeSearch,
+} from '@/routes/lead-searches';
 import {
     destroy as destroySavedSearch,
     run as runSavedSearch,
@@ -112,6 +115,15 @@ const props = defineProps<{
     members: { id: number; name: string }[];
     hasIdealCustomer: boolean;
     sequences: { id: number; name: string }[];
+    searchSuggestions: {
+        keywords: string[];
+        locations: string[];
+    };
+    leadUsage: {
+        used: number;
+        limit: number | null;
+        remaining: number | null;
+    };
 }>();
 
 defineOptions({
@@ -321,6 +333,7 @@ const searchStatusSnapshot = ref<Record<number, string>>({});
 const searchResultSummary = (search: LeadSearch) => {
     const created = search.leadsCreatedCount ?? 0;
     const updated = search.leadsUpdatedCount ?? 0;
+    const skippedLimit = search.leadsSkippedLimitCount ?? 0;
 
     if (created > 0 && updated > 0) {
         return `${created} new · ${updated} already listed`;
@@ -334,12 +347,17 @@ const searchResultSummary = (search: LeadSearch) => {
         return `${updated} already listed`;
     }
 
+    if (skippedLimit > 0) {
+        return `${skippedLimit} blocked by plan limit`;
+    }
+
     return 'no matches';
 };
 
 const searchCompletionToast = (search: LeadSearch) => {
     const created = search.leadsCreatedCount ?? 0;
     const updated = search.leadsUpdatedCount ?? 0;
+    const skippedLimit = search.leadsSkippedLimitCount ?? 0;
     const label = searchLabel(search);
 
     if (created > 0 && updated > 0) {
@@ -354,8 +372,37 @@ const searchCompletionToast = (search: LeadSearch) => {
         return `${label} — ${updated} already in your list (refreshed)`;
     }
 
+    if (skippedLimit > 0) {
+        return `${label} — found ${skippedLimit}, but your lead plan is full`;
+    }
+
     return `${label} — no new matches`;
 };
+
+const dismissSearch = (search: LeadSearch, event: Event) => {
+    event.stopPropagation();
+    event.preventDefault();
+
+    if (searchIdFilter.value === search.id) {
+        searchIdFilter.value = null;
+        sortOrder.value = 'score';
+    }
+
+    router.delete(
+        destroySearch.url({
+            current_team: teamSlug.value,
+            leadSearch: search.id,
+        }),
+        {
+            preserveScroll: true,
+            only: ['searches', 'filters', 'leads'],
+        },
+    );
+};
+
+const atLeadLimit = computed(
+    () => props.leadUsage.remaining !== null && props.leadUsage.remaining <= 0,
+);
 
 const searchText = ref(props.filters.search ?? '');
 const statusFilter = ref<string>(props.filters.status ?? 'all');
@@ -854,42 +901,55 @@ const onPickDesign = (lead: Lead) => {
             class="flex flex-col gap-2"
         >
             <div class="flex flex-wrap gap-2">
-                <button
+                <div
                     v-for="search in visibleSearches"
                     :key="search.id"
-                    type="button"
-                    class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    :disabled="search.status !== 'completed'"
-                    :aria-pressed="searchIdFilter === search.id"
-                    :data-test="`lead-search-pill-${search.id}`"
-                    @click="viewSearchResults(search)"
+                    class="inline-flex items-center"
                 >
-                    <Badge
-                        :variant="
-                            searchIdFilter === search.id
-                                ? 'default'
-                                : searchStatusVariant(search.status)
-                        "
-                        class="gap-1.5 py-1"
-                        :class="
-                            search.status === 'completed'
-                                ? 'cursor-pointer'
-                                : 'cursor-default'
-                        "
+                    <button
+                        type="button"
+                        class="rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        :disabled="search.status !== 'completed'"
+                        :aria-pressed="searchIdFilter === search.id"
+                        :data-test="`lead-search-pill-${search.id}`"
+                        @click="viewSearchResults(search)"
                     >
-                        <LoaderCircle
-                            v-if="
-                                search.status === 'pending' ||
-                                search.status === 'running'
+                        <Badge
+                            :variant="
+                                searchIdFilter === search.id
+                                    ? 'default'
+                                    : searchStatusVariant(search.status)
                             "
-                            class="animate-spin"
-                        />
-                        {{ searchLabel(search) }}
-                        <span v-if="search.status === 'completed'">
-                            ({{ searchResultSummary(search) }})
-                        </span>
-                    </Badge>
-                </button>
+                            class="gap-1.5 rounded-r-none py-1 pr-1.5"
+                            :class="
+                                search.status === 'completed'
+                                    ? 'cursor-pointer'
+                                    : 'cursor-default'
+                            "
+                        >
+                            <LoaderCircle
+                                v-if="
+                                    search.status === 'pending' ||
+                                    search.status === 'running'
+                                "
+                                class="animate-spin"
+                            />
+                            {{ searchLabel(search) }}
+                            <span v-if="search.status === 'completed'">
+                                ({{ searchResultSummary(search) }})
+                            </span>
+                        </Badge>
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex size-7 items-center justify-center rounded-r-full border border-l-0 border-border bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        :aria-label="`Remove ${searchLabel(search)}`"
+                        :data-test="`dismiss-lead-search-${search.id}`"
+                        @click="dismissSearch(search, $event)"
+                    >
+                        <X class="size-3.5" />
+                    </button>
+                </div>
                 <Button
                     v-if="searchIdFilter !== null"
                     size="sm"
@@ -966,14 +1026,42 @@ const onPickDesign = (lead: Lead) => {
                     class="grid gap-4 sm:grid-cols-2"
                     @submit.prevent="submitSearch"
                 >
+                    <Alert
+                        v-if="atLeadLimit"
+                        class="sm:col-span-2 border-amber-500/30 bg-amber-500/5"
+                        data-test="lead-limit-warning"
+                    >
+                        <AlertTitle>Lead plan is full</AlertTitle>
+                        <AlertDescription>
+                            You are using
+                            {{ leadUsage.used }}
+                            of
+                            {{ leadUsage.limit }}
+                            leads. New searches can still refresh businesses you
+                            already have, but new ones will not be added until
+                            you delete leads or upgrade.
+                        </AlertDescription>
+                    </Alert>
+
                     <div class="grid gap-2 sm:col-span-1">
                         <Label for="keyword">Industry or keyword</Label>
                         <Input
                             id="keyword"
                             v-model="searchForm.keyword"
-                            placeholder="e.g. plumbers"
+                            list="lead-search-keywords"
+                            placeholder="e.g. plumber"
                             required
                         />
+                        <datalist id="lead-search-keywords">
+                            <option
+                                v-for="keyword in searchSuggestions.keywords"
+                                :key="keyword"
+                                :value="keyword"
+                            />
+                        </datalist>
+                        <p class="text-xs text-muted-foreground">
+                            Type freely or pick a common trade from the list.
+                        </p>
                         <InputError :message="searchForm.errors.keyword" />
                     </div>
 
@@ -982,9 +1070,22 @@ const onPickDesign = (lead: Lead) => {
                         <Input
                             id="location"
                             v-model="searchForm.location"
-                            placeholder="e.g. Austin, Texas"
+                            list="lead-search-locations"
+                            placeholder="e.g. Dallas, Texas"
                             required
                         />
+                        <datalist id="lead-search-locations">
+                            <option
+                                v-for="location in searchSuggestions.locations"
+                                :key="location"
+                                :value="location"
+                            />
+                        </datalist>
+                        <p class="text-xs text-muted-foreground">
+                            Use City, Region (Dallas, Texas or London, United
+                            Kingdom). Pick from the list or type any city
+                            worldwide.
+                        </p>
                         <InputError :message="searchForm.errors.location" />
                     </div>
 
@@ -995,7 +1096,8 @@ const onPickDesign = (lead: Lead) => {
                         <Input
                             id="extra-locations"
                             v-model="extraLocations"
-                            placeholder="Dallas, Houston — same keyword"
+                            list="lead-search-locations"
+                            placeholder="Houston, Texas — same keyword, comma-separated"
                         />
                     </div>
 

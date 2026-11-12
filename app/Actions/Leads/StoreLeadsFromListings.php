@@ -34,7 +34,7 @@ class StoreLeadsFromListings
      * Insert or refresh the team's leads from the given listings.
      *
      * @param  list<BusinessListing>  $listings
-     * @return array{found: int, created: int, updated: int, skipped_confirmed: int}
+     * @return array{found: int, created: int, updated: int, skipped_confirmed: int, skipped_limit: int, remaining_before: int|null}
      */
     public function handle(LeadSearch $search, array $listings): array
     {
@@ -54,6 +54,7 @@ class StoreLeadsFromListings
             ->pluck('place_id')
             ->all();
 
+        $remainingBefore = $this->usage->remaining($search->team, UsageMetric::Leads);
         $now = now();
 
         $rows = $listings
@@ -91,7 +92,9 @@ class StoreLeadsFromListings
             ])
             ->values();
 
-        $rows = $this->withinLeadAllowance($search, $rows);
+        $candidateCount = $rows->count();
+        $rows = $this->withinLeadAllowance($search, $rows, $remainingBefore);
+        $skippedLimit = max(0, $candidateCount - $rows->count());
 
         $rows->chunk(200)->each(fn ($chunk) => Lead::upsert(
             $chunk->values()->all(),
@@ -117,6 +120,8 @@ class StoreLeadsFromListings
             'created' => count($newPlaceIds),
             'updated' => count($updatedPlaceIds),
             'skipped_confirmed' => count($confirmedPlaceIds),
+            'skipped_limit' => $skippedLimit,
+            'remaining_before' => $remainingBefore,
         ];
     }
 
@@ -126,10 +131,8 @@ class StoreLeadsFromListings
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return Collection<int, array<string, mixed>>
      */
-    protected function withinLeadAllowance(LeadSearch $search, Collection $rows): Collection
+    protected function withinLeadAllowance(LeadSearch $search, Collection $rows, ?int $remaining): Collection
     {
-        $remaining = $this->usage->remaining($search->team, UsageMetric::Leads);
-
         if ($remaining === null) {
             return $rows;
         }

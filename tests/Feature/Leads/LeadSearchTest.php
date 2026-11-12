@@ -2,6 +2,7 @@
 
 use App\Enums\LeadSearchStatus;
 use App\Jobs\RunLeadSearch;
+use App\Models\LeadSearch;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
@@ -85,4 +86,38 @@ test('the minimum rating must be a supported step', function () use ($validSearc
             'minimum_rating' => 4.2,
         ])
         ->assertSessionHasErrors(['minimum_rating' => 'The selected minimum rating is invalid.']);
+});
+
+test('team members can dismiss a recent search from the list', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $search = LeadSearch::factory()->completed()->create([
+        'team_id' => $team->id,
+        'keyword' => 'construction',
+        'location' => 'Dallas, Texas',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('leads.index', ['current_team' => $team->slug]))
+        ->delete(route('lead-searches.destroy', [
+            'current_team' => $team->slug,
+            'leadSearch' => $search->id,
+        ]))
+        ->assertRedirect(route('leads.index', ['current_team' => $team->slug]));
+
+    expect(LeadSearch::query()->whereKey($search->id)->exists())->toBeFalse();
+});
+
+test('users cannot dismiss another team search', function () {
+    $user = User::factory()->create();
+    $search = LeadSearch::factory()->completed()->create();
+
+    $this->actingAs($user)
+        ->delete(route('lead-searches.destroy', [
+            'current_team' => $user->currentTeam->slug,
+            'leadSearch' => $search->id,
+        ]))
+        ->assertNotFound();
+
+    expect(LeadSearch::query()->whereKey($search->id)->exists())->toBeTrue();
 });

@@ -246,11 +246,14 @@ test('lead search start and completion are logged with created versus refreshed 
         ->withArgs(fn (string $message, array $context = []) => $message === '[lead-search] Completed'
             && $context['provider_listings'] === 2
             && $context['leads_created'] === 1
-            && $context['leads_updated'] === 1);
+            && $context['leads_updated'] === 1
+            && $context['skipped_limit'] === 0
+            && array_key_exists('leads_remaining_before', $context));
 
     expect($search->fresh())
         ->leads_created_count->toBe(1)
-        ->leads_updated_count->toBe(1);
+        ->leads_updated_count->toBe(1)
+        ->leads_skipped_limit_count->toBe(0);
 });
 
 test('a pasted maps link is looked up directly', function () {

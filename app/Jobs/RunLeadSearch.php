@@ -125,7 +125,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
      */
     protected function complete(LeadSearch $search, LeadFinderResult $result, StoreLeadsFromListings $storeLeads): void
     {
-        /** @var array{found: int, created: int, updated: int, skipped_confirmed: int} $stats */
+        /** @var array{found: int, created: int, updated: int, skipped_confirmed: int, skipped_limit: int, remaining_before: int|null} $stats */
         $stats = [];
 
         DB::transaction(function () use ($search, $result, $storeLeads, &$stats) {
@@ -137,6 +137,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
                 'results_count' => $stats['found'],
                 'leads_created_count' => $stats['created'],
                 'leads_updated_count' => $stats['updated'],
+                'leads_skipped_limit_count' => $stats['skipped_limit'],
                 'completed_at' => now(),
             ]);
         });
@@ -149,6 +150,8 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             'leads_created' => $stats['created'],
             'leads_updated' => $stats['updated'],
             'skipped_confirmed' => $stats['skipped_confirmed'],
+            'skipped_limit' => $stats['skipped_limit'],
+            'leads_remaining_before' => $stats['remaining_before'],
             'seconds' => $search->created_at?->diffInSeconds($search->completed_at ?? now()),
         ]);
 

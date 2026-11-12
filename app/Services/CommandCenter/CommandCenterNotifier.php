@@ -83,6 +83,7 @@ class CommandCenterNotifier
 
         $created = $search->leads_created_count;
         $updated = $search->leads_updated_count;
+        $skippedLimit = $search->leads_skipped_limit_count;
 
         if ($created > 0) {
             $this->notify($team, $user, __('Your search for :label is complete — :count new lead(s) were added to your pipeline.', [
@@ -97,6 +98,15 @@ class CommandCenterNotifier
             $this->notify($team, $user, __('Your search for :label is complete — :count lead(s) were already in your pipeline and were refreshed.', [
                 'label' => $label,
                 'count' => $updated,
+            ]));
+
+            return;
+        }
+
+        if ($skippedLimit > 0) {
+            $this->notify($team, $user, __('Your search for :label found :count business(es), but your lead plan is full so none were added. Delete leads or upgrade to continue.', [
+                'label' => $label,
+                'count' => $skippedLimit,
             ]));
 
             return;

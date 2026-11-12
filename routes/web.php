@@ -231,6 +231,8 @@ Route::prefix('{current_team}')
         Route::post('lead-searches', [LeadSearchController::class, 'store'])
             ->middleware('throttle:lead-searches')
             ->name('lead-searches.store');
+        Route::delete('lead-searches/{leadSearch}', [LeadSearchController::class, 'destroy'])
+            ->name('lead-searches.destroy');
         Route::post('saved-lead-searches', [SavedLeadSearchController::class, 'store'])
             ->name('saved-lead-searches.store');
         Route::post('saved-lead-searches/{savedLeadSearch}/run', [SavedLeadSearchController::class, 'run'])

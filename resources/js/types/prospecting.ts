@@ -288,6 +288,7 @@ export type LeadSearch = {
     resultsCount: number;
     leadsCreatedCount: number;
     leadsUpdatedCount: number;
+    leadsSkippedLimitCount: number;
     error: string | null;
     createdAt: string;
 };
