@@ -17,7 +17,7 @@ const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 const examples = [
     'Plumbers in Austin, TX',
     'Dentists in Leeds',
-    'Barbers in Lagos',
+    'Barbers in Miami',
 ];
 
 const looksLikeMapsLink = (value: string): boolean =>
