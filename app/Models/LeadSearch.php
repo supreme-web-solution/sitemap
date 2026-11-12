@@ -27,6 +27,8 @@ use Illuminate\Support\Carbon;
  * @property LeadSearchStatus $status
  * @property string|null $provider_job_id
  * @property int $results_count
+ * @property int $leads_created_count
+ * @property int $leads_updated_count
  * @property string|null $error
  * @property bool $notify_command_center
  * @property Carbon|null $completed_at
@@ -47,6 +49,8 @@ use Illuminate\Support\Carbon;
     'status',
     'provider_job_id',
     'results_count',
+    'leads_created_count',
+    'leads_updated_count',
     'error',
     'notify_command_center',
     'completed_at',

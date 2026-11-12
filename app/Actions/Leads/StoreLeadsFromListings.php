@@ -25,7 +25,7 @@ class StoreLeadsFromListings
      * @var list<string>
      */
     protected const REFRESHED_COLUMNS = [
-        'name', 'category', 'phone', 'additional_phones', 'email', 'social_links', 'website', 'address', 'city', 'neighborhood',
+        'lead_search_id', 'name', 'category', 'phone', 'additional_phones', 'email', 'social_links', 'website', 'address', 'city', 'neighborhood',
         'located_in', 'state', 'country', 'latitude', 'longitude', 'rating', 'reviews_count', 'opening_hours', 'description',
         'listing_services', 'photo_url', 'listing_photo_urls', 'maps_url', 'updated_at',
     ];
@@ -34,10 +34,12 @@ class StoreLeadsFromListings
      * Insert or refresh the team's leads from the given listings.
      *
      * @param  list<BusinessListing>  $listings
+     * @return array{found: int, created: int, updated: int, skipped_confirmed: int}
      */
-    public function handle(LeadSearch $search, array $listings): void
+    public function handle(LeadSearch $search, array $listings): array
     {
         $listings = collect($listings)->unique('placeId');
+        $found = $listings->count();
 
         $existingPlaceIds = Lead::query()
             ->where('team_id', $search->team_id)
@@ -97,6 +99,7 @@ class StoreLeadsFromListings
         $this->scoreStoredLeads($search, $placeIds);
 
         $newPlaceIds = array_values(array_diff($placeIds, $existingPlaceIds));
+        $updatedPlaceIds = array_values(array_intersect($placeIds, $existingPlaceIds));
 
         if ($newPlaceIds !== []) {
             Lead::query()
@@ -104,6 +107,13 @@ class StoreLeadsFromListings
                 ->whereIn('place_id', $newPlaceIds)
                 ->each(fn (Lead $lead) => RunAgencyWorkflow::dispatchForLead($lead, AutomationTrigger::LeadCreated));
         }
+
+        return [
+            'found' => $found,
+            'created' => count($newPlaceIds),
+            'updated' => count($updatedPlaceIds),
+            'skipped_confirmed' => count($confirmedPlaceIds),
+        ];
     }
 
     /**
