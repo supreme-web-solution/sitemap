@@ -64,17 +64,23 @@ class ProposalActionController extends Controller
             'type' => 'success',
             'message' => $emailing
                 ? __('Proposal emailed to the client at :email.', ['email' => $lead->email])
-                : __('Proposal is ready. Copy the link to share it.'),
+                : __('Proposal published. The client link is active — email it or copy the link.'),
         ]);
 
         return back();
     }
 
     /**
-     * Email a preview copy to the signed-in user without marking the proposal as sent.
+     * Email a preview copy to the signed-in user. The proposal must already be published.
      */
     public function preview(Request $request, Team $currentTeam, Proposal $proposal): RedirectResponse
     {
+        if ($proposal->status === ProposalStatus::Draft) {
+            throw ValidationException::withMessages([
+                'proposal' => __('Publish the proposal first so the client link is active, then send the email.'),
+            ]);
+        }
+
         if ($proposal->items()->doesntExist()) {
             throw ValidationException::withMessages(['proposal' => __('Add at least one item before previewing the email.')]);
         }

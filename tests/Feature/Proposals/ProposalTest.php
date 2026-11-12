@@ -128,9 +128,12 @@ test('emailing needs an email address on the lead', function () {
     Mail::assertNothingQueued();
 });
 
-test('the public page hides drafts and records the first view', function () {
+test('the public page tells visitors a draft is not active yet and records the first view when sent', function () {
     $draft = Proposal::factory()->create(['status' => ProposalStatus::Draft]);
-    $this->get($draft->publicUrl())->assertNotFound();
+    $this->get($draft->publicUrl())
+        ->assertOk()
+        ->assertSee('This proposal is not active yet')
+        ->assertDontSee('Accept this proposal');
 
     $proposal = sentProposal();
     $this->get($proposal->publicUrl())->assertOk()->assertSee('Website design and build')->assertSee('$1,500.00')->assertSee('Every month');

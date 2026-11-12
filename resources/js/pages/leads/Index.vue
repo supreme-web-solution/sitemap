@@ -72,6 +72,7 @@ import {
     update as updateLead,
 } from '@/routes/leads';
 import { bulk as bulkEnrollLeads } from '@/routes/leads/enrollments';
+import { destroy as bulkDestroyLeads } from '@/routes/leads/bulk';
 import SiteDesignTemplatePicker from '@/components/sites/SiteDesignTemplatePicker.vue';
 import { store as generateSite } from '@/routes/leads/site';
 import type {
@@ -495,6 +496,43 @@ const submitBulkEnroll = () => {
             selectedLeadIds.value = [];
         },
     });
+};
+
+const bulkDeleteForm = useForm({
+    lead_ids: [] as number[],
+});
+
+watch(
+    selectedLeadIds,
+    (ids) => {
+        bulkDeleteForm.lead_ids = ids;
+    },
+    { deep: true },
+);
+
+const submitBulkDelete = () => {
+    const count = selectedLeadIds.value.length;
+
+    if (
+        !confirm(
+            count === 1
+                ? 'Delete this lead and everything saved for it?'
+                : `Delete ${count} leads and everything saved for them?`,
+        )
+    ) {
+        return;
+    }
+
+    bulkDeleteForm.delete(
+        bulkDestroyLeads.url({ current_team: teamSlug.value }),
+        {
+            preserveScroll: true,
+            only: ['leads'],
+            onSuccess: () => {
+                selectedLeadIds.value = [];
+            },
+        },
+    );
 };
 
 const applyFilters = () => {
@@ -1083,39 +1121,52 @@ const onPickDesign = (lead: Lead) => {
         </div>
 
         <div
-            v-if="selectedLeadIds.length > 0 && sequences.length"
+            v-if="selectedLeadIds.length > 0"
             class="panel flex flex-col gap-3 border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"
-            data-test="leads-bulk-enroll-bar"
+            data-test="leads-bulk-action-bar"
         >
             <p class="flex items-center gap-2 text-sm font-medium">
                 <ListChecks class="size-4 text-primary" />
                 {{ selectedLeadIds.length }} selected
             </p>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Select v-model="bulkSequenceSelect">
-                    <SelectTrigger
-                        class="h-9 min-w-[12rem]"
-                        aria-label="Follow-up sequence"
-                    >
-                        <SelectValue placeholder="Choose sequence" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="sequence in sequences"
-                            :key="sequence.id"
-                            :value="String(sequence.id)"
+                <template v-if="sequences.length">
+                    <Select v-model="bulkSequenceSelect">
+                        <SelectTrigger
+                            class="h-9 min-w-[12rem]"
+                            aria-label="Follow-up sequence"
                         >
-                            {{ sequence.name }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                            <SelectValue placeholder="Choose sequence" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem
+                                v-for="sequence in sequences"
+                                :key="sequence.id"
+                                :value="String(sequence.id)"
+                            >
+                                {{ sequence.name }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button
+                        size="sm"
+                        :disabled="bulkEnrollForm.processing"
+                        data-test="leads-bulk-enroll-submit"
+                        @click="submitBulkEnroll"
+                    >
+                        Enroll in sequence
+                    </Button>
+                </template>
                 <Button
                     size="sm"
-                    :disabled="bulkEnrollForm.processing"
-                    data-test="leads-bulk-enroll-submit"
-                    @click="submitBulkEnroll"
+                    variant="outline"
+                    class="text-destructive hover:text-destructive"
+                    :disabled="bulkDeleteForm.processing"
+                    data-test="leads-bulk-delete-submit"
+                    @click="submitBulkDelete"
                 >
-                    Enroll in sequence
+                    <Trash2 class="size-4" />
+                    Delete
                 </Button>
                 <Button
                     variant="ghost"

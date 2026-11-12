@@ -18,13 +18,17 @@ class ProposalPublicController extends Controller
      */
     public function show(Proposal $proposal): View
     {
-        abort_if($proposal->status === ProposalStatus::Draft, 404);
+        $proposal->load(['team', 'lead', 'items', 'invoice']);
+
+        if ($proposal->status === ProposalStatus::Draft) {
+            return view('proposals.inactive', ['proposal' => $proposal]);
+        }
 
         if ($proposal->viewed_at === null) {
             $proposal->forceFill(['viewed_at' => now()])->save();
         }
 
-        return view('proposals.public', ['proposal' => $proposal->load(['team', 'lead', 'items', 'invoice'])]);
+        return view('proposals.public', ['proposal' => $proposal]);
     }
 
     /**
@@ -32,7 +36,11 @@ class ProposalPublicController extends Controller
      */
     public function accept(Request $request, Proposal $proposal, AcceptProposal $acceptProposal): RedirectResponse
     {
-        abort_if($proposal->status === ProposalStatus::Draft, 404);
+        if ($proposal->status === ProposalStatus::Draft) {
+            return redirect()
+                ->route('proposals.public', $proposal->public_token)
+                ->with(['notice' => __('This proposal is not active yet.'), 'notice_type' => 'warn']);
+        }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
@@ -57,7 +65,11 @@ class ProposalPublicController extends Controller
      */
     public function decline(Proposal $proposal): RedirectResponse
     {
-        abort_if($proposal->status === ProposalStatus::Draft, 404);
+        if ($proposal->status === ProposalStatus::Draft) {
+            return redirect()
+                ->route('proposals.public', $proposal->public_token)
+                ->with(['notice' => __('This proposal is not active yet.'), 'notice_type' => 'warn']);
+        }
 
         if (! $proposal->isOpen()) {
             return back()->with(['notice' => __('This proposal can no longer be changed.'), 'notice_type' => 'warn']);

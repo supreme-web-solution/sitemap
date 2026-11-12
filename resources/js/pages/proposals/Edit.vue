@@ -463,7 +463,34 @@ const textareaClass =
             <p v-if="proposal.status === 'accepted'" class="text-sm text-emerald-700 dark:text-emerald-300">
                 Accepted by {{ proposal.acceptedName }}. The invoice and recurring billing were created.
             </p>
+
+            <template v-else-if="proposal.status === 'draft'">
+                <p class="text-sm font-medium">Publish before you share</p>
+                <p class="text-xs text-muted-foreground">
+                    Publishing makes the client link active. After that you can
+                    email it, send a copy to yourself, or copy the link.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        size="sm"
+                        data-test="proposal-publish"
+                        @click="sendProposal(false)"
+                    >
+                        Publish proposal
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        data-test="proposal-delete-draft"
+                        @click="removeDraft"
+                    >
+                        <Trash2 /> Delete draft
+                    </Button>
+                </div>
+            </template>
+
             <template v-else>
+                <p class="text-sm font-medium">Share with the client</p>
                 <div class="flex flex-wrap gap-2">
                     <Button
                         size="sm"
@@ -472,11 +499,7 @@ const textareaClass =
                         @click="emailToClient"
                     >
                         <Send />
-                        {{
-                            proposal.status === 'draft'
-                                ? 'Email to client'
-                                : 'Email client again'
-                        }}
+                        Email to client
                     </Button>
                     <Button
                         size="sm"
@@ -486,15 +509,18 @@ const textareaClass =
                     >
                         <Mail /> Send to me
                     </Button>
-                    <Button size="sm" variant="outline" @click="sendProposal(false)">
-                        {{ proposal.status === 'draft' ? 'Publish link only' : 'Reopen' }}
-                    </Button>
-                    <Button v-if="proposal.status === 'draft'" size="sm" variant="ghost" @click="removeDraft">
-                        <Trash2 /> Delete draft
+                    <Button
+                        v-if="proposal.status === 'declined'"
+                        size="sm"
+                        variant="outline"
+                        data-test="proposal-reopen"
+                        @click="sendProposal(false)"
+                    >
+                        Reopen
                     </Button>
                 </div>
                 <p v-if="!proposal.leadEmail" class="text-xs text-amber-700">
-                    This lead has no email address, so publish the link and share it yourself.
+                    This lead has no email address, so copy the link and share it yourself.
                 </p>
                 <p
                     v-else-if="proposal.hasPitchVideo"
@@ -519,19 +545,30 @@ const textareaClass =
                     for a stronger email, or continue without it.
                 </p>
                 <p class="text-xs text-muted-foreground">
-                    “Send to me” emails a preview to your inbox without marking the proposal as sent.
+                    “Send to me” emails a copy to your inbox. The client link below is already live.
+                </p>
+                <div v-if="proposal.publicUrl" class="flex items-center gap-2">
+                    <input
+                        :value="proposal.publicUrl"
+                        readonly
+                        class="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 text-xs"
+                        aria-label="Proposal link"
+                    />
+                    <Button
+                        size="icon-sm"
+                        variant="outline"
+                        aria-label="Copy link"
+                        @click="copyLink"
+                    >
+                        <Check v-if="copied" />
+                        <Copy v-else />
+                    </Button>
+                </div>
+                <p v-if="proposal.viewedAt" class="text-xs text-muted-foreground">
+                    The client opened it on
+                    {{ new Date(proposal.viewedAt).toLocaleString() }}.
                 </p>
             </template>
-            <div v-if="proposal.publicUrl" class="flex items-center gap-2">
-                <input :value="proposal.publicUrl" readonly class="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 text-xs" aria-label="Proposal link" />
-                <Button size="icon-sm" variant="outline" aria-label="Copy link" @click="copyLink">
-                    <Check v-if="copied" />
-                    <Copy v-else />
-                </Button>
-            </div>
-            <p v-if="proposal.viewedAt" class="text-xs text-muted-foreground">
-                The client opened it on {{ new Date(proposal.viewedAt).toLocaleString() }}.
-            </p>
         </section>
 
         <form class="grid gap-5 panel p-5" data-test="proposal-form" @submit.prevent="submit">

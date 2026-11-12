@@ -18,6 +18,7 @@ use App\Http\Controllers\Invoices\InvoiceActionController;
 use App\Http\Controllers\Invoices\InvoiceController;
 use App\Http\Controllers\Invoices\InvoicePayController;
 use App\Http\Controllers\Invoices\RecurringInvoiceController;
+use App\Http\Controllers\Leads\BulkLeadDeleteController;
 use App\Http\Controllers\Leads\BulkSequenceEnrollmentController;
 use App\Http\Controllers\Leads\CompetitorAuditController;
 use App\Http\Controllers\Leads\LeadActivityController;
@@ -222,6 +223,7 @@ Route::prefix('{current_team}')
         Route::get('leads', [LeadController::class, 'index'])->name('leads.index');
         Route::get('leads/board', LeadBoardController::class)->name('leads.board');
         Route::get('leads/export', LeadExportController::class)->name('leads.export');
+        Route::delete('leads/bulk', BulkLeadDeleteController::class)->name('leads.bulk.destroy');
         Route::patch('leads/{lead}', [LeadController::class, 'update'])->name('leads.update');
         Route::delete('leads/{lead}', [LeadController::class, 'destroy'])->name('leads.destroy');
         Route::get('leads/{lead}/edit', [LeadProfileController::class, 'edit'])->name('leads.edit');

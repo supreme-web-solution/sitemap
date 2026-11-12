@@ -25,7 +25,7 @@ test('proposal emails use a designed html template', function () {
     $mailable->assertSeeInText('View the proposal');
 });
 
-test('send to me emails a preview without marking the proposal sent', function () {
+test('send to me requires the proposal to be published first', function () {
     Mail::fake();
     $user = User::factory()->create(['email' => 'owner@example.com']);
     $lead = Lead::factory()->for($user->currentTeam)->create(['email' => 'client@example.com']);
@@ -40,12 +40,31 @@ test('send to me emails a preview without marking the proposal sent', function (
             'current_team' => $user->currentTeam->slug,
             'proposal' => $proposal->id,
         ]))
+        ->assertSessionHasErrors('proposal');
+
+    Mail::assertNothingQueued();
+    expect($proposal->fresh()->status)->toBe(ProposalStatus::Draft);
+});
+
+test('send to me emails a preview after the proposal is published', function () {
+    Mail::fake();
+    $user = User::factory()->create(['email' => 'owner@example.com']);
+    $lead = Lead::factory()->for($user->currentTeam)->create(['email' => 'client@example.com']);
+    $proposal = Proposal::factory()->withDefaultItems()->create([
+        'lead_id' => $lead->id,
+        'status' => ProposalStatus::Sent,
+        'sent_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('proposals.preview-email', [
+            'current_team' => $user->currentTeam->slug,
+            'proposal' => $proposal->id,
+        ]))
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
     Mail::assertQueued(ProposalEmail::class, fn (ProposalEmail $mail) => $mail->hasTo('owner@example.com') && $mail->isPreview);
-    expect($proposal->fresh()->status)->toBe(ProposalStatus::Draft)
-        ->and($proposal->fresh()->sent_at)->toBeNull();
 });
 
 test('the proposal edit page shows whether a sales video is ready', function () {
