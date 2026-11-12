@@ -5,8 +5,11 @@ namespace App\Jobs;
 use App\Actions\Leads\StoreLeadsFromListings;
 use App\Data\LeadFinderResult;
 use App\Enums\LeadSearchStatus;
+use App\Enums\UsageMetric;
 use App\Models\LeadSearch;
 use App\Services\Ai\AiCreditLog;
+use App\Services\Billing\PlanLimitNotifier;
+use App\Services\Billing\UsageMeter;
 use App\Services\CommandCenter\CommandCenterNotifier;
 use App\Services\LeadFinder\LeadFinder;
 use App\Support\Queues;
@@ -154,6 +157,26 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             'leads_remaining_before' => $stats['remaining_before'],
             'seconds' => $search->created_at?->diffInSeconds($search->completed_at ?? now()),
         ]);
+
+        if ($stats['skipped_limit'] > 0) {
+            $limit = app(UsageMeter::class)->limit($search->team, UsageMetric::Leads);
+
+            if ($limit !== null) {
+                $label = filled($search->place_url)
+                    ? 'Maps link import'
+                    : trim(($search->keyword ?? '').' · '.($search->location ?? ''), ' ·');
+
+                app(PlanLimitNotifier::class)->notify(
+                    $search->team,
+                    UsageMetric::Leads,
+                    $limit,
+                    $stats['skipped_limit'],
+                    $label !== ''
+                        ? __('Search “:label” found businesses that could not be saved.', ['label' => $label])
+                        : __('A lead search found businesses that could not be saved.'),
+                );
+            }
+        }
 
         app(CommandCenterNotifier::class)->leadSearchFinished($search);
     }

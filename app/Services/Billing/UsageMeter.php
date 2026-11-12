@@ -65,6 +65,8 @@ class UsageMeter
         $limit = $this->limit($team, $metric);
 
         if ($limit !== null && $this->used($team, $metric) + $amount > $limit) {
+            app(PlanLimitNotifier::class)->notify($team, $metric, $limit);
+
             throw PlanLimitException::exceeded($metric, $limit);
         }
     }
@@ -110,6 +112,8 @@ class UsageMeter
             $limit = $this->limit($team, $metric);
 
             if ($limit !== null && $used + $amount > $limit) {
+                app(PlanLimitNotifier::class)->notify($team, $metric, $limit);
+
                 throw PlanLimitException::exceeded($metric, $limit);
             }
 

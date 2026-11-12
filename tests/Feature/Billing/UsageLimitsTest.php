@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\Billing\UsageMeter;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 
 function teamOnPlan(array $limits = [], array $features = []): array
 {
@@ -96,6 +97,7 @@ test('features locked by the plan are refused', function () {
 
 test('starting a lead search past the cap redirects back with a message and does not queue work', function () {
     Bus::fake();
+    Notification::fake();
     [$user, $team] = teamOnPlan(['lead_searches' => 1]);
     $payload = ['keyword' => 'plumbers', 'location' => 'Austin, TX', 'website_filter' => WebsiteFilter::AllPlaces->value, 'max_results' => 20];
 
@@ -108,6 +110,7 @@ test('starting a lead search past the cap redirects back with a message and does
 
 test('generating a site past the cap is refused', function () {
     Bus::fake();
+    Notification::fake();
     [$user, $team] = teamOnPlan(['site_generations' => 0]);
     $lead = Lead::factory()->for($team)->create();
 
@@ -118,6 +121,7 @@ test('generating a site past the cap is refused', function () {
 
 test('a new website is refused when the team already holds its allowed number', function () {
     Bus::fake();
+    Notification::fake();
     [$user, $team] = teamOnPlan(['sites' => 1]);
     Site::factory()->for(Lead::factory()->for($team))->create(['team_id' => $team->id]);
     $lead = Lead::factory()->for($team)->create();

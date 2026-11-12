@@ -15,3 +15,7 @@
 
 {{ $cta }}:
 {{ $url }}
+@if (filled($footer ?? null))
+
+{{ $footer }}
+@endif

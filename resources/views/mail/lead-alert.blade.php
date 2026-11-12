@@ -80,7 +80,7 @@
                     </tr>
                     <tr>
                         <td style="padding:8px 32px 32px;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.6;color:#71717a;">
-                            {{ __('Open the lead in :app to follow up.', ['app' => config('app.name')]) }}
+                            {{ $footer ?? __('Open the lead in :app to follow up.', ['app' => config('app.name')]) }}
                         </td>
                     </tr>
                 </table>
