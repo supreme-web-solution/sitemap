@@ -26,7 +26,11 @@ class SiteConceptController extends Controller
         $usage->ensureFeature($currentTeam, PlanFeature::AiEditing);
         $usage->consume($currentTeam, UsageMetric::SiteGenerations);
 
-        if ($lead->concepts_status === SiteGenerationStatus::Queued) {
+        $conceptsStuck = $lead->concepts_status === SiteGenerationStatus::Queued
+            && $lead->concepts_requested_at !== null
+            && $lead->concepts_requested_at->lt(now()->subMinutes(2));
+
+        if ($lead->concepts_status === SiteGenerationStatus::Queued && ! $conceptsStuck) {
             throw ValidationException::withMessages([
                 'concepts' => __('Three designs are already being built.'),
             ]);
@@ -40,7 +44,10 @@ class SiteConceptController extends Controller
 
         $dispatch->handle($lead);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Building three design options for :name.', ['name' => $lead->name])]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Three design options are ready for :name.', ['name' => $lead->name]),
+        ]);
 
         return back();
     }

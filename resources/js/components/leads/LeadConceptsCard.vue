@@ -66,8 +66,8 @@ const pick = (id: number) => {
             <Sparkles class="size-4 text-primary" /> Three designs
         </h2>
         <p class="mt-1 text-sm text-muted-foreground">
-            Compare three full-page looks. Expand any option, then choose one to
-            publish as the live site.
+            Compare three theme looks for this business. Expand any option, then
+            choose one as the live site.
         </p>
 
         <p

@@ -315,6 +315,17 @@ class Lead extends Model
      */
     public function testimonials(): Collection
     {
+        if ($this->relationLoaded('reviews')) {
+            return $this->reviews
+                ->where('is_visible', true)
+                ->sortBy([
+                    ['rating', 'desc'],
+                    ['id', 'asc'],
+                ])
+                ->take(self::MAX_TESTIMONIALS)
+                ->values();
+        }
+
         return $this->reviews()
             ->where('is_visible', true)
             ->orderByDesc('rating')

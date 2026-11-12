@@ -8,7 +8,6 @@ use App\Jobs\GenerateSiteConcept;
 use App\Models\Lead;
 use App\Models\SiteDesignTemplate;
 use App\Services\SiteBuilder\EnsureDesignTemplateCatalog;
-use App\Support\Queues;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
@@ -18,10 +17,10 @@ class DispatchSiteConcepts
     public function __construct(protected EnsureDesignTemplateCatalog $catalog) {}
 
     /**
-     * Queue one job per design vibe so the three options can generate in parallel.
+     * Build three theme options immediately.
      *
-     * Each option is built on a different catalog design (hero, services, about and gallery
-     * layouts), and designs shown last time are avoided so "generate new options" looks new.
+     * Concepts are lightweight (rule-based copy + catalog layouts), not full AI
+     * website builds, so they run on the sync connection and finish in the request.
      */
     public function handle(Lead $lead): void
     {
@@ -65,7 +64,7 @@ class DispatchSiteConcepts
                 ]);
             })
             ->name('site-concepts-'.$leadId)
-            ->onQueue(Queues::AI)
+            ->onConnection('sync')
             ->dispatch();
     }
 

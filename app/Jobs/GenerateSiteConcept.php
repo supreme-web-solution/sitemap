@@ -6,9 +6,8 @@ use App\Enums\SiteVibe;
 use App\Models\Lead;
 use App\Models\SiteConcept;
 use App\Models\SiteDesignTemplate;
+use App\Services\SiteBuilder\RuleBasedCopywriter;
 use App\Services\SiteBuilder\SectionVariants;
-use App\Services\SiteBuilder\SiteCopywriter;
-use App\Support\Queues;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,9 +20,9 @@ class GenerateSiteConcept implements ShouldBeUnique, ShouldQueue
     /**
      * The number of seconds the job can run before timing out.
      *
-     * Must stay below the queue connection's retry_after.
+     * Concepts use rule-based theme drafts only, so this stays short.
      */
-    public int $timeout = 80;
+    public int $timeout = 20;
 
     /**
      * The number of times the job may be attempted.
@@ -33,12 +32,9 @@ class GenerateSiteConcept implements ShouldBeUnique, ShouldQueue
     /**
      * Seconds to wait before retrying after an exception.
      */
-    public int $backoff = 15;
+    public int $backoff = 5;
 
-    public function __construct(public Lead $lead, public string $batch, public SiteVibe $vibe, public ?int $designTemplateId = null)
-    {
-        $this->onQueue(Queues::AI);
-    }
+    public function __construct(public Lead $lead, public string $batch, public SiteVibe $vibe, public ?int $designTemplateId = null) {}
 
     /**
      * Get the unique ID for the job.
@@ -49,9 +45,9 @@ class GenerateSiteConcept implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Write one of the three design options for the lead.
+     * Write one lightweight design option: theme + basic lead copy, no AI site build.
      */
-    public function handle(SiteCopywriter $copywriter): void
+    public function handle(RuleBasedCopywriter $copywriter): void
     {
         $template = $this->vibe->template();
         $draft = $copywriter->write($this->lead, $template);

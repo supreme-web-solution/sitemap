@@ -112,7 +112,7 @@ function fakeSectionDesignCss(string $css, string $summary = 'Balanced the foote
     ));
 }
 
-test('requesting three designs queues one job per vibe on the ai queue', function () {
+test('requesting three designs batches one lightweight concept job per vibe', function () {
     Bus::fake();
 
     $user = User::factory()->create();
@@ -125,7 +125,8 @@ test('requesting three designs queues one job per vibe on the ai queue', functio
     expect($lead->fresh()->concepts_status)->toBe(SiteGenerationStatus::Queued);
 
     Bus::assertBatched(fn ($batch) => $batch->jobs->count() === 3
-        && $batch->jobs->every(fn ($job) => $job instanceof GenerateSiteConcept));
+        && $batch->jobs->every(fn ($job) => $job instanceof GenerateSiteConcept)
+        && $batch->options['connection'] === 'sync');
 });
 
 test('three designs cannot start while the website is still building', function () {

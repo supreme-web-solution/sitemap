@@ -24,10 +24,20 @@ class ConceptPreviewController extends Controller
 
     /**
      * Build an unsaved site the renderer can draw from the concept's copy and template.
+     *
+     * Reviews are omitted so theme comparison stays fast and focused on layout.
      */
     protected function asSite(SiteConcept $concept): Site
     {
         $lead = $concept->lead()->with('team')->firstOrFail();
+        $lead->setRelation('reviews', $lead->reviews()->getModel()->newCollection());
+
+        $content = $concept->content;
+        $sections = is_array($content['sections'] ?? null) ? $content['sections'] : [];
+        $content['sections'] = array_values(array_filter(
+            $sections,
+            fn (mixed $section): bool => $section !== 'reviews',
+        ));
 
         $site = new Site;
         $site->forceFill([
@@ -35,7 +45,7 @@ class ConceptPreviewController extends Controller
             'lead_id' => $concept->lead_id,
             'slug' => $lead->site?->slug ?? 'concept-'.$concept->id,
             'template' => $concept->template,
-            'content' => $concept->content,
+            'content' => $content,
             'design_template_id' => $concept->design_template_id,
         ]);
         $site->setRelation('designTemplate', $concept->designTemplate);
