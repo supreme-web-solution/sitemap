@@ -194,11 +194,21 @@ class SiteMediaController extends Controller
         }
 
         $lead = $site->lead;
+        $restoredLogo = is_string($snapshot['logo_path']) ? $snapshot['logo_path'] : null;
+        $restoredPhotos = array_values(array_filter(
+            $snapshot['photo_paths'],
+            fn (?string $path): bool => is_string($path) && $path !== '',
+        ));
+        $keep = array_filter([$restoredLogo, ...$restoredPhotos]);
 
-        $imageStorage->delete($lead->logo_path);
+        if (is_string($lead->logo_path) && ! in_array($lead->logo_path, $keep, true)) {
+            $imageStorage->delete($lead->logo_path);
+        }
 
         foreach ($lead->photo_paths ?? [] as $path) {
-            $imageStorage->delete($path);
+            if (! in_array($path, $keep, true)) {
+                $imageStorage->delete($path);
+            }
         }
 
         $lead->logo_path = $snapshot['logo_path'];

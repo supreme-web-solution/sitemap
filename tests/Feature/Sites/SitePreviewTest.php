@@ -341,3 +341,15 @@ test('a site can override its catalog layout for one section', function () {
         ->assertSee('hero-v-overlay services-v-numbered', escape: false)
         ->assertSee('footer-v-cta', escape: false);
 });
+
+test('every template image falls back when the file fails to load', function () {
+    $site = Site::factory()->create([
+        'content' => [...Site::factory()->make()->content, 'accent' => '#2563eb'],
+    ]);
+
+    $this->get(route('sites.preview', $site->slug))
+        ->assertOk()
+        ->assertSee('data-image-fallback', escape: false)
+        ->assertSee('is-image-fallback', escape: false)
+        ->assertSee('data:image/svg+xml', escape: false);
+});

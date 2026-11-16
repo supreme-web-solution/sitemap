@@ -505,6 +505,7 @@
     @if ($editing)
         @include('sites.partials.editor-styles')
     @endif
+    @include('sites.partials.image-fallback')
 </head>
 <body class="{{ trim(($layoutClass ?? '').' '.($asPreview ? 'has-claim-bar' : '').' '.(($page['type'] ?? 'home') !== 'home' ? 'has-overlay-nav' : '')) }}">
     <header class="site-header"{!! $e->section('header', 'Header') !!}>

@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 /**
  * Keeps one undo step for visual-editor logo/photo/service image changes.
- * Local files are copied; Cloudinary assets keep their public id until the snapshot is discarded.
+ * Local files are copied. A discarded snapshot only deletes Cloudinary assets the site no longer uses.
  */
 class SiteMediaUndo
 {
@@ -25,7 +25,7 @@ class SiteMediaUndo
         $previous = Cache::get($cacheKey);
 
         if (is_array($previous)) {
-            $this->forgetStoredPaths($previous);
+            $this->forgetStoredPaths($previous, $this->livePaths($site, $lead));
         }
 
         $photos = $lead->photo_paths ?? [];
@@ -72,23 +72,65 @@ class SiteMediaUndo
     }
 
     /**
-     * @param  array{logo_path: ?string, photo_paths: list<?string>, service_image_paths?: list<?string>}  $snapshot
+     * Drop files kept only for an older undo step. Paths still on the site stay,
+     * so a later edit does not remove photos the page is still showing.
+     *
+     * @param  array{logo_path: ?string, photo_paths: list<?string>, service_image_paths?: list<?string>, placement_paths?: array<string, ?string>}  $snapshot
+     * @param  list<string>  $stillUsed
      */
-    public function forgetStoredPaths(array $snapshot): void
+    public function forgetStoredPaths(array $snapshot, array $stillUsed = []): void
     {
-        $this->forgetPreserved($snapshot['logo_path'] ?? null);
+        $keep = array_fill_keys($stillUsed, true);
 
-        foreach ($snapshot['photo_paths'] ?? [] as $path) {
-            $this->forgetPreserved($path);
+        $this->forgetPreserved($snapshot['logo_path'] ?? null, $keep);
+
+        foreach ($snapshot['photo_paths'] as $path) {
+            $this->forgetPreserved($path, $keep);
         }
 
         foreach ($snapshot['service_image_paths'] ?? [] as $path) {
-            $this->forgetPreserved($path);
+            $this->forgetPreserved($path, $keep);
         }
 
         foreach ($snapshot['placement_paths'] ?? [] as $path) {
-            $this->forgetPreserved($path);
+            $this->forgetPreserved($path, $keep);
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function livePaths(Site $site, Lead $lead): array
+    {
+        $paths = [];
+
+        if (is_string($lead->logo_path) && $lead->logo_path !== '') {
+            $paths[] = $lead->logo_path;
+        }
+
+        foreach ($lead->photo_paths ?? [] as $path) {
+            if ($path !== '') {
+                $paths[] = $path;
+            }
+        }
+
+        foreach (array_values($site->content['services'] ?? []) as $service) {
+            if (is_array($service) && is_string($service['image_path'] ?? null) && $service['image_path'] !== '') {
+                $paths[] = $service['image_path'];
+            }
+        }
+
+        $images = is_array($site->content['images'] ?? null) ? $site->content['images'] : [];
+
+        foreach (SiteImagePlacements::KEYS as $placement) {
+            $stored = $images[$placement] ?? null;
+
+            if (is_string($stored) && $stored !== '') {
+                $paths[] = $stored;
+            }
+        }
+
+        return $paths;
     }
 
     protected function preservePath(?string $path): ?string
@@ -116,9 +158,12 @@ class SiteMediaUndo
         return $destination;
     }
 
-    protected function forgetPreserved(?string $path): void
+    /**
+     * @param  array<string, true>  $keep
+     */
+    protected function forgetPreserved(?string $path, array $keep): void
     {
-        if ($path === null) {
+        if ($path === null || isset($keep[$path])) {
             return;
         }
 
