@@ -154,7 +154,8 @@ test('a website card thumbnail shows the hero instead of a tall empty screen', f
         ->get(route('sites.preview', ['site' => $site->slug, 'thumbnail' => 1]))
         ->assertOk()
         ->assertSee('class="is-thumbnail"', false)
-        ->assertSee('min-height: 800px !important', false)
+        ->assertSee('height: 720px !important', false)
+        ->assertSee('main > :not(#hero)', false)
         ->assertSee($site->content['headline'], false)
         ->assertDontSee('class="preview-bar"', false);
 });

@@ -10,7 +10,7 @@ import {
     Sparkles,
 } from '@lucide/vue';
 import { useClipboard } from '@vueuse/core';
-import { computed } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted } from 'vue';
 import { toast } from 'vue-sonner';
 import PaginationBar from '@/components/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
@@ -52,6 +52,44 @@ const copyLink = async (site: SiteSummary) => {
     await copy(site.previewUrl);
     toast.success('Preview link copied');
 };
+
+const THUMB_WIDTH = 1280;
+const THUMB_HEIGHT = 720;
+let thumbObserver: ResizeObserver | null = null;
+
+const fitThumb = (thumb: HTMLElement) => {
+    const frame = thumb.querySelector('iframe');
+
+    if (!frame) {
+        return;
+    }
+
+    frame.style.transform = `scale(${thumb.clientWidth / THUMB_WIDTH})`;
+};
+
+const watchThumbs = () => {
+    thumbObserver?.disconnect();
+    thumbObserver = new ResizeObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.target instanceof HTMLElement) {
+                fitThumb(entry.target);
+            }
+        });
+    });
+
+    document.querySelectorAll<HTMLElement>('.site-hero-thumb').forEach((thumb) => {
+        fitThumb(thumb);
+        thumbObserver?.observe(thumb);
+    });
+};
+
+onMounted(() => {
+    void nextTick(watchThumbs);
+});
+
+onBeforeUnmount(() => {
+    thumbObserver?.disconnect();
+});
 </script>
 
 <template>
@@ -95,9 +133,12 @@ const copyLink = async (site: SiteSummary) => {
                     <iframe
                         :src="site.thumbnailUrl"
                         class="site-hero-thumb__frame pointer-events-none absolute top-0 left-0 z-10 border-0 bg-white"
+                        :width="THUMB_WIDTH"
+                        :height="THUMB_HEIGHT"
                         loading="lazy"
                         tabindex="-1"
                         aria-hidden="true"
+                        @load="watchThumbs"
                     />
                     <span
                         class="absolute top-3 left-3 z-20 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase backdrop-blur-sm"
@@ -216,11 +257,11 @@ const copyLink = async (site: SiteSummary) => {
 <style scoped>
 .site-hero-thumb {
     container-type: inline-size;
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 1280 / 720;
 }
 .site-hero-thumb__frame {
     width: 1280px;
-    height: 800px;
+    height: 720px;
     transform: scale(calc(100cqw / 1280));
     transform-origin: top left;
 }

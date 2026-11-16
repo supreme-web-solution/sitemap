@@ -474,13 +474,15 @@
     @endif
     @if (! empty($thumbnail))
         <style>
+            /* Card preview: one desktop hero screen, not a full-page 100vh layout. */
             html.is-thumbnail,
-            html.is-thumbnail body { height: 800px; overflow: hidden; }
+            html.is-thumbnail body { width: 1280px; height: 720px; overflow: hidden; }
             html.is-thumbnail .hero {
-                min-height: 800px !important;
-                height: 800px !important;
-                max-height: 800px !important;
+                min-height: 720px !important;
+                height: 720px !important;
+                max-height: 720px !important;
             }
+            html.is-thumbnail main > :not(#hero) { display: none !important; }
             html.is-thumbnail .preview-bar,
             html.is-thumbnail .mobile-cta { display: none !important; }
         </style>
