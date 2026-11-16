@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUserHasPermission;
 use App\Http\Middleware\EnsureUserIsNotSuspended;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -22,7 +23,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->append(ServePublishedSite::class);
 
-        $middleware->validateCsrfTokens(except: ['webhooks/*']);
+        $middleware->alias([
+            'access' => EnsureUserHasPermission::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/*',
+            'ipn/*',
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

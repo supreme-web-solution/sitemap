@@ -45,6 +45,8 @@ const props = defineProps<{
     users: Paginated<AdminUser>;
     filters: { search: string; status: string };
     plans: PlanOption[];
+    rolesEnabled: boolean;
+    assignableRoles: string[];
 }>();
 
 defineOptions({
@@ -73,6 +75,7 @@ const form = useForm({
     password: '',
     verified: true,
     plan_id: '' as number | '',
+    roles: ['FE'] as string[],
 });
 
 watch(creating, (isOpen) => {
@@ -80,6 +83,7 @@ watch(creating, (isOpen) => {
         form.reset();
         form.clearErrors();
         form.verified = true;
+        form.roles = ['FE'];
     }
 });
 
@@ -87,6 +91,7 @@ const startCreating = () => {
     form.reset();
     form.clearErrors();
     form.verified = true;
+    form.roles = ['FE'];
     creating.value = true;
 };
 
@@ -144,7 +149,7 @@ const statusFilterSelect = computed({
         <div class="flex items-start justify-between gap-4">
             <Heading
                 title="Users"
-                description="Create, edit, suspend or sign in as any user."
+                description="Create, edit, suspend, sign in as any user, and set the product access they bought."
             />
             <Button @click="startCreating">
                 <Plus /> New user
@@ -188,6 +193,7 @@ const statusFilterSelect = computed({
                         <th class="p-3 font-medium">Teams</th>
                         <th class="p-3 font-medium">Joined</th>
                         <th class="p-3 font-medium">Status</th>
+                        <th class="p-3 font-medium">Access</th>
                         <th class="p-3 font-medium text-right">Actions</th>
                     </tr>
                 </thead>
@@ -201,6 +207,12 @@ const statusFilterSelect = computed({
                             >
                             <p class="text-xs text-muted-foreground">
                                 {{ user.email }}
+                            </p>
+                            <p
+                                v-if="user.reseller_email"
+                                class="text-xs text-muted-foreground"
+                            >
+                                via reseller {{ user.reseller_email }}
                             </p>
                         </td>
                         <td class="p-3">{{ user.teams_count }}</td>
@@ -228,6 +240,19 @@ const statusFilterSelect = computed({
                                 class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700"
                                 >Active</span
                             >
+                        </td>
+                        <td class="p-3">
+                            <div class="flex flex-wrap gap-1">
+                                <span
+                                    v-for="role in user.roles?.length
+                                        ? user.roles
+                                        : ['Core app']"
+                                    :key="role"
+                                    class="rounded-full bg-muted px-2 py-0.5 text-xs"
+                                >
+                                    {{ role }}
+                                </span>
+                            </div>
                         </td>
                         <td class="p-3">
                             <div
@@ -310,7 +335,7 @@ const statusFilterSelect = computed({
                     </tr>
                     <tr v-if="!users.data.length">
                         <td
-                            colspan="5"
+                            colspan="6"
                             class="p-6 text-center text-muted-foreground"
                         >
                             No users match.
@@ -386,6 +411,26 @@ const statusFilterSelect = computed({
                         />
                         Mark the email as verified
                     </label>
+                    <div
+                        v-if="rolesEnabled && assignableRoles.length"
+                        class="grid gap-2 sm:col-span-2"
+                    >
+                        <Label>Product access</Label>
+                        <label
+                            v-for="role in assignableRoles"
+                            :key="role"
+                            class="flex items-center gap-2 text-sm"
+                        >
+                            <input
+                                v-model="form.roles"
+                                type="checkbox"
+                                class="size-4"
+                                :value="role"
+                            />
+                            {{ role }}
+                        </label>
+                        <InputError :message="form.errors.roles" />
+                    </div>
                     <div class="flex gap-2 sm:col-span-2">
                         <Button type="submit" :disabled="form.processing">
                             <LoaderCircle

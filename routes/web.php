@@ -59,6 +59,7 @@ use App\Http\Controllers\Proposals\ProposalController;
 use App\Http\Controllers\Proposals\ProposalDraftController;
 use App\Http\Controllers\Proposals\ProposalPublicController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\ResellerController;
 use App\Http\Controllers\Sites\AssistantPublicController;
 use App\Http\Controllers\Sites\ConceptPreviewController;
 use App\Http\Controllers\Sites\DomainAllowedController;
@@ -94,6 +95,8 @@ use App\Http\Controllers\Teams\IdealCustomerController;
 use App\Http\Controllers\Teams\PlanChangeController;
 use App\Http\Controllers\Teams\PlanUsageController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Controllers\UpsellPageController;
+use App\Http\Controllers\Webhooks\JvzooWebhookController;
 use App\Http\Middleware\AllowAssistantCors;
 use App\Http\Middleware\EnsureBrandedPreviewHost;
 use App\Http\Middleware\EnsureTeamMembership;
@@ -214,6 +217,25 @@ Route::prefix('admin')
     });
 
 Route::post('impersonation/stop', [ImpersonationController::class, 'stop'])->middleware('auth')->name('impersonation.stop');
+
+Route::post('ipn/jvzoo', [JvzooWebhookController::class, 'handle'])->name('ipn.jvzoo');
+
+Route::middleware(['auth', 'access:access_reseller'])->prefix('reseller')->name('reseller.')->group(function () {
+    Route::get('/', [ResellerController::class, 'index'])->name('index');
+    Route::post('accounts', [ResellerController::class, 'store'])->name('accounts.store');
+    Route::delete('accounts/{account}', [ResellerController::class, 'destroy'])->name('accounts.destroy');
+});
+
+Route::middleware(['auth', 'access:access_agency_vault'])->get('agency-vault', [UpsellPageController::class, 'show'])
+    ->defaults('page', 'agency-vault')
+    ->name('agency-vault');
+Route::middleware(['auth', 'access:access_online_reputation'])->get('online-reputation', [UpsellPageController::class, 'show'])
+    ->defaults('page', 'online-reputation')
+    ->name('online-reputation');
+Route::middleware(['auth', 'access:access_ai_sales_employee'])->get('ai-sales-employee', [UpsellPageController::class, 'show'])
+    ->defaults('page', 'ai-sales-employee')
+    ->name('ai-sales-employee');
+
 Route::prefix('{current_team}')
     ->middleware(['auth', EnsureTeamMembership::class])
     ->scopeBindings()

@@ -62,6 +62,8 @@ export type AdminUser = {
     is_admin: boolean;
     teams_count?: number;
     can_manage?: boolean;
+    roles?: string[];
+    reseller_email?: string | null;
 };
 
 export type AdminTeam = {

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\User;
 use App\Services\Ai\AiAvailability;
+use App\Services\Auth\UserRoleAssigner;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -38,6 +39,9 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $permissions = $user !== null
+            ? app(UserRoleAssigner::class)->permissionsFor($user)
+            : [];
 
         return [
             ...parent::share($request),
@@ -45,6 +49,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'isAdmin' => $user?->isAdmin() ?? false,
+                'permissions' => $permissions,
+                'canViewAppFeatures' => in_array('view_app_features', $permissions, true),
             ],
             'impersonating' => fn () => $request->session()->has('impersonator_id')
                 ? ['name' => User::query()->whereKey($request->session()->get('impersonator_id'))->value('name')]

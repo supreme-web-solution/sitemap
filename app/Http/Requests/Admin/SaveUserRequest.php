@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Concerns\ProfileValidationRules;
 use App\Models\Plan;
 use App\Models\User;
+use App\Services\Auth\UserRoleAssigner;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,6 +30,7 @@ class SaveUserRequest extends FormRequest
             'password' => [$user === null ? 'required' : 'nullable', 'string', Password::default()],
             'verified' => ['boolean'],
             'plan_id' => ['nullable', Rule::exists(Plan::class, 'id')],
+            ...app(UserRoleAssigner::class)->validationRules(),
         ];
     }
 }

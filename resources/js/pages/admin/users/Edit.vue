@@ -41,6 +41,8 @@ const props = defineProps<{
     account: AdminUser;
     teams: UserTeam[];
     plans: PlanOption[];
+    rolesEnabled: boolean;
+    assignableRoles: string[];
 }>();
 
 defineOptions({
@@ -58,6 +60,7 @@ const form = useForm({
     email: props.account.email,
     password: '',
     verified: props.account.email_verified_at !== null,
+    roles: [...(props.account.roles ?? [])] as string[],
 });
 
 const submit = () =>
@@ -123,6 +126,30 @@ const teamPlanValue = (team: UserTeam) =>
                     />
                     Email verified
                 </label>
+            </div>
+            <div
+                v-if="rolesEnabled && assignableRoles.length"
+                class="grid gap-2 sm:col-span-2"
+            >
+                <Label>Product access</Label>
+                <p class="text-xs text-muted-foreground">
+                    Leave every box unchecked to keep core app access only.
+                    Fast-pass and the full bundle both use the Bundle role.
+                </p>
+                <label
+                    v-for="role in assignableRoles"
+                    :key="role"
+                    class="flex items-center gap-2 text-sm"
+                >
+                    <input
+                        v-model="form.roles"
+                        type="checkbox"
+                        class="size-4"
+                        :value="role"
+                    />
+                    {{ role }}
+                </label>
+                <InputError :message="form.errors.roles" />
             </div>
             <div>
                 <Button type="submit" :disabled="form.processing">

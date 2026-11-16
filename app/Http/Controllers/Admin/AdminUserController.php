@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\SaveUserRequest;
 use App\Models\Plan;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Auth\UserRoleAssigner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,10 @@ use Inertia\Response;
 
 class AdminUserController extends Controller
 {
+    public function __construct(
+        private readonly UserRoleAssigner $roles,
+    ) {}
+
     /**
      * List users with search and a status filter.
      */
@@ -25,6 +30,7 @@ class AdminUserController extends Controller
         $status = (string) $request->query('status', '');
 
         $users = User::query()
+            ->with(['roles:id,name', 'reseller:id,email'])
             ->withCount('teams')
             ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%");
@@ -44,6 +50,7 @@ class AdminUserController extends Controller
             'users' => $users,
             'filters' => ['search' => $search, 'status' => $status],
             'plans' => $this->planOptions(),
+            ...$this->roleProps(),
         ]);
     }
 
@@ -66,6 +73,10 @@ class AdminUserController extends Controller
             $team = $createTeam->handle($user, $user->name."'s Team", isPersonal: true);
             $team->forceFill(['plan_id' => $validated['plan_id'] ?? null])->save();
 
+            if (array_key_exists('roles', $validated)) {
+                $this->roles->syncRoles($user, $validated['roles'] ?? []);
+            }
+
             return $user;
         });
 
@@ -79,6 +90,8 @@ class AdminUserController extends Controller
      */
     public function edit(User $user): Response
     {
+        $user->load(['roles:id,name', 'reseller:id,email']);
+
         return Inertia::render('admin/users/Edit', [
             'account' => $this->present($user),
             'teams' => $user->teams()->with('plan:id,name')->get()->map(fn (Team $team) => [
@@ -91,6 +104,7 @@ class AdminUserController extends Controller
                 'plan_name' => $team->plan?->name,
             ])->values(),
             'plans' => $this->planOptions(),
+            ...$this->roleProps(),
         ]);
     }
 
@@ -112,6 +126,10 @@ class AdminUserController extends Controller
         }
 
         $user->save();
+
+        if (array_key_exists('roles', $validated)) {
+            $this->roles->syncRoles($user, $validated['roles'] ?? []);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('User updated.')]);
 
@@ -193,6 +211,19 @@ class AdminUserController extends Controller
             'suspended_at' => $user->suspended_at,
             'created_at' => $user->created_at,
             'is_admin' => $user->isAdmin(),
+            'roles' => $user->relationLoaded('roles') ? $user->roles->pluck('name')->values()->all() : [],
+            'reseller_email' => $user->relationLoaded('reseller') ? $user->reseller?->email : null,
+        ];
+    }
+
+    /**
+     * @return array{rolesEnabled: bool, assignableRoles: list<string>}
+     */
+    private function roleProps(): array
+    {
+        return [
+            'rolesEnabled' => $this->roles->rolesEnabled(),
+            'assignableRoles' => $this->roles->assignableRoles(),
         ];
     }
 

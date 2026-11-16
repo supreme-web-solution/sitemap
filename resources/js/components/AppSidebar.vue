@@ -25,8 +25,12 @@ import {
     TrendingUp,
     Wallet,
     Users,
+    UserPlus,
     HandCoins,
     Sparkles,
+    Vault,
+    Star,
+    Bot,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -74,6 +78,31 @@ import type { LeadStatus, NavItem } from '@/types';
 const page = usePage();
 
 const team = computed(() => page.props.currentTeam);
+
+const canViewApp = computed(() => page.props.auth.canViewAppFeatures);
+
+const upgradeItems = computed<NavItem[]>(() => {
+    const permissions = page.props.auth.permissions ?? [];
+
+    return (
+        [
+            { title: 'Reseller', href: '/reseller', icon: UserPlus, permission: 'access_reseller' },
+            { title: 'AgencyVault', href: '/agency-vault', icon: Vault, permission: 'access_agency_vault' },
+            {
+                title: 'Online Reputation App',
+                href: '/online-reputation',
+                icon: Star,
+                permission: 'access_online_reputation',
+            },
+            {
+                title: 'Ai Multichannel Sales Employee',
+                href: '/ai-sales-employee',
+                icon: Bot,
+                permission: 'access_ai_sales_employee',
+            },
+        ] satisfies Array<NavItem & { permission: string }>
+    ).filter((item) => permissions.includes(item.permission));
+});
 
 const dashboardUrl = computed(() =>
     team.value ? dashboard(team.value.slug).url : '/',
@@ -299,13 +328,13 @@ const workspaceItems = computed<NavItem[]>(() => [
                     class="text-muted-foreground group-data-[collapsible=icon]:hidden"
                 />
             </div>
-            <SidebarSearch />
+            <SidebarSearch v-if="canViewApp" />
         </SidebarHeader>
 
         <SidebarContent class="gap-1 pt-1">
-            <NavMain label="Home" :items="homeItems" />
+            <NavMain v-if="canViewApp" label="Home" :items="homeItems" />
 
-            <template v-if="team">
+            <template v-if="team && canViewApp">
                 <NavCollapsibleSection
                     label="Discover"
                     :icon="Compass"
@@ -335,6 +364,12 @@ const workspaceItems = computed<NavItem[]>(() => [
                     :items="deliverItems"
                 />
             </template>
+
+            <NavMain
+                v-if="upgradeItems.length"
+                label="Upgrades"
+                :items="upgradeItems"
+            />
 
             <NavMain
                 v-if="page.props.auth.isAdmin"
