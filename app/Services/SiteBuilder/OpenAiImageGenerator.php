@@ -3,7 +3,9 @@
 namespace App\Services\SiteBuilder;
 
 use App\Data\SiteImageGenerationPlan;
+use App\Services\Ai\ImageGenerationCreditLog;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -13,6 +15,8 @@ class OpenAiImageGenerator
     use StoresLeadGeneratedPhoto;
 
     private const DRIVER = 'openai';
+
+    public function __construct(protected ImageGenerationCreditLog $creditLog) {}
 
     /**
      * @return array{path: string, url: string}
@@ -49,6 +53,7 @@ class OpenAiImageGenerator
                 'status' => $response->status(),
                 'body' => Str::limit($response->body(), 500),
             ]);
+            $this->recordCreditFailure($response, $teamId, $leadId, 'photo_generation');
 
             throw new \RuntimeException(ImageGenerationMessages::messageForFailedResponse($response));
         }
@@ -95,6 +100,7 @@ class OpenAiImageGenerator
                 'status' => $response->status(),
                 'body' => Str::limit($response->body(), 500),
             ]);
+            $this->recordCreditFailure($response, $teamId, $leadId, 'photo_edit');
 
             throw new \RuntimeException(ImageGenerationMessages::messageForFailedResponse($response));
         }
@@ -102,5 +108,10 @@ class OpenAiImageGenerator
         $binary = $this->binaryFromEditPayload($response->json(), self::DRIVER);
 
         return $this->storeLeadPhotoBinary($binary, $teamId, $leadId);
+    }
+
+    protected function recordCreditFailure(Response $response, int $teamId, int $leadId, string $source): void
+    {
+        $this->creditLog->recordHttpFailure($response, 'OpenAI', $teamId, $leadId, $source);
     }
 }

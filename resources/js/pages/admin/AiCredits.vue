@@ -45,7 +45,7 @@ const formatWhen = (value: string | null): string => {
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
         <Heading
             title="AI credits"
-            description="Provider credit, quota, and lead-search failures. Site creation uses Anthropic (falls back to built-in copy). Lead search uses Mindcase — empty wallet shows as rejected_balance here. OpenAI only appears if a photo or other OpenAI call hits a limit."
+            description="Provider credit, quota, and lead-search failures. Site creation uses Anthropic (falls back to built-in copy). Lead search uses Mindcase — empty wallet shows as rejected_balance here. An OpenAI photo that stops because the account has no credits left shows here as OpenAI."
         />
 
         <p

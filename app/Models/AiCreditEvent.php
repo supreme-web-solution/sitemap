@@ -75,6 +75,8 @@ class AiCreditEvent extends Model
             'site_creation' => 'Site creation',
             'site_editor' => 'Site editor',
             'lead_search' => 'Lead search',
+            'photo_generation' => 'Photo generation',
+            'photo_edit' => 'Photo edit',
             default => ucfirst(str_replace('_', ' ', $this->source)),
         };
     }
