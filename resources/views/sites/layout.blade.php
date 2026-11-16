@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ $locale ?? 'en' }}">
+<html lang="{{ $locale ?? 'en' }}" @if (! empty($thumbnail)) class="is-thumbnail" @endif>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -472,6 +472,19 @@
     @if (! empty($sectionCss))
         <style>{!! $sectionCss !!}</style>
     @endif
+    @if (! empty($thumbnail))
+        <style>
+            html.is-thumbnail,
+            html.is-thumbnail body { height: 800px; overflow: hidden; }
+            html.is-thumbnail .hero {
+                min-height: 800px !important;
+                height: 800px !important;
+                max-height: 800px !important;
+            }
+            html.is-thumbnail .preview-bar,
+            html.is-thumbnail .mobile-cta { display: none !important; }
+        </style>
+    @endif
     <style>
         [data-sec-style="tint"] > section:not(.cta-band) { background: color-mix(in srgb, var(--accent) 9%, transparent); }
         [data-sec-style="accent"] > section:not(.cta-band) { background: var(--accent); color: var(--on-accent); }
@@ -507,7 +520,7 @@
     @endif
     @include('sites.partials.image-fallback')
 </head>
-<body class="{{ trim(($layoutClass ?? '').' '.($asPreview ? 'has-claim-bar' : '').' '.(($page['type'] ?? 'home') !== 'home' ? 'has-overlay-nav' : '')) }}">
+<body class="{{ trim(($layoutClass ?? '').' '.($asPreview && empty($thumbnail) ? 'has-claim-bar' : '').' '.(($page['type'] ?? 'home') !== 'home' ? 'has-overlay-nav' : '')) }}">
     <header class="site-header"{!! $e->section('header', 'Header') !!}>
         <div class="container">
             <a href="{{ $urls->to() }}" class="brand">
@@ -714,7 +727,7 @@
         @include('sites.partials.editor-bridge')
     @endif
 
-    @if (! empty($assistantEmbed))
+    @if (! empty($assistantEmbed) && empty($thumbnail))
         @if (! empty($assistantEmbed['origin']))
             <link rel="preconnect" href="{{ $assistantEmbed['origin'] }}" crossorigin>
             <link rel="dns-prefetch" href="{{ $assistantEmbed['origin'] }}">
@@ -722,7 +735,7 @@
         <script src="{{ $assistantEmbed['src'] }}" data-assistant-key="{{ $assistantEmbed['key'] }}" defer></script>
     @endif
 
-    @if ($asPreview)
+    @if ($asPreview && empty($thumbnail))
             @if (request()->boolean('thanks'))
             <div class="preview-bar" role="status">
                 <p class="preview-bar__note">Thank you! We have your details and will be in touch shortly.</p>

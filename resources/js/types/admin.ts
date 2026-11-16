@@ -52,6 +52,16 @@ export type PlanFeatureOption = {
     label: string;
 };
 
+export type AdminUserTeam = {
+    id: number;
+    name: string;
+    slug: string;
+    is_personal: boolean;
+    role: string;
+    plan_id: number | null;
+    plan_name: string | null;
+};
+
 export type AdminUser = {
     id: number;
     name: string;
@@ -61,6 +71,7 @@ export type AdminUser = {
     created_at: string;
     is_admin: boolean;
     teams_count?: number;
+    teams?: AdminUserTeam[];
     can_manage?: boolean;
     roles?: string[];
     reseller_email?: string | null;

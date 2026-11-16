@@ -151,6 +151,7 @@ class SiteRenderer
             'commentAction' => $asPreview ? PreviewLink::action('sites.preview.comments', $site) : null,
             'assistantEmbed' => $editor ? null : $this->assistantEmbed($site),
             'internalPreview' => request()->boolean('internal') || $editor,
+            'thumbnail' => request()->boolean('thumbnail'),
             'sectionBeacons' => $asPreview && ! $editor && $site->exists && ! request()->boolean('internal')
                 ? collect(PreviewSectionViewController::KEYS)
                     ->mapWithKeys(fn (string $key) => [$key => PreviewLink::action('sites.preview.sections', $site, ['section' => $key])])

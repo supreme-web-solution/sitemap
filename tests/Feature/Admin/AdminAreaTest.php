@@ -129,7 +129,8 @@ test('the users list exposes manage actions only for accounts that are not admin
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/users/Index')
             ->has('users.data', 1)
-            ->where('users.data.0.can_manage', true));
+            ->where('users.data.0.can_manage', true)
+            ->has('users.data.0.teams'));
 
     $this->actingAs($this->admin)
         ->get(route('admin.users.index', ['search' => 'boss@example.com']))

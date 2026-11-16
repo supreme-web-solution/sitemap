@@ -30,7 +30,7 @@ class AdminUserController extends Controller
         $status = (string) $request->query('status', '');
 
         $users = User::query()
-            ->with(['roles:id,name', 'reseller:id,email'])
+            ->with(['roles:id,name', 'reseller:id,email', 'teams.plan:id,name'])
             ->withCount('teams')
             ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%");
@@ -43,6 +43,7 @@ class AdminUserController extends Controller
             ->withQueryString()
             ->through(fn (User $user) => $this->present($user) + [
                 'teams_count' => $user->teams_count,
+                'teams' => $this->teamRows($user),
                 'can_manage' => ! $user->is($request->user()) && ! $user->isAdmin(),
             ]);
 
@@ -82,7 +83,7 @@ class AdminUserController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('User created.')]);
 
-        return to_route('admin.users.edit', $user);
+        return to_route('admin.users.index');
     }
 
     /**
@@ -92,17 +93,11 @@ class AdminUserController extends Controller
     {
         $user->load(['roles:id,name', 'reseller:id,email']);
 
+        $user->load(['teams.plan:id,name']);
+
         return Inertia::render('admin/users/Edit', [
             'account' => $this->present($user),
-            'teams' => $user->teams()->with('plan:id,name')->get()->map(fn (Team $team) => [
-                'id' => $team->id,
-                'name' => $team->name,
-                'slug' => $team->slug,
-                'is_personal' => $team->is_personal,
-                'role' => $team->pivot->role,
-                'plan_id' => $team->plan_id,
-                'plan_name' => $team->plan?->name,
-            ])->values(),
+            'teams' => $this->teamRows($user),
             'plans' => $this->planOptions(),
             ...$this->roleProps(),
         ]);
@@ -214,6 +209,22 @@ class AdminUserController extends Controller
             'roles' => $user->relationLoaded('roles') ? $user->roles->pluck('name')->values()->all() : [],
             'reseller_email' => $user->relationLoaded('reseller') ? $user->reseller?->email : null,
         ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string, slug: string, is_personal: bool, role: string, plan_id: int|null, plan_name: string|null}>
+     */
+    private function teamRows(User $user): array
+    {
+        return $user->teams->map(fn (Team $team) => [
+            'id' => $team->id,
+            'name' => $team->name,
+            'slug' => $team->slug,
+            'is_personal' => $team->is_personal,
+            'role' => $team->pivot->role,
+            'plan_id' => $team->plan_id,
+            'plan_name' => $team->plan?->name,
+        ])->values()->all();
     }
 
     /**

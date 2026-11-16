@@ -145,6 +145,20 @@ test('the sites page lists only the current team websites', function () {
             ));
 });
 
+test('a website card thumbnail shows the hero instead of a tall empty screen', function () {
+    $user = User::factory()->create();
+    $lead = Lead::factory()->create(['team_id' => $user->currentTeam->id, 'name' => 'Barber Shop NYC']);
+    $site = Site::factory()->create(['lead_id' => $lead->id]);
+
+    $this->actingAs($user)
+        ->get(route('sites.preview', ['site' => $site->slug, 'thumbnail' => 1]))
+        ->assertOk()
+        ->assertSee('class="is-thumbnail"', false)
+        ->assertSee('min-height: 800px !important', false)
+        ->assertSee($site->content['headline'], false)
+        ->assertDontSee('class="preview-bar"', false);
+});
+
 test('the editor shows the website content', function () {
     $user = User::factory()->create();
     $lead = Lead::factory()->create(['team_id' => $user->currentTeam->id]);
