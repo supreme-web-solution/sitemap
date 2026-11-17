@@ -89,14 +89,14 @@ test('each product grants the access for that purchase', function (string $produ
     'Bundle' => ['462103', 'Bundle', ALL_PERMISSIONS],
     'Fast-pass 1' => ['463017', 'Bundle', ALL_PERMISSIONS],
     'Fast-pass 2' => ['463019', 'Bundle', ALL_PERMISSIONS],
-    'AgencyVault 1' => ['463025', 'AgencyVault', ['access_agency_vault']],
-    'AgencyVault 2' => ['463027', 'AgencyVault', ['access_agency_vault']],
-    'Online Reputation 1' => ['463029', 'Online Reputation App', ['access_online_reputation']],
-    'Online Reputation 2' => ['463033', 'Online Reputation App', ['access_online_reputation']],
-    'Ai sales 1' => ['463035', 'Ai Multichannel Sales Employee', ['access_ai_sales_employee']],
-    'Ai sales 2' => ['463037', 'Ai Multichannel Sales Employee', ['access_ai_sales_employee']],
-    'Reseller 1' => ['463039', 'Reseller', ['access_reseller']],
-    'Reseller 2' => ['463041', 'Reseller', ['access_reseller']],
+    'AgencyVault 1' => ['463025', 'AgencyVault', ['view_app_features', 'access_agency_vault']],
+    'AgencyVault 2' => ['463027', 'AgencyVault', ['view_app_features', 'access_agency_vault']],
+    'Online Reputation 1' => ['463029', 'Online Reputation App', ['view_app_features', 'access_online_reputation']],
+    'Online Reputation 2' => ['463033', 'Online Reputation App', ['view_app_features', 'access_online_reputation']],
+    'Ai sales 1' => ['463035', 'Ai Multichannel Sales Employee', ['view_app_features', 'access_ai_sales_employee']],
+    'Ai sales 2' => ['463037', 'Ai Multichannel Sales Employee', ['view_app_features', 'access_ai_sales_employee']],
+    'Reseller 1' => ['463039', 'Reseller', ['view_app_features', 'access_reseller']],
+    'Reseller 2' => ['463041', 'Reseller', ['view_app_features', 'access_reseller']],
 ]);
 
 test('an unknown product is rejected', function () {
@@ -228,7 +228,10 @@ test('menus and pages follow the product that was bought', function () {
     $this->actingAs($vault)->get('/agency-vault')->assertOk();
     $this->actingAs($vault)->get('/reseller')->assertForbidden();
     $this->actingAs($vault)->get(route('dashboard', ['current_team' => $vault->currentTeam->slug]))
-        ->assertInertia(fn ($page) => $page->where('auth.canViewAppFeatures', false));
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('auth.canViewAppFeatures', true)
+            ->where('auth.permissions', ['view_app_features', 'access_agency_vault']));
 });
 
 test('a reseller can create and delete only their own customer accounts', function () {

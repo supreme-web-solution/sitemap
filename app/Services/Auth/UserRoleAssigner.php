@@ -43,17 +43,17 @@ final class UserRoleAssigner
             return ['view_app_features'];
         }
 
-        if ($user->roles()->count() === 0) {
-            return ['view_app_features'];
-        }
+        $names = ['view_app_features'];
 
-        $names = [];
+        if ($user->roles()->count() === 0) {
+            return $names;
+        }
 
         foreach ($user->getAllPermissions() as $permission) {
             $names[] = $permission->name;
         }
 
-        return $names;
+        return array_values(array_unique($names));
     }
 
     /**

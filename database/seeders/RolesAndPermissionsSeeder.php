@@ -13,7 +13,8 @@ class RolesAndPermissionsSeeder extends Seeder
      * Role name => permissions. Role names must match the `funnel` column in ProductTableSeeder.
      *
      * FE is the core app only. Bundle (full bundle and fast-pass) unlocks every menu.
-     * Each upsell role unlocks only its own menu, and purchases stack on the same account.
+     * Reseller and each upsell add that page on top of the core app. They do not replace it.
+     * Purchases stack on the same account.
      *
      * @var array<string, list<string>>
      */
@@ -29,15 +30,19 @@ class RolesAndPermissionsSeeder extends Seeder
             'access_ai_sales_employee',
         ],
         'Reseller' => [
+            'view_app_features',
             'access_reseller',
         ],
         'AgencyVault' => [
+            'view_app_features',
             'access_agency_vault',
         ],
         'Online Reputation App' => [
+            'view_app_features',
             'access_online_reputation',
         ],
         'Ai Multichannel Sales Employee' => [
+            'view_app_features',
             'access_ai_sales_employee',
         ],
     ];

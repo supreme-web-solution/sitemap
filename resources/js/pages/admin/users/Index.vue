@@ -566,9 +566,11 @@ const statusFilterSelect = computed({
                     >
                         <Label>Product access</Label>
                         <p class="text-xs text-muted-foreground">
-                            Leave every box unchecked to keep core app access
-                            only. Fast-pass and the full bundle both use the
-                            Bundle role.
+                            These boxes add pages on top of the core app. They
+                            do not replace it. Leave every box unchecked for
+                            the core app only. Fast-pass and the full bundle
+                            both use the Bundle role, which adds every upgrade
+                            page.
                         </p>
                         <label
                             v-for="role in assignableRoles"
