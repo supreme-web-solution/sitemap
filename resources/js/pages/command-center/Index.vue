@@ -363,10 +363,6 @@ const dismissAction = (id: number) => {
 
 const whatsappSetupOpen = ref(false);
 
-const openWhatsAppSetup = () => {
-    whatsappSetupOpen.value = true;
-};
-
 const toggleWhatsAppSetup = () => {
     whatsappSetupOpen.value = !whatsappSetupOpen.value;
 };
@@ -618,7 +614,13 @@ const copyText = async (text: string) => {
                         <MessageSquare class="size-4 text-[#25D366]" />
                         <span class="text-sm font-semibold">WhatsApp</span>
                         <span
-                            v-if="!whatsapp.linked"
+                            v-if="!whatsapp.configured"
+                            class="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase text-muted-foreground"
+                        >
+                            N/A
+                        </span>
+                        <span
+                            v-else-if="!whatsapp.linked"
                             class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
                         >
                             Setup
@@ -636,40 +638,14 @@ const copyText = async (text: string) => {
                     />
                 </button>
 
-                <div class="border-t border-border/60 px-4 pb-4 pt-2">
-                    <p class="text-xs text-muted-foreground">
+                <div v-show="whatsappSetupOpen" class="border-t border-border/60 px-4 pb-4 pt-2">
+                    <template v-if="!whatsapp.configured">
+                        <p class="text-xs text-muted-foreground">N/A</p>
+                    </template>
+
+                    <p v-else class="text-xs text-muted-foreground">
                         Same {{ employee.name }} brain from your phone.
                     </p>
-
-                    <template v-if="!whatsapp.configured">
-                        <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">
-                            Set ZERNIO_WHATSAPP_NUMBER, ZERNIO_API_KEY, and ZERNIO_WEBHOOK_SECRET on the server.
-                        </p>
-                    </template>
-
-                    <template v-else-if="whatsapp.linked && !whatsappSetupOpen">
-                        <p class="mt-3 text-sm text-foreground">
-                            Linked — message {{ whatsapp.platformNumberDisplay }} to chat with
-                            {{ employee.name }}.
-                        </p>
-                        <button
-                            type="button"
-                            class="mt-3 w-full rounded-lg bg-[#25D366] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#20bd5a]"
-                            @click="openWhatsAppSetup"
-                        >
-                            View connection
-                        </button>
-                    </template>
-
-                    <template v-else-if="!whatsappSetupOpen">
-                        <button
-                            type="button"
-                            class="mt-3 w-full rounded-lg bg-[#25D366] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#20bd5a]"
-                            @click="openWhatsAppSetup"
-                        >
-                            Connect WhatsApp
-                        </button>
-                    </template>
 
                     <div
                         v-show="whatsappSetupOpen && whatsapp.configured"
