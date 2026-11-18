@@ -330,16 +330,21 @@ class RuleBasedCopywriter implements SiteCopywriter
     protected function presetFor(?string $category): ?array
     {
         $haystack = ' '.Str::lower((string) $category).' ';
+        $best = null;
+        $bestLength = 0;
 
         foreach (self::PRESETS as $preset) {
             foreach ($preset['keywords'] as $keyword) {
-                if (str_contains($haystack, $keyword)) {
-                    return $preset;
+                if (! str_contains($haystack, $keyword) || strlen($keyword) <= $bestLength) {
+                    continue;
                 }
+
+                $best = $preset;
+                $bestLength = strlen($keyword);
             }
         }
 
-        return null;
+        return $best;
     }
 
     /**

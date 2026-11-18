@@ -7,7 +7,6 @@ use App\Enums\UsageMetric;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Leads\StoreLeadSearchRequest;
 use App\Jobs\RunLeadSearch;
-use App\Models\LeadSearch;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
 use Illuminate\Http\RedirectResponse;
@@ -55,12 +54,32 @@ class LeadSearchController extends Controller
     /**
      * Remove a search from the recent-search list.
      */
-    public function destroy(Team $currentTeam, LeadSearch $leadSearch): RedirectResponse
+    public function destroy(Team $currentTeam, int $leadSearch): RedirectResponse
     {
-        abort_unless($leadSearch->team_id === $currentTeam->id, 404);
+        $currentTeam->leadSearches()->whereKey($leadSearch)->delete();
 
-        $leadSearch->delete();
+        return $this->redirectToLeads($currentTeam);
+    }
 
-        return back();
+    /**
+     * Return to the lead list without the search that was just removed.
+     *
+     * The previous page often still has ?search_id= for that row. Sending the
+     * browser back there fails validation once the row is gone.
+     */
+    protected function redirectToLeads(Team $currentTeam): RedirectResponse
+    {
+        $leads = route('leads.index', ['current_team' => $currentTeam->slug]);
+        $previous = url()->previous();
+
+        if (! str_starts_with($previous, $leads)) {
+            return redirect()->to($leads);
+        }
+
+        $query = [];
+        parse_str((string) parse_url($previous, PHP_URL_QUERY), $query);
+        unset($query['search_id']);
+
+        return redirect()->to($query === [] ? $leads : $leads.'?'.http_build_query($query));
     }
 }

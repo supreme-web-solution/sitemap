@@ -117,7 +117,7 @@ test('users cannot dismiss another team search', function () {
             'current_team' => $user->currentTeam->slug,
             'leadSearch' => $search->id,
         ]))
-        ->assertNotFound();
+        ->assertRedirect(route('leads.index', ['current_team' => $user->currentTeam->slug]));
 
     expect(LeadSearch::query()->whereKey($search->id)->exists())->toBeTrue();
 });

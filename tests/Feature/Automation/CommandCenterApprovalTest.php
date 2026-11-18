@@ -52,3 +52,16 @@ test('user can approve a pending delete', function () {
     expect(Lead::query()->whereKey($lead->id)->exists())->toBeFalse();
     expect($pending->fresh()->status)->toBe(CommandCenterPendingActionStatus::Approved);
 });
+
+test('approving an action that is already gone stays on the command center', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+
+    $this->actingAs($user)
+        ->from(route('command-center.index', ['current_team' => $team->slug]))
+        ->post(route('command-center.pending.approve', [
+            'current_team' => $team->slug,
+            'pendingAction' => 999999,
+        ]))
+        ->assertRedirect(route('command-center.index', ['current_team' => $team->slug]));
+});

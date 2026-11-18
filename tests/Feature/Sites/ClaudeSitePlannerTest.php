@@ -6,6 +6,7 @@ use App\Enums\SiteVibe;
 use App\Models\AiCreditEvent;
 use App\Models\Lead;
 use App\Services\SiteBuilder\ClaudeSitePlanner;
+use App\Services\SiteBuilder\RuleBasedCopywriter;
 use App\Services\SiteBuilder\SiteCopywriter;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -147,6 +148,52 @@ test('the owner vibe locks the template', function () {
     expect($draft->template)->toBe(SiteTemplate::WarmStudio);
 
     SitePlanDesigner::assertPrompted(fn (AgentPrompt $prompt) => $prompt->contains('Use the warm-studio template.'));
+});
+
+test('a barber plan keeps its headline when process and why are wrapped', function () {
+    SitePlanDesigner::fake(fn () => fakeSitePlanToolCall([
+        'headline' => 'Cuts and fades in Miami',
+        'tagline' => 'A local barbershop for sharp haircuts.',
+        'process' => [
+            'steps' => [
+                ['title' => 'Book', 'description' => 'Pick a time that suits you.'],
+                ['title' => 'Cut', 'description' => 'We cut and finish the style you asked for.'],
+                ['title' => 'Done', 'description' => 'You leave with the look you wanted.'],
+            ],
+        ],
+        'why' => [
+            'points' => [
+                ['title' => 'Local shop', 'description' => 'Based in Miami.'],
+                ['title' => 'Walk in', 'description' => 'Come by when you can.'],
+            ],
+        ],
+        'additional_services' => [
+            ['title' => 'Beard trim'],
+        ],
+    ]));
+
+    $draft = app(SiteCopywriter::class)->write(Lead::factory()->create([
+        'category' => 'Barber shop',
+        'city' => 'Miami',
+        'name' => 'Fresh & Faded',
+    ]));
+
+    expect($draft->content['headline'])->toBe('Cuts and fades in Miami')
+        ->and($draft->content['tagline'])->not->toContain('food')
+        ->and($draft->content['process'][0]['title'])->toBe('Book')
+        ->and($draft->content['why'][0]['title'])->toBe('Local shop');
+});
+
+test('a barber shop does not get restaurant copy when the planner falls back', function () {
+    $draft = app(RuleBasedCopywriter::class)->write(Lead::factory()->create([
+        'category' => 'Barber shop',
+        'city' => 'Miami',
+        'name' => 'Kings Of Thrones Barbershop',
+    ]));
+
+    expect($draft->content['headline'])->toBe('Trusted Beauty in Miami')
+        ->and($draft->content['tagline'])->not->toContain('food')
+        ->and(implode(' ', array_column($draft->content['services'], 'title')))->not->toContain('Dine');
 });
 
 test('rule based copy is used when Claude keeps failing validation', function () {

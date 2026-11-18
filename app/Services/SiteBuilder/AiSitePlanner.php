@@ -192,7 +192,7 @@ abstract class AiSitePlanner implements SiteCopywriter
             if ($errors === []) {
                 SiteEditLog::info('planner revise accepted', ['lead_id' => $lead->id, 'attempt' => $attempt]);
 
-                return $this->toDraft($plan, $current->content, $current->template);
+                return $this->toDraft($plan, $current->content, $current->template, $lead);
             }
         }
 
@@ -232,7 +232,7 @@ abstract class AiSitePlanner implements SiteCopywriter
             return ['Return the site plan as JSON matching the schema.'];
         }
 
-        $plan = $this->normalizePlanPayload($plan, $template);
+        $plan = $this->preparePlan($plan, $lead, $template);
 
         $validator = Validator::make($plan, SiteContentSchema::rules());
 
@@ -284,7 +284,9 @@ abstract class AiSitePlanner implements SiteCopywriter
      */
     protected function toDraft(array $plan, ?array $previousContent = null, ?SiteTemplate $expectedTemplate = null, ?Lead $lead = null): SiteDraft
     {
-        $normalized = $this->normalizePlanPayload($plan, $expectedTemplate);
+        $normalized = $lead === null
+            ? $this->normalizePlanPayload($plan, $expectedTemplate)
+            : $this->preparePlan($plan, $lead, $expectedTemplate);
         $content = SiteContentSchema::toContent($normalized, withDefaults: true);
 
         if ($lead !== null) {
@@ -309,6 +311,40 @@ abstract class AiSitePlanner implements SiteCopywriter
      * @param  array<string, mixed>  $plan
      * @return array<string, mixed>
      */
+    /**
+     * Normalize the model payload and fill copy fields it left blank.
+     *
+     * @param  array<string, mixed>  $plan
+     * @return array<string, mixed>
+     */
+    protected function preparePlan(array $plan, Lead $lead, ?SiteTemplate $expectedTemplate = null): array
+    {
+        $plan = $this->normalizePlanPayload($plan, $expectedTemplate);
+
+        $needsCopy = false;
+
+        foreach (['headline', 'tagline', 'cta_label', 'about'] as $field) {
+            if (! filled($plan[$field] ?? null)) {
+                $needsCopy = true;
+                break;
+            }
+        }
+
+        if (! $needsCopy) {
+            return $plan;
+        }
+
+        $fallback = $this->fallback->write($lead, $expectedTemplate)->content;
+
+        foreach (['headline', 'tagline', 'cta_label', 'about'] as $field) {
+            if (! filled($plan[$field] ?? null) && filled($fallback[$field] ?? null)) {
+                $plan[$field] = $fallback[$field];
+            }
+        }
+
+        return $plan;
+    }
+
     protected function normalizePlanPayload(array $plan, ?SiteTemplate $expectedTemplate = null): array
     {
         if (array_key_exists('template', $plan) && is_string($plan['template'])) {
@@ -319,12 +355,10 @@ abstract class AiSitePlanner implements SiteCopywriter
             }
         }
 
-        if ($expectedTemplate !== null) {
-            $current = is_string($plan['template'] ?? null) ? SiteTemplate::tryFrom($plan['template']) : null;
+        $current = is_string($plan['template'] ?? null) ? SiteTemplate::tryFrom($plan['template']) : null;
 
-            if ($current === null) {
-                $plan['template'] = $expectedTemplate->value;
-            }
+        if ($current === null) {
+            $plan['template'] = ($expectedTemplate ?? SiteTemplate::ModernClean)->value;
         }
 
         if (array_key_exists('accent', $plan) && is_string($plan['accent'])) {
@@ -341,8 +375,25 @@ abstract class AiSitePlanner implements SiteCopywriter
             }
         }
 
-        if ($expectedTemplate !== null && ! isset($plan['accent'])) {
-            $plan['accent'] = $expectedTemplate->defaultAccent();
+        if (! isset($plan['accent'])) {
+            $resolved = SiteTemplate::tryFrom((string) $plan['template']) ?? $expectedTemplate ?? SiteTemplate::ModernClean;
+            $plan['accent'] = $resolved->defaultAccent();
+        }
+
+        if (! array_key_exists('faqs', $plan) || ! is_array($plan['faqs'])) {
+            $plan['faqs'] = [];
+        }
+
+        if (array_key_exists('process', $plan)) {
+            $plan['process'] = $this->normalizeProofList($plan['process']);
+        }
+
+        if (array_key_exists('why', $plan)) {
+            $plan['why'] = $this->normalizeProofList($plan['why']);
+        }
+
+        if (array_key_exists('additional_services', $plan)) {
+            $plan['additional_services'] = $this->normalizeTitleList($plan['additional_services']);
         }
 
         if (array_key_exists('copy', $plan)) {
@@ -380,12 +431,88 @@ abstract class AiSitePlanner implements SiteCopywriter
     }
 
     /**
+     * Turn a wrapped or renamed proof list into title and description pairs.
+     *
+     * @return list<array{title: string, description: string}>
+     */
+    protected function normalizeProofList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        if (! array_is_list($value)) {
+            foreach (['steps', 'points', 'items'] as $key) {
+                if (isset($value[$key]) && is_array($value[$key])) {
+                    $value = $value[$key];
+                    break;
+                }
+            }
+        }
+
+        if (! is_array($value) || ! array_is_list($value)) {
+            return [];
+        }
+
+        $pairs = [];
+
+        foreach ($value as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $title = trim((string) ($item['title'] ?? $item['name'] ?? $item['heading'] ?? ''));
+            $description = trim((string) ($item['description'] ?? $item['text'] ?? $item['body'] ?? ''));
+
+            if ($title === '' || $description === '') {
+                continue;
+            }
+
+            $pairs[] = ['title' => $title, 'description' => $description];
+        }
+
+        return $pairs;
+    }
+
+    /**
+     * Accept either plain titles or objects the model wrapped in a title field.
+     *
+     * @return list<string>
+     */
+    protected function normalizeTitleList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $titles = [];
+
+        foreach ($value as $item) {
+            $title = '';
+
+            if (is_string($item)) {
+                $title = trim($item);
+            } elseif (is_array($item)) {
+                $title = trim((string) ($item['title'] ?? $item['name'] ?? ''));
+            }
+
+            if ($title !== '') {
+                $titles[] = $title;
+            }
+        }
+
+        return array_values(array_unique($titles));
+    }
+
+    /**
      * The system prompt that constrains the model to the section library.
      */
     protected function systemPrompt(): string
     {
         return <<<'PROMPT'
         You plan one-page websites for small local businesses. You never invent CSS. You choose a template, an accent colour from that template's approved palette, an order of sections from a fixed library, and optionally a layout variant per section from the lists below. After a site exists, an edit may change one section's layout variant without changing the template.
+
+        The template field must be exactly one of: modern-clean, warm-studio, editorial-dark. Do not send a display name. The accent field is required and must be a #rrggbb colour from that template's palette: modern-clean = #2563eb, #0d9488, #0891b2, #16a34a, #ca8a04, #9a3412, #0284c7; warm-studio = #c2410c, #b45309, #be123c, #a16207, #15803d, #7c2d12; editorial-dark = #f59e0b, #e11d48, #dc2626, #84cc16, #b45309, #38bdf8.
 
         Copy rules:
         - Use only facts present in the business profile. Never invent prices, founding years, years of experience, awards, licences, certifications, guarantees, team members, testimonials or statistics.

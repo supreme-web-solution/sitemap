@@ -187,11 +187,15 @@ class CommandCenterController extends Controller
     public function approvePending(
         Request $request,
         Team $currentTeam,
-        CommandCenterPendingAction $pendingAction,
+        int $pendingAction,
         CommandCenterActionExecutor $executor,
         CommandCenterNotifier $notifier,
     ): RedirectResponse|JsonResponse {
-        $this->authorizePending($currentTeam, $request->user()->id, $pendingAction);
+        $pendingAction = $this->pendingForUser($currentTeam, $request->user()->id, $pendingAction);
+
+        if ($pendingAction === null) {
+            return $this->missingPending($request, $currentTeam);
+        }
 
         $result = $executor->run(
             $pendingAction->action,
@@ -223,9 +227,13 @@ class CommandCenterController extends Controller
     public function dismissPending(
         Request $request,
         Team $currentTeam,
-        CommandCenterPendingAction $pendingAction,
+        int $pendingAction,
     ): RedirectResponse|JsonResponse {
-        $this->authorizePending($currentTeam, $request->user()->id, $pendingAction);
+        $pendingAction = $this->pendingForUser($currentTeam, $request->user()->id, $pendingAction);
+
+        if ($pendingAction === null) {
+            return $this->missingPending($request, $currentTeam);
+        }
 
         $pendingAction->forceFill([
             'status' => CommandCenterPendingActionStatus::Dismissed,
@@ -276,12 +284,30 @@ class CommandCenterController extends Controller
             ->all();
     }
 
-    protected function authorizePending(Team $team, int $userId, CommandCenterPendingAction $pendingAction): void
+    protected function pendingForUser(Team $team, int $userId, int $pendingActionId): ?CommandCenterPendingAction
     {
-        if ($pendingAction->team_id !== $team->id
-            || $pendingAction->user_id !== $userId
-            || $pendingAction->status !== CommandCenterPendingActionStatus::Pending) {
-            abort(404);
+        return CommandCenterPendingAction::query()
+            ->whereKey($pendingActionId)
+            ->where('team_id', $team->id)
+            ->where('user_id', $userId)
+            ->where('status', CommandCenterPendingActionStatus::Pending)
+            ->first();
+    }
+
+    protected function missingPending(Request $request, Team $team): RedirectResponse|JsonResponse
+    {
+        $message = __('That approval is no longer available.');
+
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'ok' => false,
+                'message' => $message,
+                'pendingActions' => $this->pendingActions($team, $request->user()),
+            ], 422);
         }
+
+        Inertia::flash('toast', ['type' => 'error', 'message' => $message]);
+
+        return back();
     }
 }
