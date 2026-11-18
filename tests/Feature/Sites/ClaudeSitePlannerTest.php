@@ -150,6 +150,26 @@ test('the owner vibe locks the template', function () {
     SitePlanDesigner::assertPrompted(fn (AgentPrompt $prompt) => $prompt->contains('Use the warm-studio template.'));
 });
 
+test('an invalid template and missing accent do not discard the anthropic copy', function () {
+    SitePlanDesigner::fake(fn () => fakeSitePlanToolCall([
+        'template' => 'Modern Clean Pro',
+        'accent' => '',
+        'headline' => 'Fades and lineups in Miami',
+        'tagline' => 'A neighborhood barbershop for a clean cut.',
+    ]));
+
+    $draft = app(SiteCopywriter::class)->write(Lead::factory()->create([
+        'category' => 'Barber shop',
+        'city' => 'Miami',
+        'name' => 'Just Faded Barber Shop',
+    ]));
+
+    expect($draft->template)->toBe(SiteTemplate::ModernClean)
+        ->and($draft->content['accent'])->toBe('#2563eb')
+        ->and($draft->content['headline'])->toBe('Fades and lineups in Miami')
+        ->and($draft->content['tagline'])->not->toContain('food');
+});
+
 test('a barber plan keeps its headline when process and why are wrapped', function () {
     SitePlanDesigner::fake(fn () => fakeSitePlanToolCall([
         'headline' => 'Cuts and fades in Miami',
