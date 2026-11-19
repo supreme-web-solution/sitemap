@@ -14,7 +14,6 @@ use App\Services\Billing\UsageMeter;
 use App\Services\CommandCenter\CommandCenterNotifier;
 use App\Services\LeadFinder\LeadFinder;
 use App\Services\LeadFinder\WebsiteEmailLookup;
-use Illuminate\Support\Facades\Cache;
 use App\Support\Queues;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -22,6 +21,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -128,7 +128,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Keep every listing, or only as many emailed leads as the user asked for.
+     * Keep every listing, or look up emails for the result count and save those businesses either way.
      *
      * @param  list<BusinessListing>  $listings
      * @return list<BusinessListing>
@@ -139,14 +139,9 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             return $listings;
         }
 
-        $chosen = app(WebsiteEmailLookup::class)->fillListings(
+        return app(WebsiteEmailLookup::class)->fillListings(
             $this->emailCandidates($search, $listings),
         );
-
-        return array_values(array_filter(
-            $chosen,
-            fn (BusinessListing $listing) => filled($listing->email),
-        ));
     }
 
     /**

@@ -1133,15 +1133,15 @@ const onPickDesign = (lead: Lead) => {
                         >
                             <label class="flex items-center justify-between gap-3 text-sm">
                                 <span>
-                                    Only save leads that have an email
+                                    Look up emails for these leads
                                     <span class="mt-1 block text-xs text-muted-foreground">
-                                        Takes longer. Looks up just the number of businesses you set, and every lead it saves has an email. You may get fewer than that.
+                                        Takes longer. Checks the number of businesses you set, adds an email when one is found, and still saves each business.
                                     </span>
                                 </span>
                                 <Switch
                                     v-model="searchForm.require_email"
                                     data-test="lead-search-require-email"
-                                    aria-label="Only save leads that have an email"
+                                    aria-label="Look up emails for these leads"
                                 />
                             </label>
                         </div>

@@ -227,7 +227,52 @@ test('a completed search stores open businesses as team leads', function () {
         ]);
 });
 
-test('an email search scans a larger set and saves only listings that have an email', function () {
+test('an email search still saves every selected business when no email is found', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+
+    $places = [
+        mindcasePlace(['placeId' => 'ChIJ-pest-1', 'businessName' => 'Pest One', 'emails' => [], 'website' => 'https://www.pestone.test']),
+        mindcasePlace(['placeId' => 'ChIJ-pest-2', 'businessName' => 'Pest Two', 'emails' => [], 'website' => 'https://www.pesttwo.test']),
+    ];
+
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'job_id' => 'job-keep',
+            'status' => 'completed',
+            'data' => $places,
+        ]),
+        'api.mindcase.co/v1/jobs/job-keep/results' => Http::response([
+            'job_id' => 'job-keep',
+            'status' => 'completed',
+            'data' => $places,
+        ]),
+        'api.mindcase.co/v1/data/leads/contacts/run*' => Http::response([
+            'status' => 'completed',
+            'data' => [],
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->create([
+        'keyword' => 'pest control',
+        'location' => 'Seattle, Washington',
+        'max_results' => 2,
+        'require_email' => true,
+    ]);
+
+    runLeadSearch($search)->assertReleased(1);
+    runLeadSearch($search->fresh())->assertNotReleased();
+
+    expect($search->fresh())
+        ->status->toBe(LeadSearchStatus::Completed)
+        ->results_count->toBe(2)
+        ->leads_created_count->toBe(2);
+
+    expect($search->team->leads()->orderBy('name')->pluck('name')->all())->toBe(['Pest One', 'Pest Two']);
+    expect($search->team->leads()->whereNotNull('email')->count())->toBe(0);
+});
+
+test('an email search scans a larger set and prefers listings that already have an email', function () {
     config(['services.mindcase.key' => 'mk_test_key']);
     Http::preventStrayRequests();
     Http::fake([
