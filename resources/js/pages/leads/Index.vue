@@ -1135,7 +1135,7 @@ const onPickDesign = (lead: Lead) => {
                                 <span>
                                     Look up an email for each business
                                     <span class="mt-1 block text-xs text-muted-foreground">
-                                        Takes longer. Checks each business you asked for, the same way as the email button, adds an email when one is found, and still saves each business.
+                                        Takes longer. Checks the Maps listing for each business you asked for, adds an email when one is found, and still saves each business.
                                     </span>
                                 </span>
                                 <Switch

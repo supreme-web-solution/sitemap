@@ -155,7 +155,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             return $listing;
         }, $this->emailCandidates($search, $listings));
 
-        return app(WebsiteEmailLookup::class)->fillListings($chosen);
+        return $chosen;
     }
 
     /**
@@ -240,7 +240,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     {
         return collect($this->emailCandidates($search, $listings))->contains(
             fn (BusinessListing $listing) => blank($listing->email)
-                && (filled($listing->mapsUrl) || filled($listing->placeId) || filled($listing->website)),
+                && (filled($listing->mapsUrl) || filled($listing->placeId)),
         );
     }
 

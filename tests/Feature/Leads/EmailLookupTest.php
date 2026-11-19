@@ -117,7 +117,7 @@ test('extract lookup reads the business website when maps has no email', functio
     expect($lead->fresh()->email)->toBe('hello@crescent.test');
 });
 
-test('an email search looks up the website when maps did not include an email', function () {
+test('an email search does not spend a website lookup when the maps listing has no email', function () {
     config(['services.mindcase.key' => 'mk_test_key']);
     Http::preventStrayRequests();
     Http::fake([
@@ -164,7 +164,9 @@ test('an email search looks up the website when maps did not include an email', 
 
     runLeadSearch($search->fresh())->assertNotReleased();
 
-    expect($search->team->leads()->sole()->email)->toBe('hello@siteonly.test');
+    expect($search->team->leads()->sole()->email)->toBeNull();
+
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'leads/contacts'));
 });
 
 test('an email search looks up only as many businesses as the result count', function () {
@@ -206,13 +208,8 @@ test('an email search looks up only as many businesses as the result count', fun
     runLeadSearch($search->fresh())->assertReleased(1);
     runLeadSearch($search->fresh())->assertNotReleased();
 
-    expect($search->team->leads()->pluck('email')->all())->toBe(['hello@first.test']);
+    expect($search->team->leads()->count())->toBe(1);
+    expect($search->team->leads()->sole()->email)->toBeNull();
 
-    Http::assertSent(function (Request $request) {
-        if (! str_contains($request->url(), 'leads/contacts')) {
-            return false;
-        }
-
-        return $request['params']['websites'] === ['https://www.first.test'];
-    });
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'leads/contacts'));
 });
