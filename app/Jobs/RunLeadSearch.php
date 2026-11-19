@@ -39,9 +39,10 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     /**
      * The number of seconds the job can run before timing out.
      *
-     * Must stay below the queue connection's retry_after (90 seconds by default).
+     * Stays under the database queue retry_after of 120 seconds, with room for
+     * one individual email lookup after the maps results are polled.
      */
-    public int $timeout = 75;
+    public int $timeout = 90;
 
     /**
      * The number of unhandled exceptions to allow before failing.
@@ -76,6 +77,10 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
      */
     public function retryUntil(): DateTimeInterface
     {
+        if ($this->leadSearch->require_email) {
+            return now()->addMinutes(90);
+        }
+
         return now()->addMinutes(20);
     }
 
@@ -139,9 +144,18 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             return $listings;
         }
 
-        return app(WebsiteEmailLookup::class)->fillListings(
-            $this->emailCandidates($search, $listings),
-        );
+        $progress = Cache::get($this->placeEmailKey($search), []);
+        $chosen = array_map(function (BusinessListing $listing) use ($progress) {
+            $email = $progress[$listing->placeId] ?? null;
+
+            if (blank($listing->email) && filled($email)) {
+                return $listing->withEmail($email);
+            }
+
+            return $listing;
+        }, $this->emailCandidates($search, $listings));
+
+        return app(WebsiteEmailLookup::class)->fillListings($chosen);
     }
 
     /**
@@ -178,38 +192,76 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * A website lookup is a second provider call, so it runs on the next attempt.
+     * Check one selected business per attempt, the same way the email button does.
      *
      * @param  list<BusinessListing>  $listings
      */
-    protected function deferWebsiteEmailLookup(LeadSearch $search, LeadFinderResult $result, array $listings): bool
+    protected function deferIndividualEmailLookup(LeadSearch $search, LeadFinderResult $result, array $listings): bool
     {
-        if (! $search->require_email || Cache::has($this->emailPassKey($search))) {
+        if (! $search->require_email || ! $this->needsIndividualEmailLookup($search, $listings)) {
             return false;
         }
 
-        $needsWebsite = collect($this->emailCandidates($search, $listings))->contains(
-            fn (BusinessListing $listing) => blank($listing->email) && filled($listing->website),
+        if (! Cache::has($this->emailPassKey($search))) {
+            $this->pauseForEmailLookup($search, $result);
+            Cache::put($this->emailPassKey($search), true, now()->addHours(2));
+
+            return true;
+        }
+
+        $progress = Cache::get($this->placeEmailKey($search), []);
+        $next = collect($this->emailCandidates($search, $listings))->first(
+            fn (BusinessListing $listing) => blank($listing->email)
+                && ! array_key_exists($listing->placeId, $progress)
+                && (filled($listing->mapsUrl) || filled($listing->placeId)),
         );
 
-        if (! $needsWebsite) {
+        if (! $next instanceof BusinessListing) {
             return false;
         }
 
+        try {
+            $email = app(WebsiteEmailLookup::class)->emailFromMaps($next->mapsUrl ?: $next->placeId);
+        } catch (Throwable) {
+            $email = null;
+        }
+
+        $progress[$next->placeId] = $email ?? '';
+        Cache::put($this->placeEmailKey($search), $progress, now()->addHours(2));
+        $this->pauseForEmailLookup($search, $result);
+
+        return true;
+    }
+
+    /**
+     * @param  list<BusinessListing>  $listings
+     */
+    protected function needsIndividualEmailLookup(LeadSearch $search, array $listings): bool
+    {
+        return collect($this->emailCandidates($search, $listings))->contains(
+            fn (BusinessListing $listing) => blank($listing->email)
+                && (filled($listing->mapsUrl) || filled($listing->placeId) || filled($listing->website)),
+        );
+    }
+
+    protected function pauseForEmailLookup(LeadSearch $search, LeadFinderResult $result): void
+    {
         $search->update([
             'status' => LeadSearchStatus::Running,
             'provider_job_id' => $result->providerJobId ?? $search->provider_job_id,
         ]);
 
-        Cache::put($this->emailPassKey($search), true, now()->addHours(2));
         $this->release(1);
-
-        return true;
     }
 
     protected function emailPassKey(LeadSearch $search): string
     {
         return 'lead-search:'.$search->id.':email-pass';
+    }
+
+    protected function placeEmailKey(LeadSearch $search): string
+    {
+        return 'lead-search:'.$search->id.':place-emails';
     }
 
     /**
@@ -220,7 +272,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
         /** @var array{found: int, created: int, updated: int, skipped_confirmed: int, skipped_limit: int, remaining_before: int|null} $stats */
         $stats = [];
 
-        if ($this->deferWebsiteEmailLookup($search, $result, $result->listings)) {
+        if ($this->deferIndividualEmailLookup($search, $result, $result->listings)) {
             return;
         }
 

@@ -45,7 +45,7 @@ class LeadSearchController extends Controller
         $emailOnly = $request->boolean('require_email');
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $emailOnly
-            ? __('This search takes longer. It looks up emails, then saves the businesses it finds.')
+            ? __('This search takes longer. It checks each business for an email, then saves the ones it finds.')
             : trans_choice(
                 'Searching :count location. Results will appear shortly.|Searching :count locations. Results will appear shortly.',
                 $locations->count(),

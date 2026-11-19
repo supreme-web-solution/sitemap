@@ -261,6 +261,8 @@ test('an email search still saves every selected business when no email is found
     ]);
 
     runLeadSearch($search)->assertReleased(1);
+    runLeadSearch($search->fresh())->assertReleased(1);
+    runLeadSearch($search->fresh())->assertReleased(1);
     runLeadSearch($search->fresh())->assertNotReleased();
 
     expect($search->fresh())
@@ -270,6 +272,54 @@ test('an email search still saves every selected business when no email is found
 
     expect($search->team->leads()->orderBy('name')->pluck('name')->all())->toBe(['Pest One', 'Pest Two']);
     expect($search->team->leads()->whereNotNull('email')->count())->toBe(0);
+});
+
+test('an email search uses the same maps lookup as the email button', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+
+    $places = [
+        mindcasePlace([
+            'placeId' => 'ChIJ-button',
+            'businessName' => 'Button Match',
+            'emails' => [],
+            'placeUrl' => 'https://maps.google.com/?cid=button',
+        ]),
+    ];
+
+    Http::fake(function (Request $request) use ($places) {
+        if (is_array($request['params']['urls'] ?? null)) {
+            return Http::response([
+                'status' => 'completed',
+                'data' => [mindcasePlace(['emails' => ['owner@button.test']])],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/results')) {
+            return Http::response([
+                'job_id' => 'job-button',
+                'status' => 'completed',
+                'data' => $places,
+            ]);
+        }
+
+        return Http::response([
+            'job_id' => 'job-button',
+            'status' => 'completed',
+            'data' => $places,
+        ]);
+    });
+
+    $search = LeadSearch::factory()->create([
+        'max_results' => 1,
+        'require_email' => true,
+    ]);
+
+    runLeadSearch($search)->assertReleased(1);
+    runLeadSearch($search->fresh())->assertReleased(1);
+    runLeadSearch($search->fresh())->assertNotReleased();
+
+    expect($search->team->leads()->sole()->email)->toBe('owner@button.test');
 });
 
 test('an email search scans a larger set and prefers listings that already have an email', function () {

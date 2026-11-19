@@ -126,11 +126,19 @@ class WebsiteEmailLookup
         return $found;
     }
 
-    protected function emailFromPlace(string $place): ?string
+    /**
+     * The same Maps lookup the email button uses for one business.
+     */
+    public function emailFromMaps(string $mapsUrlOrPlaceId): ?string
+    {
+        return $this->emailFromPlace($mapsUrlOrPlaceId, 45);
+    }
+
+    protected function emailFromPlace(string $place, int $seconds = 50): ?string
     {
         $payload = $this->run('data/google-maps/places/run', [
             'urls' => [$place],
-        ], 50);
+        ], $seconds);
 
         if (($payload['status'] ?? null) !== 'completed') {
             throw new \RuntimeException('Email lookup did not finish.');

@@ -158,6 +158,7 @@ test('an email search looks up the website when maps did not include an email', 
     ]);
 
     runLeadSearch($search)->assertReleased(1);
+    runLeadSearch($search->fresh())->assertReleased(1);
 
     expect($search->fresh()->status)->toBe(LeadSearchStatus::Running);
 
@@ -202,6 +203,7 @@ test('an email search looks up only as many businesses as the result count', fun
     ]);
 
     runLeadSearch($search)->assertReleased(1);
+    runLeadSearch($search->fresh())->assertReleased(1);
     runLeadSearch($search->fresh())->assertNotReleased();
 
     expect($search->team->leads()->pluck('email')->all())->toBe(['hello@first.test']);
