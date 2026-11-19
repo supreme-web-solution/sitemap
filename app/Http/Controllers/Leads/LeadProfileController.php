@@ -9,6 +9,7 @@ use App\Enums\SiteGenerationStatus;
 use App\Enums\SiteVibe;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Leads\UpdateLeadProfileRequest;
+use App\Jobs\LookupLeadEmail;
 use App\Models\Lead;
 use App\Models\LeadActivity;
 use App\Models\LeadTask;
@@ -17,7 +18,6 @@ use App\Models\SequenceEnrollment;
 use App\Models\SiteConcept;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
-use App\Services\LeadFinder\WebsiteEmailLookup;
 use App\Services\Media\SiteImageStorage;
 use App\Services\Outreach\DefaultEmailTemplates;
 use App\Services\Outreach\DefaultFollowUpSequences;
@@ -34,7 +34,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
 use Inertia\Response;
-use Throwable;
 
 class LeadProfileController extends Controller
 {
@@ -71,6 +70,7 @@ class LeadProfileController extends Controller
                 'reviewsCount' => $lead->reviews_count,
                 'mapsUrl' => $lead->reviewsUrl(),
                 'emailLookupEmpty' => (bool) $lead->email_lookup_empty,
+                'emailLookupStatus' => $lead->email_lookup_status->value,
                 'openingHours' => $lead->opening_hours ?? [],
                 'vibe' => $lead->vibe?->value,
                 'logoUrl' => $lead->logoUrl(),
@@ -211,13 +211,13 @@ class LeadProfileController extends Controller
     }
 
     /**
-     * Fill an empty email from the Maps listing, then from the business website.
+     * Queue a lookup that fills an empty email from the Maps listing, then the business website.
      */
-    public function lookupEmail(Request $request, Team $currentTeam, Lead $lead, WebsiteEmailLookup $lookup): RedirectResponse
+    public function lookupEmail(Request $request, Team $currentTeam, Lead $lead): RedirectResponse
     {
         abort_unless($lead->team_id === $currentTeam->id, 404);
 
-        if (filled($lead->email)) {
+        if (filled($lead->email) || $lead->email_lookup_status === SiteGenerationStatus::Queued) {
             return back();
         }
 
@@ -230,28 +230,28 @@ class LeadProfileController extends Controller
             return back();
         }
 
-        try {
-            $email = $lookup->findForLead($lead, $website);
-        } catch (Throwable) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => __('The email lookup could not be completed. Please try again.')]);
-
-            return back();
-        }
-
-        if ($email === null) {
-            $lead->forceFill(['email_lookup_empty' => true])->save();
-
-            Inertia::flash('toast', ['type' => 'error', 'message' => __('No email was found for this business.')]);
-
-            return back();
+        if (filled($website) && $website !== $lead->website) {
+            $lead->website = $website;
         }
 
         $lead->forceFill([
-            'email' => $email,
+            'email_lookup_status' => SiteGenerationStatus::Queued,
             'email_lookup_empty' => false,
         ])->save();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Email saved.')]);
+        LookupLeadEmail::dispatch($lead);
+
+        $lead->refresh();
+
+        if ($lead->email_lookup_status === SiteGenerationStatus::Queued) {
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Looking up the email.')]);
+        } elseif (filled($lead->email)) {
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Email saved.')]);
+        } elseif ($lead->email_lookup_empty) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('No email was found for this business.')]);
+        } else {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('The email lookup could not be completed. Please try again.')]);
+        }
 
         return back();
     }

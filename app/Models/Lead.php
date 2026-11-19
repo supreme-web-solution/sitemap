@@ -58,6 +58,8 @@ use Illuminate\Support\Str;
  * @property list<array{key: string, label: string, points: int, max: int, reason: string}>|null $opportunity_breakdown
  * @property array<string, mixed>|null $website_audit
  * @property Carbon|null $website_audited_at
+ * @property bool $email_lookup_empty
+ * @property SiteGenerationStatus $email_lookup_status
  * @property SiteGenerationStatus $website_audit_status
  * @property string|null $website_audit_public_token
  * @property SiteVibe|null $vibe
@@ -93,6 +95,7 @@ use Illuminate\Support\Str;
     'additional_phones',
     'email',
     'email_lookup_empty',
+    'email_lookup_status',
     'social_links',
     'website',
     'address',
@@ -497,6 +500,7 @@ class Lead extends Model
             'longitude' => 'float',
             'rating' => 'float',
             'email_lookup_empty' => 'boolean',
+            'email_lookup_status' => SiteGenerationStatus::class,
             'opening_hours' => 'array',
             'listing_services' => 'array',
             'listing_photo_urls' => 'array',

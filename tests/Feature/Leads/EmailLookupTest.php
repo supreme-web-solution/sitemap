@@ -1,10 +1,13 @@
 <?php
 
 use App\Enums\LeadSearchStatus;
+use App\Enums\SiteGenerationStatus;
+use App\Jobs\LookupLeadEmail;
 use App\Models\Lead;
 use App\Models\LeadSearch;
 use App\Models\User;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 
 test('extract lookup saves the email from the maps listing', function () {
@@ -29,7 +32,9 @@ test('extract lookup saves the email from the maps listing', function () {
         ->post(route('leads.email-lookup', ['current_team' => $user->currentTeam->slug, 'lead' => $lead]))
         ->assertRedirect();
 
-    expect($lead->fresh()->email)->toBe('owner@maps.test');
+    expect($lead->fresh())
+        ->email->toBe('owner@maps.test')
+        ->email_lookup_status->toBe(SiteGenerationStatus::Idle);
 
     Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'leads/contacts'));
 });
@@ -58,7 +63,26 @@ test('a finished lookup with no email is remembered so the button can point to m
 
     expect($lead->fresh())
         ->email->toBeNull()
-        ->email_lookup_empty->toBeTrue();
+        ->email_lookup_empty->toBeTrue()
+        ->email_lookup_status->toBe(SiteGenerationStatus::Idle);
+});
+
+test('extract lookup stays queued when the job has not finished', function () {
+    Bus::fake();
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->create([
+        'team_id' => $user->currentTeam->id,
+        'email' => null,
+        'maps_url' => 'https://maps.google.com/?cid=9',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('leads.email-lookup', ['current_team' => $user->currentTeam->slug, 'lead' => $lead]))
+        ->assertRedirect();
+
+    expect($lead->fresh()->email_lookup_status)->toBe(SiteGenerationStatus::Queued);
+    Bus::assertDispatched(LookupLeadEmail::class);
 });
 
 test('extract lookup reads the business website when maps has no email', function () {

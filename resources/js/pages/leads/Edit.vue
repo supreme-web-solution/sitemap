@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
 import {
     CircleCheck,
     FileText,
@@ -14,7 +15,7 @@ import {
     Star,
     Trash2,
 } from '@lucide/vue';
-import { computed, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import ActivityTimeline from '@/components/leads/ActivityTimeline.vue';
@@ -150,45 +151,18 @@ const form = useForm({
     generate: false,
 });
 
-const lookingUpEmail = ref(false);
-
-const resetEmailLookup = () => {
-    lookingUpEmail.value = false;
-};
-
-const resetEmailLookupOnReturn = () => {
-    if (document.visibilityState === 'visible') {
-        resetEmailLookup();
-    }
-};
-
-onMounted(() => {
-    resetEmailLookup();
-    window.addEventListener('pageshow', resetEmailLookup);
-    document.addEventListener('visibilitychange', resetEmailLookupOnReturn);
-});
-
-onBeforeUnmount(() => {
-    window.removeEventListener('pageshow', resetEmailLookup);
-    document.removeEventListener('visibilitychange', resetEmailLookupOnReturn);
-});
-
-onActivated(() => {
-    lookingUpEmail.value = false;
-});
+const lookingUpEmail = computed(
+    () => props.lead.emailLookupStatus === 'queued',
+);
+const emailLookupLocked = computed(
+    () => lookingUpEmail.value || Boolean(props.lead.emailLookupEmpty),
+);
+const emailLookupSnapshot = ref(props.lead.emailLookupStatus ?? 'idle');
 
 const extractEmail = () => {
-    if (lookingUpEmail.value) {
+    if (emailLookupLocked.value) {
         return;
     }
-
-    if (props.lead.emailLookupEmpty && props.lead.mapsUrl) {
-        window.open(props.lead.mapsUrl, '_blank', 'noopener');
-
-        return;
-    }
-
-    lookingUpEmail.value = true;
 
     router.post(
         emailLookup.url({
@@ -196,12 +170,7 @@ const extractEmail = () => {
             lead: props.lead.id,
         }),
         { website: props.lead.website || undefined },
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                lookingUpEmail.value = false;
-            },
-        },
+        { preserveScroll: true },
     );
 };
 
@@ -210,6 +179,37 @@ watch(
     (email) => {
         if (email && form.email.trim() === '') {
             form.email = email;
+        }
+    },
+);
+
+watch(
+    () => props.lead.emailLookupStatus,
+    (status) => {
+        const previous = emailLookupSnapshot.value;
+        emailLookupSnapshot.value = status ?? 'idle';
+
+        if (previous !== 'queued' || status === 'queued') {
+            return;
+        }
+
+        if (props.lead.email) {
+            form.email = props.lead.email;
+            toast.success('Email saved.');
+
+            return;
+        }
+
+        if (props.lead.emailLookupEmpty) {
+            toast.error('No email was found for this business.');
+
+            return;
+        }
+
+        if (status === 'failed') {
+            toast.error(
+                'The email lookup could not be completed. Please try again.',
+            );
         }
     },
 );
@@ -320,7 +320,11 @@ const { start: startPolling, stop: stopPolling } = usePoll(
 );
 
 watch(
-    () => isBuilding.value || isAuditing.value || isBuildingConcepts.value,
+    () =>
+        isBuilding.value ||
+        isAuditing.value ||
+        isBuildingConcepts.value ||
+        lookingUpEmail.value,
     (active) => (active ? startPolling() : stopPolling()),
     { immediate: true },
 );
@@ -565,26 +569,49 @@ const textareaClass =
                                 >
                                     <Tooltip>
                                         <TooltipTrigger as-child>
-                                            <Button
-                                                type="button"
-                                                size="icon"
-                                                class="absolute top-1/2 right-1 z-10 size-6 -translate-y-1/2 cursor-pointer rounded-md"
-                                                aria-label="Extract lookup"
-                                                data-test="extract-email"
-                                                @click="extractEmail"
+                                            <span
+                                                class="absolute top-1/2 right-1 z-10 inline-flex -translate-y-1/2"
+                                                :class="
+                                                    emailLookupLocked
+                                                        ? 'cursor-not-allowed'
+                                                        : 'cursor-pointer'
+                                                "
                                             >
-                                                <LoaderCircle
-                                                    v-if="lookingUpEmail"
-                                                    class="size-3.5 animate-spin"
-                                                />
-                                                <MailSearch
-                                                    v-else
-                                                    class="size-3.5"
-                                                />
-                                            </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="icon"
+                                                    class="size-6 rounded-md"
+                                                    :class="
+                                                        emailLookupLocked
+                                                            ? 'pointer-events-none'
+                                                            : 'cursor-pointer'
+                                                    "
+                                                    :disabled="emailLookupLocked"
+                                                    aria-label="Extract lookup"
+                                                    data-test="extract-email"
+                                                    @click="extractEmail"
+                                                >
+                                                    <LoaderCircle
+                                                        v-if="lookingUpEmail"
+                                                        class="size-3.5 animate-spin"
+                                                    />
+                                                    <MailSearch
+                                                        v-else
+                                                        class="size-3.5"
+                                                    />
+                                                </Button>
+                                            </span>
                                         </TooltipTrigger>
                                         <TooltipContent class="max-w-xs">
-                                            <template v-if="lead.emailLookupEmpty">
+                                            <template v-if="lookingUpEmail">
+                                                Looking up the email. You can
+                                                leave this page. The button
+                                                stays disabled until the lookup
+                                                finishes.
+                                            </template>
+                                            <template
+                                                v-else-if="lead.emailLookupEmpty"
+                                            >
                                                 No email was found for this
                                                 business. Check the live Google
                                                 Maps listing too, because it

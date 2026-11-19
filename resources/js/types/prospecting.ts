@@ -220,6 +220,7 @@ export type LeadProfile = {
     reviewsCount: number;
     mapsUrl: string | null;
     emailLookupEmpty?: boolean;
+    emailLookupStatus?: 'idle' | 'queued' | 'failed';
     openingHours: Record<string, string>;
     vibe: string | null;
     logoUrl: string | null;

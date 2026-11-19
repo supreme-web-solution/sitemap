@@ -66,7 +66,9 @@ class WebsiteEmailLookup
      */
     public function findForLead(Lead $lead, ?string $website = null): ?string
     {
-        foreach (array_unique(array_filter([$lead->maps_url, $lead->place_id])) as $place) {
+        $place = $lead->maps_url ?: $lead->place_id;
+
+        if (filled($place)) {
             $email = $this->emailFromPlace($place);
 
             if ($email !== null) {
@@ -80,14 +82,14 @@ class WebsiteEmailLookup
             return null;
         }
 
-        return $this->emailsByHost([$website])[$this->host($website)] ?? null;
+        return $this->emailsByHost([$website], 45)[$this->host($website)] ?? null;
     }
 
     /**
      * @param  list<string>  $websites
      * @return array<string, string>
      */
-    public function emailsByHost(array $websites): array
+    public function emailsByHost(array $websites, int $seconds = 40): array
     {
         $websites = array_slice(array_values(array_unique(array_filter($websites))), 0, self::WEBSITE_LIMIT);
 
@@ -98,7 +100,7 @@ class WebsiteEmailLookup
         $payload = $this->run('data/leads/contacts/run', [
             'websites' => $websites,
             'maxResults' => count($websites),
-        ], 90);
+        ], $seconds);
 
         if (($payload['status'] ?? null) !== 'completed') {
             throw new \RuntimeException('Email lookup did not finish.');
@@ -128,7 +130,7 @@ class WebsiteEmailLookup
     {
         $payload = $this->run('data/google-maps/places/run', [
             'urls' => [$place],
-        ], 90);
+        ], 50);
 
         if (($payload['status'] ?? null) !== 'completed') {
             throw new \RuntimeException('Email lookup did not finish.');
