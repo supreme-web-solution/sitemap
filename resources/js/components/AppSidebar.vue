@@ -2,6 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     CircleAlert,
+    CirclePlay,
     Compass,
     FileText,
     Gauge,
@@ -73,6 +74,7 @@ import { edit as brandingEdit } from '@/routes/branding';
 import { edit as editProfile } from '@/routes/profile';
 import { index as sitesIndex } from '@/routes/sites';
 import { index as teamsIndex } from '@/routes/teams';
+import { index as tutorialsIndex } from '@/routes/tutorials';
 import type { LeadStatus, NavItem } from '@/types';
 
 const page = usePage();
@@ -297,6 +299,11 @@ const adminItems: NavItem[] = [
 const workspaceItems = computed<NavItem[]>(() => [
     ...(team.value
         ? [
+              {
+                  title: 'Tutorials',
+                  href: tutorialsIndex({ current_team: team.value.slug }).url,
+                  icon: CirclePlay,
+              },
               {
                   title: 'Plan & usage',
                   href: planIndex({ current_team: team.value.slug }).url,

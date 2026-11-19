@@ -95,6 +95,7 @@ use App\Http\Controllers\Teams\IdealCustomerController;
 use App\Http\Controllers\Teams\PlanChangeController;
 use App\Http\Controllers\Teams\PlanUsageController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Controllers\Tutorials\TutorialController;
 use App\Http\Controllers\UpsellPageController;
 use App\Http\Controllers\Webhooks\JvzooWebhookController;
 use App\Http\Middleware\AllowAssistantCors;
@@ -322,6 +323,8 @@ Route::prefix('{current_team}')
         Route::post('research', [NicheResearchController::class, 'store'])->name('research.store');
         Route::get('ideal-customer', [IdealCustomerController::class, 'edit'])->name('ideal-customer.edit');
         Route::put('ideal-customer', [IdealCustomerController::class, 'update'])->name('ideal-customer.update');
+
+        Route::get('tutorials', TutorialController::class)->name('tutorials.index');
 
         Route::get('automations', [AutomationSettingsController::class, 'index'])->name('automations.index');
         Route::put('automations', [AutomationSettingsController::class, 'update'])->name('automations.update');

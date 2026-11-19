@@ -302,10 +302,6 @@ const visibleSearches = computed(() =>
     props.searches.filter((search) => search.status !== 'failed'),
 );
 
-const failedSearches = computed(() =>
-    props.searches.filter((search) => search.status === 'failed' && search.error),
-);
-
 const hasActiveSearch = computed(() => activeSearches.value.length > 0);
 
 const isDiscoveryBusy = computed(
@@ -968,15 +964,6 @@ const onPickDesign = (lead: Lead) => {
                     Show all leads
                 </Button>
             </div>
-            <ul v-if="failedSearches.length" class="space-y-1">
-                <li
-                    v-for="search in failedSearches"
-                    :key="`search-error-${search.id}`"
-                    class="text-xs leading-relaxed text-destructive"
-                >
-                    {{ searchLabel(search) }} — {{ search.error }}
-                </li>
-            </ul>
         </div>
 
         <Dialog v-model:open="searchModalOpen">
