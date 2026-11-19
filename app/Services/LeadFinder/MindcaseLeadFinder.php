@@ -73,7 +73,7 @@ class MindcaseLeadFinder implements LeadFinder
         return array_filter([
             'keywords' => $search->keyword,
             'location' => $search->location,
-            'maxResults' => $search->max_results,
+            'maxResults' => $search->providerResultLimit(),
             'websiteFilter' => $search->website_filter->value,
             'minimumRating' => $this->minimumRatingOption($search->minimum_rating),
         ], fn ($value) => $value !== null);
@@ -115,9 +115,7 @@ class MindcaseLeadFinder implements LeadFinder
             return new LeadFinderResult(
                 status: LeadSearchStatus::Failed,
                 providerJobId: $jobId,
-                error: $status === 'rejected_balance'
-                    ? 'Your Mindcase wallet balance is too low to run this search.'
-                    : 'The search could not be completed. Please try again.',
+                error: $this->userError($status, $raw),
                 providerDetail: $status === 'rejected_balance'
                     ? 'Mindcase wallet balance is too low (rejected_balance).'
                     : $detail,
@@ -143,6 +141,22 @@ class MindcaseLeadFinder implements LeadFinder
             ->filter()
             ->values()
             ->all();
+    }
+
+    /**
+     * Turn a provider failure into text that is safe to show the team.
+     */
+    protected function userError(string $status, string $raw): string
+    {
+        if ($status === 'rejected_balance') {
+            return 'Your Mindcase wallet balance is too low to run this search.';
+        }
+
+        if (LeadSearch::isUnrecognizedLocation($raw)) {
+            return LeadSearch::UNRECOGNIZED_LOCATION;
+        }
+
+        return 'The search could not be completed. Please try again.';
     }
 
     /**

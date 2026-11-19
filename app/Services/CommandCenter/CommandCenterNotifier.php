@@ -74,9 +74,16 @@ class CommandCenterNotifier
         $label = $this->searchLabel($search);
 
         if ($search->status === LeadSearchStatus::Failed) {
-            $this->notify($team, $user, __('The search for :label could not be completed. Please try again.', [
-                'label' => $label,
-            ]));
+            $detail = $search->error;
+
+            $this->notify($team, $user, $detail !== null && LeadSearch::isUnrecognizedLocation($detail)
+                ? __('The search for :label did not run. :detail', [
+                    'label' => $label,
+                    'detail' => $detail,
+                ])
+                : __('The search for :label could not be completed. Please try again.', [
+                    'label' => $label,
+                ]));
 
             return;
         }

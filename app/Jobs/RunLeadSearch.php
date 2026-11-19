@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\Leads\StoreLeadsFromListings;
+use App\Data\BusinessListing;
 use App\Data\LeadFinderResult;
 use App\Enums\LeadSearchStatus;
 use App\Enums\UsageMetric;
@@ -12,6 +13,8 @@ use App\Services\Billing\PlanLimitNotifier;
 use App\Services\Billing\UsageMeter;
 use App\Services\CommandCenter\CommandCenterNotifier;
 use App\Services\LeadFinder\LeadFinder;
+use App\Services\LeadFinder\WebsiteEmailLookup;
+use Illuminate\Support\Facades\Cache;
 use App\Support\Queues;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -125,6 +128,63 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     }
 
     /**
+     * Keep every listing, or only those that already have an email.
+     *
+     * @param  list<BusinessListing>  $listings
+     * @return list<BusinessListing>
+     */
+    protected function listingsToStore(LeadSearch $search, array $listings): array
+    {
+        if (! $search->require_email) {
+            return $listings;
+        }
+
+        $listings = app(WebsiteEmailLookup::class)->fillListings($listings);
+
+        $withEmail = array_values(array_filter(
+            $listings,
+            fn (BusinessListing $listing) => filled($listing->email),
+        ));
+
+        return array_slice($withEmail, 0, $search->max_results);
+    }
+
+    /**
+     * A website lookup is a second provider call, so it runs on the next attempt.
+     *
+     * @param  list<BusinessListing>  $listings
+     */
+    protected function deferWebsiteEmailLookup(LeadSearch $search, LeadFinderResult $result, array $listings): bool
+    {
+        if (! $search->require_email || Cache::has($this->emailPassKey($search))) {
+            return false;
+        }
+
+        $needsWebsite = collect($listings)->contains(
+            fn (BusinessListing $listing) => blank($listing->email) && filled($listing->website),
+        );
+
+        if (! $needsWebsite) {
+            return false;
+        }
+
+        $search->update([
+            'status' => LeadSearchStatus::Running,
+            'provider_job_id' => $result->providerJobId ?? $search->provider_job_id,
+        ]);
+
+        Cache::put($this->emailPassKey($search), true, now()->addHours(2));
+        $this->release(1);
+
+        return true;
+    }
+
+    protected function emailPassKey(LeadSearch $search): string
+    {
+        return 'lead-search:'.$search->id.':email-pass';
+    }
+
+    /**
      * Store the listings, mark the search completed, and tell the Command Center user.
      */
     protected function complete(LeadSearch $search, LeadFinderResult $result, StoreLeadsFromListings $storeLeads): void
@@ -132,9 +192,13 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
         /** @var array{found: int, created: int, updated: int, skipped_confirmed: int, skipped_limit: int, remaining_before: int|null} $stats */
         $stats = [];
 
+        if ($this->deferWebsiteEmailLookup($search, $result, $result->listings)) {
+            return;
+        }
+
         try {
             DB::transaction(function () use ($search, $result, $storeLeads, &$stats) {
-                $stats = $storeLeads->handle($search, $result->listings);
+                $stats = $storeLeads->handle($search, $this->listingsToStore($search, $result->listings));
 
                 $search->update([
                     'status' => LeadSearchStatus::Completed,

@@ -11,6 +11,7 @@ use App\Models\SitePost;
 use App\Services\Ai\AiCreditLog;
 use App\Services\LeadFinder\LeadFinder;
 use App\Services\LeadFinder\MindcaseLeadFinder;
+use App\Services\LeadFinder\WebsiteEmailLookup;
 use App\Services\Outreach\FollowUpSequenceGenerator;
 use App\Services\ReviewFinder\MindcaseReviewFinder;
 use App\Services\ReviewFinder\ReviewFinder;
@@ -41,6 +42,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(LeadFinder::class, fn () => new MindcaseLeadFinder(
+            apiKey: config('services.mindcase.key'),
+            baseUrl: config('services.mindcase.base_url'),
+        ));
+
+        $this->app->bind(WebsiteEmailLookup::class, fn () => new WebsiteEmailLookup(
             apiKey: config('services.mindcase.key'),
             baseUrl: config('services.mindcase.base_url'),
         ));

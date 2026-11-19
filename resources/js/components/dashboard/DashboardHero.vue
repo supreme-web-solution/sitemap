@@ -56,6 +56,15 @@ const submit = () => {
         return;
     }
 
+    if (/^\d|#|\b(blvd|boulevard|street|avenue|suite)\b/i.test(match[2])) {
+        form.setError(
+            'prompt',
+            'Use a city, like "plumbers in Austin, Texas". A street address will not run.',
+        );
+
+        return;
+    }
+
     form.transform(() => ({
         keyword: match[1].trim(),
         location: match[2].trim(),

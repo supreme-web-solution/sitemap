@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property WebsiteFilter $website_filter
  * @property float|null $minimum_rating
  * @property int $max_results
+ * @property bool $require_email
  * @property LeadSearchStatus $status
  * @property string|null $provider_job_id
  * @property int $results_count
@@ -47,6 +48,7 @@ use Illuminate\Support\Carbon;
     'website_filter',
     'minimum_rating',
     'max_results',
+    'require_email',
     'status',
     'provider_job_id',
     'results_count',
@@ -107,12 +109,21 @@ class LeadSearch extends Model
     }
 
     /**
+     * Shown when the provider could not use the typed location.
+     */
+    public const UNRECOGNIZED_LOCATION = 'That location was not recognized. Choose a city from the location suggestions, such as Austin, Texas, instead of a street address or business name, then search again.';
+
+    /**
      * Error text safe to show in the product UI (provider infra wording is stripped).
      */
     public static function publicFacingError(?string $error): ?string
     {
         if ($error === null || trim($error) === '') {
             return null;
+        }
+
+        if (self::isUnrecognizedLocation($error)) {
+            return self::UNRECOGNIZED_LOCATION;
         }
 
         $normalized = strtolower($error);
@@ -135,6 +146,34 @@ class LeadSearch extends Model
     }
 
     /**
+     * How many listings to ask the provider for.
+     *
+     * An email search scans a larger set, then keeps only listings that already
+     * have an email, up to the number the user asked to save.
+     */
+    public function providerResultLimit(): int
+    {
+        if (! $this->require_email) {
+            return (int) $this->max_results;
+        }
+
+        return min(200, max(100, (int) $this->max_results * 5));
+    }
+
+    /**
+     * Whether the provider rejected the search because the location was not a city.
+     */
+    public static function isUnrecognizedLocation(string $error): bool
+    {
+        $normalized = strtolower($error);
+
+        return str_contains($normalized, 'valid location')
+            || str_contains($normalized, 'location was not recognized')
+            || str_contains($normalized, 'invalid location')
+            || str_contains($normalized, 'location not found');
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -144,6 +183,7 @@ class LeadSearch extends Model
         return [
             'website_filter' => WebsiteFilter::class,
             'minimum_rating' => 'float',
+            'require_email' => 'boolean',
             'notify_command_center' => 'boolean',
             'status' => LeadSearchStatus::class,
             'completed_at' => 'datetime',

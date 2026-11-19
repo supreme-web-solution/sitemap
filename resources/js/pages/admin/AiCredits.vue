@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import PaginationBar from '@/components/admin/PaginationBar.vue';
 import Heading from '@/components/Heading.vue';
+import { Button } from '@/components/ui/button';
 import { dashboard as adminDashboard, aiCredits } from '@/routes/admin';
+import { destroy as clearAiCredits } from '@/routes/admin/ai-credits';
 import type { Paginated } from '@/types';
 
 type CreditEvent = {
@@ -20,6 +22,14 @@ type CreditEvent = {
 defineProps<{
     events: Paginated<CreditEvent>;
 }>();
+
+const clearLog = () => {
+    if (!confirm('Are you sure you want to clear the log?')) {
+        return;
+    }
+
+    router.delete(clearAiCredits.url(), { preserveScroll: true });
+};
 
 defineOptions({
     layout: {
@@ -43,10 +53,20 @@ const formatWhen = (value: string | null): string => {
     <Head title="AI credits" />
 
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:p-6">
-        <Heading
-            title="AI credits"
-            description="Provider credit, quota, and lead-search failures. Site creation uses Anthropic (falls back to built-in copy). Lead search uses Mindcase — empty wallet shows as rejected_balance here. An OpenAI photo that stops because the account has no credits left shows here as OpenAI."
-        />
+        <div class="flex items-start justify-between gap-4">
+            <Heading
+                title="AI credits"
+                description="Provider credit, quota, and lead-search failures. Site creation uses Anthropic (falls back to built-in copy). Lead search uses Mindcase — empty wallet shows as rejected_balance here. An OpenAI photo that stops because the account has no credits left shows here as OpenAI."
+            />
+            <Button
+                variant="outline"
+                :disabled="events.total === 0"
+                data-test="ai-credits-clear"
+                @click="clearLog"
+            >
+                Clear log
+            </Button>
+        </div>
 
         <p
             v-if="events.total === 0"

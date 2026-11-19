@@ -42,11 +42,15 @@ class LeadSearchController extends Controller
             RunLeadSearch::dispatch($search);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => trans_choice(
-            'Searching :count location. Results will appear shortly.|Searching :count locations. Results will appear shortly.',
-            $locations->count(),
-            ['count' => $locations->count()],
-        )]);
+        $emailOnly = $request->boolean('require_email');
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $emailOnly
+            ? __('This search takes longer than usual. It checks a larger set and only saves leads that have an email.')
+            : trans_choice(
+                'Searching :count location. Results will appear shortly.|Searching :count locations. Results will appear shortly.',
+                $locations->count(),
+                ['count' => $locations->count()],
+            )]);
 
         return to_route('leads.index', ['current_team' => $currentTeam->slug]);
     }

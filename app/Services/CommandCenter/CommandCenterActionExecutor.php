@@ -17,6 +17,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\Billing\UsageMeter;
 use App\Services\Outreach\SequenceEnroller;
+use App\Support\LeadSearchLocation;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -59,6 +60,14 @@ class CommandCenterActionExecutor
             'max_results' => ['nullable', 'integer', 'min:1', 'max:100'],
         ])->validate();
 
+        $resolved = LeadSearchLocation::forSearch($data['location']);
+
+        if (! $resolved['ok']) {
+            return $resolved['notice'];
+        }
+
+        $data['location'] = $resolved['location'];
+
         try {
             $this->usage->consume($team, UsageMetric::LeadSearches, 1);
         } catch (PlanLimitException) {
@@ -81,11 +90,13 @@ class CommandCenterActionExecutor
 
         RunLeadSearch::dispatch($search);
 
-        return __('Started lead search #:id for “:keyword” in :location.', [
+        $started = __('Started lead search #:id for “:keyword” in :location.', [
             'id' => $search->id,
             'keyword' => $data['keyword'],
             'location' => $data['location'],
         ]);
+
+        return $resolved['notice'] === null ? $started : $started.' '.$resolved['notice'];
     }
 
     /**

@@ -44,6 +44,7 @@ import type { AdminUser, AdminUserTeam, Paginated, PlanOption } from '@/types';
 
 const props = defineProps<{
     users: Paginated<AdminUser>;
+    counts: { total: number; active: number; suspended: number; unverified: number };
     filters: { search: string; status: string };
     plans: PlanOption[];
     rolesEnabled: boolean;
@@ -194,6 +195,18 @@ const statusFilterSelect = computed({
         applyFilters();
     },
 });
+
+const countCards = computed(() => [
+    { key: '', label: 'Total users', value: props.counts.total },
+    { key: 'active', label: 'Active', value: props.counts.active },
+    { key: 'suspended', label: 'Suspended', value: props.counts.suspended },
+    { key: 'unverified', label: 'Unverified', value: props.counts.unverified },
+]);
+
+const showCount = (key: string) => {
+    status.value = key;
+    applyFilters();
+};
 </script>
 
 <template>
@@ -208,6 +221,20 @@ const statusFilterSelect = computed({
             <Button @click="startCreating">
                 <Plus /> New user
             </Button>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <button
+                v-for="card in countCards"
+                :key="card.label"
+                type="button"
+                class="panel p-4 text-left"
+                :class="status === card.key ? 'ring-2 ring-primary' : ''"
+                @click="showCount(card.key)"
+            >
+                <p class="text-xs text-muted-foreground">{{ card.label }}</p>
+                <p class="text-2xl font-semibold">{{ card.value }}</p>
+            </button>
         </div>
 
         <form

@@ -193,6 +193,7 @@ Route::prefix('admin')
         Route::get('/', AdminDashboardController::class)->name('dashboard');
         Route::get('launch-readiness', AdminLaunchReadinessController::class)->name('launch-readiness');
         Route::get('ai-credits', AdminAiCreditsController::class)->name('ai-credits');
+        Route::delete('ai-credits', [AdminAiCreditsController::class, 'destroy'])->name('ai-credits.destroy');
         Route::get('cloudflare-hostnames', [AdminCloudflareHostnameController::class, 'index'])->name('cloudflare-hostnames');
         Route::delete('cloudflare-hostnames/{hostnameId}', [AdminCloudflareHostnameController::class, 'destroy'])->name('cloudflare-hostnames.destroy');
 
@@ -250,6 +251,9 @@ Route::prefix('{current_team}')
         Route::delete('leads/{lead}', [LeadController::class, 'destroy'])->name('leads.destroy');
         Route::get('leads/{lead}/edit', [LeadProfileController::class, 'edit'])->name('leads.edit');
         Route::put('leads/{lead}/profile', [LeadProfileController::class, 'update'])->name('leads.profile.update');
+        Route::post('leads/{lead}/email-lookup', [LeadProfileController::class, 'lookupEmail'])
+            ->middleware('throttle:lead-searches')
+            ->name('leads.email-lookup');
         Route::post('lead-searches', [LeadSearchController::class, 'store'])
             ->middleware('throttle:lead-searches')
             ->name('lead-searches.store');

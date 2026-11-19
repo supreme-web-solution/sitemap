@@ -39,4 +39,34 @@ readonly class BusinessListing
     ) {
         //
     }
+
+    public function withEmail(?string $email): self
+    {
+        return new self(
+            placeId: $this->placeId,
+            name: $this->name,
+            category: $this->category,
+            phone: $this->phone,
+            email: $email,
+            website: $this->website,
+            address: $this->address,
+            city: $this->city,
+            state: $this->state,
+            country: $this->country,
+            latitude: $this->latitude,
+            longitude: $this->longitude,
+            rating: $this->rating,
+            reviewsCount: $this->reviewsCount,
+            openingHours: $this->openingHours,
+            description: $this->description,
+            photoUrl: $this->photoUrl,
+            mapsUrl: $this->mapsUrl,
+            additionalPhones: $this->additionalPhones,
+            socialLinks: $this->socialLinks,
+            neighborhood: $this->neighborhood,
+            locatedIn: $this->locatedIn,
+            services: $this->services,
+            photoUrls: $this->photoUrls,
+        );
+    }
 }

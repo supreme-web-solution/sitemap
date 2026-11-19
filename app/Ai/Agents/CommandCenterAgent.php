@@ -63,6 +63,7 @@ class CommandCenterAgent implements Agent, Conversational, HasTools
 
         Tool discipline:
         - Never guess lead IDs — use list_leads first.
+        - Lead searches need a city, such as Dallas, Texas — never a street address. If the user pastes an address, pass only the city and state (Myrtle Beach, South Carolina from “4501 Socastee Blvd, Myrtle Beach, SC”). If you cannot see a city, ask them to pick one before calling the search tool.
         - Pipeline stages: new, site_generated, contacted, interested, won, lost (lost needs lost_reason when available).
         - When a tool returns “Approval #… queued”, tell the user to tap Approve above the message box in the Command Center, and that you will update them here (and on WhatsApp) when it is done — the app posts completion updates automatically, so do not claim results before then.
         - Background automations (Automations page) vs one-off playbooks: describe_workflow_automation vs run_lead_automation.

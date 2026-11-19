@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property WebsiteFilter $website_filter
  * @property float|null $minimum_rating
  * @property int $max_results
+ * @property bool $require_email
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
     'website_filter',
     'minimum_rating',
     'max_results',
+    'require_email',
 ])]
 class SavedLeadSearch extends Model
 {
@@ -57,7 +59,7 @@ class SavedLeadSearch extends Model
     /**
      * Criteria used to start a fresh LeadSearch run.
      *
-     * @return array{keyword: string, location: string, website_filter: string, minimum_rating: float|null, max_results: int}
+     * @return array{keyword: string, location: string, website_filter: string, minimum_rating: float|null, max_results: int, require_email: bool}
      */
     public function criteria(): array
     {
@@ -67,6 +69,7 @@ class SavedLeadSearch extends Model
             'website_filter' => $this->website_filter->value,
             'minimum_rating' => $this->minimum_rating,
             'max_results' => $this->max_results,
+            'require_email' => $this->require_email,
         ];
     }
 
@@ -79,6 +82,7 @@ class SavedLeadSearch extends Model
             'website_filter' => WebsiteFilter::class,
             'minimum_rating' => 'float',
             'max_results' => 'integer',
+            'require_email' => 'boolean',
         ];
     }
 }

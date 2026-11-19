@@ -96,6 +96,7 @@ type SavedSearch = {
     websiteFilter: string;
     minimumRating: number | null;
     maxResults: number;
+    requireEmail?: boolean;
 };
 
 const props = defineProps<{
@@ -139,6 +140,7 @@ const page = usePage();
 const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 
 const extraLocations = ref('');
+const advancedOpen = ref(false);
 
 const searchForm = useForm({
     keyword: '',
@@ -146,6 +148,7 @@ const searchForm = useForm({
     website_filter: 'withoutWebsite',
     minimum_rating: 'any',
     max_results: 20,
+    require_email: false,
     locations: [] as string[],
 });
 
@@ -158,6 +161,7 @@ const searchCriteria = () => ({
             ? null
             : Number(searchForm.minimum_rating),
     max_results: Number(searchForm.max_results),
+    require_email: searchForm.require_email,
     locations: extraLocations.value
         .split(',')
         .map((part) => part.trim())
@@ -189,6 +193,7 @@ const saveSearchForm = useForm({
     website_filter: 'withoutWebsite',
     minimum_rating: null as number | null,
     max_results: 20,
+    require_email: false,
 });
 
 const saveCurrentSearch = () => {
@@ -209,6 +214,7 @@ const saveCurrentSearch = () => {
             website_filter: criteria.website_filter,
             minimum_rating: criteria.minimum_rating,
             max_results: criteria.max_results,
+            require_email: criteria.require_email,
         }))
         .post(storeSavedSearch.url({ current_team: teamSlug.value }), {
             preserveScroll: true,
@@ -292,6 +298,10 @@ const activeSearches = computed(() =>
 
 const visibleSearches = computed(() =>
     props.searches.filter((search) => search.status !== 'failed'),
+);
+
+const failedSearches = computed(() =>
+    props.searches.filter((search) => search.status === 'failed' && search.error),
 );
 
 const hasActiveSearch = computed(() => activeSearches.value.length > 0);
@@ -956,6 +966,15 @@ const onPickDesign = (lead: Lead) => {
                     Show all leads
                 </Button>
             </div>
+            <ul v-if="failedSearches.length" class="space-y-1">
+                <li
+                    v-for="search in failedSearches"
+                    :key="`search-error-${search.id}`"
+                    class="text-xs leading-relaxed text-destructive"
+                >
+                    {{ searchLabel(search) }} — {{ search.error }}
+                </li>
+            </ul>
         </div>
 
         <Dialog v-model:open="searchModalOpen">
@@ -1040,6 +1059,9 @@ const onPickDesign = (lead: Lead) => {
                             required
                         />
                         <InputError :message="searchForm.errors.location" />
+                        <p class="text-xs text-muted-foreground">
+                            Choose a city from the suggestions, such as Dallas, Texas. A street address will not run.
+                        </p>
                     </div>
 
                     <div class="grid gap-2 sm:col-span-2">
@@ -1102,6 +1124,37 @@ const onPickDesign = (lead: Lead) => {
                             max="100"
                         />
                         <InputError :message="searchForm.errors.max_results" />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <button
+                            type="button"
+                            class="text-xs text-muted-foreground hover:text-foreground"
+                            :aria-expanded="advancedOpen"
+                            data-test="lead-search-advanced"
+                            @click="advancedOpen = !advancedOpen"
+                        >
+                            Advanced
+                        </button>
+                        <div
+                            v-show="advancedOpen"
+                            class="mt-2 rounded-md border border-dashed px-3 py-2"
+                        >
+                            <label class="flex items-start gap-2 text-sm">
+                                <input
+                                    v-model="searchForm.require_email"
+                                    type="checkbox"
+                                    class="mt-0.5 size-4"
+                                    data-test="lead-search-require-email"
+                                />
+                                <span>
+                                    Only save leads that have an email
+                                    <span class="mt-1 block text-xs text-muted-foreground">
+                                        This checks up to 200 businesses. When Maps has no email, it also reads the business website. It takes longer than a normal search. You may get fewer than the number you asked for, sometimes none, and every lead it saves has an email.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="sm:col-span-2 grid gap-2">

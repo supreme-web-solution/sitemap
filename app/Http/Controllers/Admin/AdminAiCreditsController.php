@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiCreditEvent;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -34,5 +35,17 @@ class AdminAiCreditsController extends Controller
         return Inertia::render('admin/AiCredits', [
             'events' => $events,
         ]);
+    }
+
+    /**
+     * Remove every recorded credit and lead-search failure so new ones stand out.
+     */
+    public function destroy(): RedirectResponse
+    {
+        AiCreditEvent::query()->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('AI credit log cleared.')]);
+
+        return to_route('admin.ai-credits');
     }
 }

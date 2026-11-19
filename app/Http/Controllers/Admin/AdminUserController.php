@@ -41,6 +41,7 @@ class AdminUserController extends Controller
             ->latest()
             ->paginate(20)
             ->withQueryString()
+            ->onEachSide(1)
             ->through(fn (User $user) => $this->present($user) + [
                 'teams_count' => $user->teams_count,
                 'teams' => $this->teamRows($user),
@@ -49,6 +50,7 @@ class AdminUserController extends Controller
 
         return Inertia::render('admin/users/Index', [
             'users' => $users,
+            'counts' => $this->userCounts(),
             'filters' => ['search' => $search, 'status' => $status],
             'plans' => $this->planOptions(),
             ...$this->roleProps(),
@@ -235,6 +237,23 @@ class AdminUserController extends Controller
         return [
             'rolesEnabled' => $this->roles->rolesEnabled(),
             'assignableRoles' => $this->roles->assignableRoles(),
+        ];
+    }
+
+    /**
+     * @return array{total: int, active: int, suspended: int, unverified: int}
+     */
+    private function userCounts(): array
+    {
+        $counts = User::query()->toBase()->selectRaw(
+            'count(*) as total, sum(case when suspended_at is null then 1 else 0 end) as active, sum(case when suspended_at is not null then 1 else 0 end) as suspended, sum(case when email_verified_at is null then 1 else 0 end) as unverified',
+        )->first();
+
+        return [
+            'total' => (int) ($counts->total ?? 0),
+            'active' => (int) ($counts->active ?? 0),
+            'suspended' => (int) ($counts->suspended ?? 0),
+            'unverified' => (int) ($counts->unverified ?? 0),
         ];
     }
 

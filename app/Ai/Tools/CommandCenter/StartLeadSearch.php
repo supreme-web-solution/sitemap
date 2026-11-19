@@ -5,6 +5,7 @@ namespace App\Ai\Tools\CommandCenter;
 use App\Ai\Tools\CommandCenter\Concerns\InteractsWithCommandCenterActions;
 use App\Enums\WebsiteFilter;
 use App\Support\CommandCenter\CommandCenterContext;
+use App\Support\LeadSearchLocation;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -18,7 +19,7 @@ class StartLeadSearch implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Start a Google Maps prospecting search for the team (uses plan lead-search quota).';
+        return 'Start a Google Maps prospecting search for the team (uses plan lead-search quota). location must be a city, such as "Dallas, Texas". Never pass a street address; if the user pastes one, pass only the city and region from it.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -30,6 +31,14 @@ class StartLeadSearch implements Tool
             return 'keyword and location are required.';
         }
 
+        $resolved = LeadSearchLocation::forSearch($location);
+
+        if (! $resolved['ok']) {
+            return 'Do not start a search. '.$resolved['notice'];
+        }
+
+        $location = $resolved['location'];
+
         $payload = [
             'keyword' => $keyword,
             'location' => $location,
@@ -38,11 +47,17 @@ class StartLeadSearch implements Tool
             'max_results' => (int) ($request['max_results'] ?? 20),
         ];
 
+        $summary = __('Search “:keyword” in :location', ['keyword' => $keyword, 'location' => $location]);
+
+        if ($resolved['notice'] !== null) {
+            $summary .= ' '.$resolved['notice'];
+        }
+
         return $this->runOrPropose(
             $this->context,
             'start_lead_search',
             $payload,
-            __('Search “:keyword” in :location', ['keyword' => $keyword, 'location' => $location]),
+            $summary,
         );
     }
 

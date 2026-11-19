@@ -148,7 +148,12 @@ test('an admin can search and filter users', function () {
         ->assertInertia(fn (Assert $page) => $page->has('users.data', 1)->where('users.data.0.name', 'Zed Findable'));
 
     $this->actingAs($this->admin)->get(route('admin.users.index', ['status' => 'suspended']))
-        ->assertInertia(fn (Assert $page) => $page->has('users.data', 1)->where('users.data.0.name', 'Someone Else'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('users.data', 1)
+            ->where('users.data.0.name', 'Someone Else')
+            ->where('counts.total', User::query()->count())
+            ->where('counts.suspended', User::query()->whereNotNull('suspended_at')->count())
+            ->has('users.links'));
 });
 
 test('an admin can impersonate a user and return to their own account', function () {

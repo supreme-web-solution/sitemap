@@ -23,6 +23,7 @@ use App\Services\Outreach\DefaultFollowUpSequences;
 use App\Services\Outreach\MergeFieldRenderer;
 use App\Services\Preview\PreviewLink;
 use App\Services\Prospecting\OpportunityScorer;
+use App\Services\LeadFinder\WebsiteEmailLookup;
 use App\Services\Prospecting\ProfileVerifier;
 use App\Services\Prospecting\SalesAssistant;
 use App\Services\SiteBuilder\SectionVariants;
@@ -31,6 +32,7 @@ use App\Services\SiteBuilder\SiteBuildProgress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Throwable;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -205,6 +207,47 @@ class LeadProfileController extends Controller
                 'at' => ($message->sent_at ?? $message->created_at)->toISOString(),
             ]),
         ];
+    }
+
+    /**
+     * Fill an empty email from the Maps listing, then from the business website.
+     */
+    public function lookupEmail(Request $request, Team $currentTeam, Lead $lead, WebsiteEmailLookup $lookup): RedirectResponse
+    {
+        abort_unless($lead->team_id === $currentTeam->id, 404);
+
+        if (filled($lead->email)) {
+            return back();
+        }
+
+        $website = trim((string) $request->input('website', ''));
+        $website = $website !== '' ? $website : $lead->website;
+
+        if (blank($website) && blank($lead->maps_url) && blank($lead->place_id)) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('Add a website first. Extract lookup reads the email published there, or on the Maps listing.')]);
+
+            return back();
+        }
+
+        try {
+            $email = $lookup->findForLead($lead, $website);
+        } catch (Throwable) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('The email lookup could not be completed. Please try again.')]);
+
+            return back();
+        }
+
+        if ($email === null) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('No email was found for this business.')]);
+
+            return back();
+        }
+
+        $lead->forceFill(['email' => $email])->save();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Email saved.')]);
+
+        return back();
     }
 
     /**

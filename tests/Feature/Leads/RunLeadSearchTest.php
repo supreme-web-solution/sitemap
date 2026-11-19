@@ -227,6 +227,42 @@ test('a completed search stores open businesses as team leads', function () {
         ]);
 });
 
+test('an email search scans a larger set and saves only listings that have an email', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'job_id' => 'job-email',
+            'status' => 'completed',
+            'data' => [
+                mindcasePlace(['placeId' => 'ChIJ-phone-only', 'businessName' => 'Phone Only', 'emails' => []]),
+                mindcasePlace(['placeId' => 'ChIJ-has-email', 'businessName' => 'Has Email', 'emails' => ['hello@hasemail.test']]),
+                mindcasePlace(['placeId' => 'ChIJ-second-email', 'businessName' => 'Second Email', 'emails' => ['owner@second.test']]),
+            ],
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->create([
+        'keyword' => 'Kitchen & Bath Remodeling',
+        'location' => 'Houston, Texas',
+        'max_results' => 1,
+        'require_email' => true,
+    ]);
+
+    runLeadSearch($search);
+
+    expect($search->fresh())
+        ->status->toBe(LeadSearchStatus::Completed)
+        ->results_count->toBe(1)
+        ->leads_created_count->toBe(1);
+
+    expect($search->team->leads()->pluck('email')->all())->toBe(['hello@hasemail.test']);
+
+    Http::assertSent(fn (Request $request) => $request['params']['maxResults'] === 100
+        && $request['params']['keywords'] === 'Kitchen & Bath Remodeling'
+        && $request['params']['location'] === 'Houston, Texas');
+});
+
 test('a search that is still running is polled again later', function () {
     Http::preventStrayRequests();
     Http::fake([
@@ -443,6 +479,28 @@ test('an empty provider wallet fails the search and is logged for admins', funct
         ->provider->toBe('mindcase')
         ->source->toBe('lead_search')
         ->message->toContain('rejected_balance');
+});
+
+test('an unrecognized location tells the team to pick a city from the suggestions', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/jobs/job-location/results' => Http::response([
+            'status' => 'failed',
+            'error' => "Search entered. Please provide one valid location per run (for example 'New York' or 'Austin, Texas') and run them one at a time.",
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->running('job-location')->create([
+        'keyword' => "Danny Lee's Place",
+        'location' => '4501 Socastee Blvd #104, Myrtle Beach, SC',
+    ]);
+
+    runLeadSearch($search);
+
+    expect($search->fresh())
+        ->status->toBe(LeadSearchStatus::Failed)
+        ->error->toBe(LeadSearch::UNRECOGNIZED_LOCATION)
+        ->and($search->error)->not->toContain('Mindcase');
 });
 
 test('provider infrastructure failures show a safe message and log the real reason for admins', function () {

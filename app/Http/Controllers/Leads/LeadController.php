@@ -76,6 +76,7 @@ class LeadController extends Controller
                     'websiteFilter' => $saved->website_filter->value,
                     'minimumRating' => $saved->minimum_rating,
                     'maxResults' => $saved->max_results,
+                    'requireEmail' => $saved->require_email,
                 ]),
             'filters' => [
                 'status' => $filters['status'] ?? null,

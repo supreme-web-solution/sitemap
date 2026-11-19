@@ -58,6 +58,21 @@ test('users cannot start a search for a team they do not belong to', function ()
     Queue::assertNotPushed(RunLeadSearch::class);
 });
 
+test('an email-only search is stored for the background job', function () use ($validSearch) {
+    Queue::fake([RunLeadSearch::class]);
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('lead-searches.store', ['current_team' => $user->currentTeam->slug]), [
+            ...$validSearch,
+            'require_email' => true,
+        ])
+        ->assertRedirect();
+
+    expect($user->currentTeam->leadSearches()->sole()->require_email)->toBeTrue();
+});
+
 test('lead searches are limited to one hundred results', function () use ($validSearch) {
     $user = User::factory()->create();
 

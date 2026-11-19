@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm, usePage, usePoll } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
 import {
     CircleCheck,
     FileText,
@@ -43,7 +43,7 @@ import {
     create as createProposal,
     edit as editProposal,
 } from '@/routes/proposals';
-import { edit as reviewLead, index as leadsIndex } from '@/routes/leads';
+import { edit as reviewLead, emailLookup, index as leadsIndex } from '@/routes/leads';
 import { update as updateProfile } from '@/routes/leads/profile';
 import { store as generateSite } from '@/routes/leads/site';
 import { edit as editSite } from '@/routes/sites';
@@ -142,6 +142,35 @@ const form = useForm({
     remove_photos: false,
     generate: false,
 });
+
+const lookingUpEmail = ref(false);
+
+const extractEmail = () => {
+    lookingUpEmail.value = true;
+
+    router.post(
+        emailLookup.url({
+            current_team: teamSlug.value,
+            lead: props.lead.id,
+        }),
+        { website: props.lead.website || undefined },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                lookingUpEmail.value = false;
+            },
+        },
+    );
+};
+
+watch(
+    () => props.lead.email,
+    (email) => {
+        if (email && form.email.trim() === '') {
+            form.email = email;
+        }
+    },
+);
 
 const logoPreview = ref<string | null>(props.lead.logoUrl);
 const photoPreviews = ref<string[]>(props.lead.photoUrls);
@@ -479,11 +508,30 @@ const textareaClass =
 
                         <div class="grid gap-2">
                             <Label for="email">Email</Label>
-                            <Input
-                                id="email"
-                                v-model="form.email"
-                                type="email"
-                            />
+                            <div class="flex items-center gap-2">
+                                <Button
+                                    v-if="form.email.trim() === ''"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    class="shrink-0"
+                                    :disabled="lookingUpEmail"
+                                    data-test="extract-email"
+                                    @click="extractEmail"
+                                >
+                                    <LoaderCircle
+                                        v-if="lookingUpEmail"
+                                        class="animate-spin"
+                                    />
+                                    Extract lookup
+                                </Button>
+                                <Input
+                                    id="email"
+                                    v-model="form.email"
+                                    type="email"
+                                    class="min-w-0 flex-1"
+                                />
+                            </div>
                             <InputError :message="form.errors.email" />
                         </div>
 

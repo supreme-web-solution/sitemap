@@ -37,3 +37,24 @@ test('the ai credit log shows the provider, the error, and when the job finished
             ->where('events.data.0.occurredAt', $event->occurred_at->toIso8601String())
             ->where('events.data.0.finishedAt', $event->finished_at->toIso8601String()));
 });
+
+test('an administrator can clear the ai credit log', function () {
+    AiCreditEvent::factory()->count(2)->create();
+
+    $this->actingAs($this->admin)
+        ->delete(route('admin.ai-credits.destroy'))
+        ->assertRedirect(route('admin.ai-credits'));
+
+    expect(AiCreditEvent::query()->count())->toBe(0);
+});
+
+test('a team member cannot clear the ai credit log', function () {
+    $event = AiCreditEvent::factory()->create();
+    $member = User::factory()->create();
+
+    $this->actingAs($member)
+        ->delete(route('admin.ai-credits.destroy'))
+        ->assertForbidden();
+
+    expect(AiCreditEvent::query()->whereKey($event->id)->exists())->toBeTrue();
+});
