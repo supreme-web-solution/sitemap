@@ -14,7 +14,7 @@ import {
     Star,
     Trash2,
 } from '@lucide/vue';
-import { computed, ref, watch } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import ActivityTimeline from '@/components/leads/ActivityTimeline.vue';
@@ -152,7 +152,42 @@ const form = useForm({
 
 const lookingUpEmail = ref(false);
 
+const resetEmailLookup = () => {
+    lookingUpEmail.value = false;
+};
+
+const resetEmailLookupOnReturn = () => {
+    if (document.visibilityState === 'visible') {
+        resetEmailLookup();
+    }
+};
+
+onMounted(() => {
+    resetEmailLookup();
+    window.addEventListener('pageshow', resetEmailLookup);
+    document.addEventListener('visibilitychange', resetEmailLookupOnReturn);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('pageshow', resetEmailLookup);
+    document.removeEventListener('visibilitychange', resetEmailLookupOnReturn);
+});
+
+onActivated(() => {
+    lookingUpEmail.value = false;
+});
+
 const extractEmail = () => {
+    if (lookingUpEmail.value) {
+        return;
+    }
+
+    if (props.lead.emailLookupEmpty && props.lead.mapsUrl) {
+        window.open(props.lead.mapsUrl, '_blank', 'noopener');
+
+        return;
+    }
+
     lookingUpEmail.value = true;
 
     router.post(
@@ -533,8 +568,7 @@ const textareaClass =
                                             <Button
                                                 type="button"
                                                 size="icon"
-                                                class="absolute top-1/2 right-1 size-6 -translate-y-1/2 rounded-md"
-                                                :disabled="lookingUpEmail"
+                                                class="absolute top-1/2 right-1 z-10 size-6 -translate-y-1/2 cursor-pointer rounded-md"
                                                 aria-label="Extract lookup"
                                                 data-test="extract-email"
                                                 @click="extractEmail"
@@ -550,10 +584,30 @@ const textareaClass =
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent class="max-w-xs">
-                                            Extract lookup. Checks the Maps
-                                            listing, then the business website,
-                                            and saves an email when one is
-                                            found.
+                                            <template v-if="lead.emailLookupEmpty">
+                                                No email was found for this
+                                                business. Check the live Google
+                                                Maps listing too, because it
+                                                may have been updated later.
+                                                Open the map link, copy the
+                                                email, paste it into this
+                                                field, and save.
+                                                <a
+                                                    v-if="lead.mapsUrl"
+                                                    :href="lead.mapsUrl"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    class="mt-1 block underline"
+                                                >
+                                                    Open the Maps listing
+                                                </a>
+                                            </template>
+                                            <template v-else>
+                                                Extract lookup. Checks the Maps
+                                                listing, then the business
+                                                website, and saves an email
+                                                when one is found.
+                                            </template>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>

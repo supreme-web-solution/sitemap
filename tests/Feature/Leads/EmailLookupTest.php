@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\LeadSearchStatus;
-use App\Jobs\RunLeadSearch;
 use App\Models\Lead;
 use App\Models\LeadSearch;
 use App\Models\User;
@@ -33,6 +32,33 @@ test('extract lookup saves the email from the maps listing', function () {
     expect($lead->fresh()->email)->toBe('owner@maps.test');
 
     Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'leads/contacts'));
+});
+
+test('a finished lookup with no email is remembered so the button can point to maps', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'status' => 'completed',
+            'data' => [mindcasePlace(['emails' => [], 'website' => null])],
+        ]),
+    ]);
+
+    $user = User::factory()->create();
+    $lead = Lead::factory()->create([
+        'team_id' => $user->currentTeam->id,
+        'email' => null,
+        'website' => null,
+        'maps_url' => 'https://www.google.com/maps/place/Top+Choice+Remodeling/@29.81,-95.43,17z',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('leads.email-lookup', ['current_team' => $user->currentTeam->slug, 'lead' => $lead]))
+        ->assertRedirect();
+
+    expect($lead->fresh())
+        ->email->toBeNull()
+        ->email_lookup_empty->toBeTrue();
 });
 
 test('extract lookup reads the business website when maps has no email', function () {

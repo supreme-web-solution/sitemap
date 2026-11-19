@@ -17,13 +17,13 @@ use App\Models\SequenceEnrollment;
 use App\Models\SiteConcept;
 use App\Models\Team;
 use App\Services\Billing\UsageMeter;
+use App\Services\LeadFinder\WebsiteEmailLookup;
 use App\Services\Media\SiteImageStorage;
 use App\Services\Outreach\DefaultEmailTemplates;
 use App\Services\Outreach\DefaultFollowUpSequences;
 use App\Services\Outreach\MergeFieldRenderer;
 use App\Services\Preview\PreviewLink;
 use App\Services\Prospecting\OpportunityScorer;
-use App\Services\LeadFinder\WebsiteEmailLookup;
 use App\Services\Prospecting\ProfileVerifier;
 use App\Services\Prospecting\SalesAssistant;
 use App\Services\SiteBuilder\SectionVariants;
@@ -32,9 +32,9 @@ use App\Services\SiteBuilder\SiteBuildProgress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Throwable;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class LeadProfileController extends Controller
 {
@@ -69,7 +69,8 @@ class LeadProfileController extends Controller
                 'city' => $lead->city,
                 'rating' => $lead->rating,
                 'reviewsCount' => $lead->reviews_count,
-                'mapsUrl' => $lead->maps_url,
+                'mapsUrl' => $lead->reviewsUrl(),
+                'emailLookupEmpty' => (bool) $lead->email_lookup_empty,
                 'openingHours' => $lead->opening_hours ?? [],
                 'vibe' => $lead->vibe?->value,
                 'logoUrl' => $lead->logoUrl(),
@@ -238,12 +239,17 @@ class LeadProfileController extends Controller
         }
 
         if ($email === null) {
+            $lead->forceFill(['email_lookup_empty' => true])->save();
+
             Inertia::flash('toast', ['type' => 'error', 'message' => __('No email was found for this business.')]);
 
             return back();
         }
 
-        $lead->forceFill(['email' => $email])->save();
+        $lead->forceFill([
+            'email' => $email,
+            'email_lookup_empty' => false,
+        ])->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Email saved.')]);
 
@@ -261,6 +267,7 @@ class LeadProfileController extends Controller
             ...$request->safe()->only(['name', 'category', 'description', 'phone', 'email', 'address', 'city', 'vibe']),
             'opening_hours' => array_filter($request->validated('opening_hours') ?? [], fn (?string $hours) => filled($hours)) ?: null,
             'details_confirmed_at' => now(),
+            'email_lookup_empty' => filled($request->validated('email')) ? false : $lead->email_lookup_empty,
         ]);
 
         if ($request->hasFile('logo') || $request->boolean('remove_logo')) {

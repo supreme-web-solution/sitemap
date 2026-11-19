@@ -219,6 +219,7 @@ export type LeadProfile = {
     rating: number | null;
     reviewsCount: number;
     mapsUrl: string | null;
+    emailLookupEmpty?: boolean;
     openingHours: Record<string, string>;
     vibe: string | null;
     logoUrl: string | null;

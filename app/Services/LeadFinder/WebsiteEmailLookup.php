@@ -66,9 +66,7 @@ class WebsiteEmailLookup
      */
     public function findForLead(Lead $lead, ?string $website = null): ?string
     {
-        $place = $lead->maps_url ?: $lead->place_id;
-
-        if (filled($place)) {
+        foreach (array_unique(array_filter([$lead->maps_url, $lead->place_id])) as $place) {
             $email = $this->emailFromPlace($place);
 
             if ($email !== null) {
@@ -100,7 +98,11 @@ class WebsiteEmailLookup
         $payload = $this->run('data/leads/contacts/run', [
             'websites' => $websites,
             'maxResults' => count($websites),
-        ]);
+        ], 90);
+
+        if (($payload['status'] ?? null) !== 'completed') {
+            throw new \RuntimeException('Email lookup did not finish.');
+        }
 
         $found = [];
 
@@ -126,7 +128,11 @@ class WebsiteEmailLookup
     {
         $payload = $this->run('data/google-maps/places/run', [
             'urls' => [$place],
-        ]);
+        ], 90);
+
+        if (($payload['status'] ?? null) !== 'completed') {
+            throw new \RuntimeException('Email lookup did not finish.');
+        }
 
         $row = $payload['data'][0] ?? null;
 
@@ -134,23 +140,33 @@ class WebsiteEmailLookup
             return null;
         }
 
-        return $this->firstEmail($row['emails'] ?? null) ?? $this->firstEmail($row['email'] ?? null);
+        foreach (['emails', 'email', 'attributes', 'description', 'additionalInfo', 'owner'] as $key) {
+            $email = $this->firstEmail($row[$key] ?? null);
+
+            if ($email !== null) {
+                return $email;
+            }
+        }
+
+        return null;
     }
 
     /**
      * @param  array<string, mixed>  $params
      * @return array<string, mixed>
      */
-    protected function run(string $path, array $params): array
+    protected function run(string $path, array $params, int $seconds = 40): array
     {
+        $wait = min(45, $seconds);
+
         $payload = $this->client()
-            ->timeout(30)
-            ->post($path.'?wait=true&wait_timeout=20', ['params' => $params])
+            ->timeout($wait + 15)
+            ->post($path.'?wait=true&wait_timeout='.$wait, ['params' => $params])
             ->throw()
             ->json();
 
         $payload = is_array($payload) ? $payload : [];
-        $deadline = time() + 40;
+        $deadline = time() + $seconds;
 
         while (! in_array($payload['status'] ?? null, ['completed', 'failed', 'cancelled', 'rejected_balance'], true)
             && filled($payload['job_id'] ?? null)
@@ -195,11 +211,29 @@ class WebsiteEmailLookup
 
     protected function firstEmail(mixed $value): ?string
     {
-        $items = is_array($value) ? $value : [$value];
+        if (is_string($value)) {
+            $value = trim($value);
 
-        foreach ($items as $item) {
-            if (is_string($item) && filter_var($item, FILTER_VALIDATE_EMAIL)) {
-                return $item;
+            if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                return $value;
+            }
+
+            if (preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $value, $match) === 1) {
+                return $match[0];
+            }
+
+            return null;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        foreach ($value as $item) {
+            $email = $this->firstEmail($item);
+
+            if ($email !== null) {
+                return $email;
             }
         }
 
