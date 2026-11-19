@@ -19,7 +19,7 @@ class WebsiteEmailLookup
     /**
      * How many websites one search will ask about.
      */
-    protected const WEBSITE_LIMIT = 25;
+    protected const WEBSITE_LIMIT = 100;
 
     public function __construct(
         protected ?string $apiKey,

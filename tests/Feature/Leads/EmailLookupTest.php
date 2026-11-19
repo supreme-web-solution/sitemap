@@ -115,3 +115,52 @@ test('an email search looks up the website when maps did not include an email', 
 
     expect($search->team->leads()->sole()->email)->toBe('hello@siteonly.test');
 });
+
+test('an email search looks up only as many businesses as the result count', function () {
+    config(['services.mindcase.key' => 'mk_test_key']);
+    Http::preventStrayRequests();
+
+    $places = [
+        mindcasePlace(['placeId' => 'ChIJ-1', 'businessName' => 'First', 'emails' => [], 'website' => 'https://www.first.test']),
+        mindcasePlace(['placeId' => 'ChIJ-2', 'businessName' => 'Second', 'emails' => [], 'website' => 'https://www.second.test']),
+        mindcasePlace(['placeId' => 'ChIJ-3', 'businessName' => 'Third', 'emails' => [], 'website' => 'https://www.third.test']),
+    ];
+
+    Http::fake([
+        'api.mindcase.co/v1/data/google-maps/places/run*' => Http::response([
+            'job_id' => 'job-cap',
+            'status' => 'completed',
+            'data' => $places,
+        ]),
+        'api.mindcase.co/v1/jobs/job-cap/results' => Http::response([
+            'job_id' => 'job-cap',
+            'status' => 'completed',
+            'data' => $places,
+        ]),
+        'api.mindcase.co/v1/data/leads/contacts/run*' => Http::response([
+            'status' => 'completed',
+            'data' => [[
+                'domain' => 'first.test',
+                'email' => 'hello@first.test',
+            ]],
+        ]),
+    ]);
+
+    $search = LeadSearch::factory()->create([
+        'max_results' => 1,
+        'require_email' => true,
+    ]);
+
+    runLeadSearch($search)->assertReleased(1);
+    runLeadSearch($search->fresh())->assertNotReleased();
+
+    expect($search->team->leads()->pluck('email')->all())->toBe(['hello@first.test']);
+
+    Http::assertSent(function (Request $request) {
+        if (! str_contains($request->url(), 'leads/contacts')) {
+            return false;
+        }
+
+        return $request['params']['websites'] === ['https://www.first.test'];
+    });
+});

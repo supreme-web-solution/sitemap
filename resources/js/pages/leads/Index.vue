@@ -13,6 +13,7 @@ import {
     Phone,
     Play,
     Search,
+    SlidersHorizontal,
     Sparkles,
     Star,
     Trash2,
@@ -33,6 +34,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import ScoreBadge from '@/components/ScoreBadge.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
@@ -1034,7 +1036,7 @@ const onPickDesign = (lead: Lead) => {
 
                 <form
                     v-show="searchModalTab === 'search'"
-                    class="grid gap-4 sm:grid-cols-2"
+                    class="grid items-start gap-4 sm:grid-cols-2"
                     @submit.prevent="submitSearch"
                 >
                     <div class="grid gap-2 sm:col-span-1">
@@ -1059,10 +1061,11 @@ const onPickDesign = (lead: Lead) => {
                             required
                         />
                         <InputError :message="searchForm.errors.location" />
-                        <p class="text-xs text-muted-foreground">
-                            Choose a city from the suggestions, such as Dallas, Texas. A street address will not run.
-                        </p>
                     </div>
+
+                    <p class="text-xs text-muted-foreground sm:col-span-2">
+                        Choose a city from the suggestions, such as Dallas, Texas. A street address will not run.
+                    </p>
 
                     <div class="grid gap-2 sm:col-span-2">
                         <Label for="extra-locations"
@@ -1129,30 +1132,30 @@ const onPickDesign = (lead: Lead) => {
                     <div class="sm:col-span-2">
                         <button
                             type="button"
-                            class="text-xs text-muted-foreground hover:text-foreground"
+                            class="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
                             :aria-expanded="advancedOpen"
                             data-test="lead-search-advanced"
                             @click="advancedOpen = !advancedOpen"
                         >
+                            <SlidersHorizontal class="size-3.5" />
                             Advanced
                         </button>
                         <div
                             v-show="advancedOpen"
                             class="mt-2 rounded-md border border-dashed px-3 py-2"
                         >
-                            <label class="flex items-start gap-2 text-sm">
-                                <input
-                                    v-model="searchForm.require_email"
-                                    type="checkbox"
-                                    class="mt-0.5 size-4"
-                                    data-test="lead-search-require-email"
-                                />
+                            <label class="flex items-center justify-between gap-3 text-sm">
                                 <span>
                                     Only save leads that have an email
                                     <span class="mt-1 block text-xs text-muted-foreground">
-                                        This checks up to 200 businesses. When Maps has no email, it also reads the business website. It takes longer than a normal search. You may get fewer than the number you asked for, sometimes none, and every lead it saves has an email.
+                                        Takes longer. Looks up just the number of businesses you set, and every lead it saves has an email. You may get fewer than that.
                                     </span>
                                 </span>
+                                <Switch
+                                    v-model="searchForm.require_email"
+                                    data-test="lead-search-require-email"
+                                    aria-label="Only save leads that have an email"
+                                />
                             </label>
                         </div>
                     </div>

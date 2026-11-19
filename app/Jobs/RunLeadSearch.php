@@ -128,7 +128,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Keep every listing, or only those that already have an email.
+     * Keep every listing, or only as many emailed leads as the user asked for.
      *
      * @param  list<BusinessListing>  $listings
      * @return list<BusinessListing>
@@ -139,14 +139,47 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             return $listings;
         }
 
-        $listings = app(WebsiteEmailLookup::class)->fillListings($listings);
+        $chosen = app(WebsiteEmailLookup::class)->fillListings(
+            $this->emailCandidates($search, $listings),
+        );
 
-        $withEmail = array_values(array_filter(
-            $listings,
+        return array_values(array_filter(
+            $chosen,
             fn (BusinessListing $listing) => filled($listing->email),
         ));
+    }
 
-        return array_slice($withEmail, 0, $search->max_results);
+    /**
+     * Businesses already carrying an email come first, then only enough others
+     * to reach the result count. Website lookup stays inside that count.
+     *
+     * @param  list<BusinessListing>  $listings
+     * @return list<BusinessListing>
+     */
+    protected function emailCandidates(LeadSearch $search, array $listings): array
+    {
+        $withEmail = [];
+        $withoutEmail = [];
+
+        foreach ($listings as $listing) {
+            if (filled($listing->email)) {
+                $withEmail[] = $listing;
+            } else {
+                $withoutEmail[] = $listing;
+            }
+        }
+
+        $limit = max(1, (int) $search->max_results);
+        $chosen = array_slice($withEmail, 0, $limit);
+
+        if (count($chosen) < $limit) {
+            $chosen = [
+                ...$chosen,
+                ...array_slice($withoutEmail, 0, $limit - count($chosen)),
+            ];
+        }
+
+        return $chosen;
     }
 
     /**
@@ -160,7 +193,7 @@ class RunLeadSearch implements ShouldBeUnique, ShouldQueue
             return false;
         }
 
-        $needsWebsite = collect($listings)->contains(
+        $needsWebsite = collect($this->emailCandidates($search, $listings))->contains(
             fn (BusinessListing $listing) => blank($listing->email) && filled($listing->website),
         );
 

@@ -6,6 +6,7 @@ import {
     ExternalLink,
     ImagePlus,
     LoaderCircle,
+    MailSearch,
     MapPin,
     Pencil,
     Receipt,
@@ -37,6 +38,12 @@ import WebsiteBrandCard from '@/components/leads/WebsiteBrandCard.vue';
 import SiteDesignTemplatePicker from '@/components/sites/SiteDesignTemplatePicker.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { create as createInvoice } from '@/routes/invoices';
 import {
@@ -508,29 +515,48 @@ const textareaClass =
 
                         <div class="grid gap-2">
                             <Label for="email">Email</Label>
-                            <div class="flex items-center gap-2">
-                                <Button
-                                    v-if="form.email.trim() === ''"
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    class="shrink-0"
-                                    :disabled="lookingUpEmail"
-                                    data-test="extract-email"
-                                    @click="extractEmail"
-                                >
-                                    <LoaderCircle
-                                        v-if="lookingUpEmail"
-                                        class="animate-spin"
-                                    />
-                                    Extract lookup
-                                </Button>
+                            <div class="relative">
                                 <Input
                                     id="email"
                                     v-model="form.email"
                                     type="email"
-                                    class="min-w-0 flex-1"
+                                    :class="
+                                        form.email.trim() === '' ? 'pr-8' : ''
+                                    "
                                 />
+                                <TooltipProvider
+                                    v-if="form.email.trim() === ''"
+                                    :delay-duration="200"
+                                >
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                class="absolute top-1/2 right-1 size-6 -translate-y-1/2 rounded-md"
+                                                :disabled="lookingUpEmail"
+                                                aria-label="Extract lookup"
+                                                data-test="extract-email"
+                                                @click="extractEmail"
+                                            >
+                                                <LoaderCircle
+                                                    v-if="lookingUpEmail"
+                                                    class="size-3.5 animate-spin"
+                                                />
+                                                <MailSearch
+                                                    v-else
+                                                    class="size-3.5"
+                                                />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent class="max-w-xs">
+                                            Extract lookup. Checks the Maps
+                                            listing, then the business website,
+                                            and saves an email when one is
+                                            found.
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                             <InputError :message="form.errors.email" />
                         </div>
