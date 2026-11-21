@@ -5,10 +5,12 @@ namespace App\Services\Preview;
 use App\Http\Requests\Sites\StoreSiteDomainRequest;
 use App\Models\SiteDomain;
 use App\Models\Team;
+use App\Models\User;
 use App\Services\Cloudflare\SyncCloudflareHostname;
 use App\Services\Domains\DnsLookup;
 use App\Services\Domains\DomainVerifier;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Validation\ValidationException;
 
 class TeamPreviewHostnameVerifier
 {
@@ -121,35 +123,96 @@ class TeamPreviewHostnameVerifier
 
     /**
      * Normalise and persist a new preview hostname, resetting verification.
+     *
+     * @throws ValidationException
      */
-    public function assign(Team $team, string $hostname): bool
+    public function assign(Team $team, string $hostname): void
     {
         $hostname = StoreSiteDomainRequest::normalize($hostname);
 
         if (SiteDomain::query()->verified()->where('hostname', $hostname)->exists()) {
-            return false;
+            throw ValidationException::withMessages([
+                'hostname' => __('That domain is already connected to a published website.'),
+            ]);
         }
 
-        if (filled($team->preview_cloudflare_hostname_id) && $team->preview_hostname !== $hostname) {
+        $takenBy = Team::query()
+            ->where('preview_hostname', $hostname)
+            ->whereKeyNot($team->id)
+            ->first();
+
+        if ($takenBy !== null) {
+            throw ValidationException::withMessages([
+                'hostname' => $this->previewHostnameTakenMessage($takenBy),
+            ]);
+        }
+
+        if ($team->preview_hostname === $hostname) {
+            if (blank($team->preview_hostname_token)) {
+                $team->forceFill([
+                    'preview_hostname_token' => bin2hex(random_bytes(16)),
+                ])->save();
+            }
+
+            $this->cloudflare->syncTeamPreview($team->fresh());
+
+            return;
+        }
+
+        if (filled($team->preview_cloudflare_hostname_id) || filled($team->preview_hostname)) {
             $this->cloudflare->forgetTeamPreview($team);
+            $team->refresh();
         }
 
-        $team->forceFill([
-            'preview_hostname' => $hostname,
-            'preview_hostname_token' => $team->preview_hostname_token ?? bin2hex(random_bytes(16)),
-            'preview_hostname_verified_at' => null,
-            'preview_hostname_check_error' => null,
-            'preview_cloudflare_hostname_id' => null,
-            'preview_cloudflare_status' => null,
-            'preview_cloudflare_ssl_status' => null,
-            'preview_cloudflare_ownership_txt_name' => null,
-            'preview_cloudflare_ownership_txt_value' => null,
-            'preview_cloudflare_synced_at' => null,
-        ])->save();
+        try {
+            $team->forceFill([
+                'preview_hostname' => $hostname,
+                'preview_hostname_token' => bin2hex(random_bytes(16)),
+                'preview_hostname_verified_at' => null,
+                'preview_hostname_check_error' => null,
+                'preview_cloudflare_hostname_id' => null,
+                'preview_cloudflare_status' => null,
+                'preview_cloudflare_ssl_status' => null,
+                'preview_cloudflare_ownership_txt_name' => null,
+                'preview_cloudflare_ownership_txt_value' => null,
+                'preview_cloudflare_synced_at' => null,
+            ])->save();
+        } catch (UniqueConstraintViolationException) {
+            $takenBy = Team::query()
+                ->where('preview_hostname', $hostname)
+                ->whereKeyNot($team->id)
+                ->first();
+
+            throw ValidationException::withMessages([
+                'hostname' => $takenBy !== null
+                    ? $this->previewHostnameTakenMessage($takenBy)
+                    : __('That domain is already used as another agency’s preview domain.'),
+            ]);
+        }
 
         $this->cloudflare->syncTeamPreview($team->fresh());
+    }
 
-        return true;
+    /**
+     * Explain which team/account already owns a preview hostname.
+     */
+    protected function previewHostnameTakenMessage(Team $team): string
+    {
+        $owner = $team->owner();
+        $account = $owner instanceof User
+            ? trim($owner->name.' <'.$owner->email.'>')
+            : null;
+
+        if ($account !== null && $account !== '') {
+            return __('That domain is already used as the preview domain for :team (:account).', [
+                'team' => $team->name,
+                'account' => $account,
+            ]);
+        }
+
+        return __('That domain is already used as the preview domain for :team.', [
+            'team' => $team->name,
+        ]);
     }
 
     public function verificationRecordName(string $hostname): string

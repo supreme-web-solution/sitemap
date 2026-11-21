@@ -35,9 +35,7 @@ class BrandingPreviewHostnameController extends Controller
             throw ValidationException::withMessages(['hostname' => __('Enter a valid hostname.')]);
         }
 
-        if (! $verifier->assign($currentTeam, $hostname)) {
-            throw ValidationException::withMessages(['hostname' => __('That domain is already connected to a published website.')]);
-        }
+        $verifier->assign($currentTeam, $hostname);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Preview domain saved. Add the DNS records, then verify.')]);
 

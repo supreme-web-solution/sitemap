@@ -137,14 +137,19 @@ class SyncCloudflareHostname
     {
         $id = $team->preview_cloudflare_hostname_id;
 
-        if (! $this->cloudflare->enabled() || blank($id)) {
-            return;
-        }
+        if ($this->cloudflare->enabled()) {
+            if (blank($id) && filled($team->preview_hostname)) {
+                $existing = $this->cloudflare->findByHostname((string) $team->preview_hostname);
+                $id = ($existing['id'] ?? '') !== '' ? $existing['id'] : null;
+            }
 
-        try {
-            $this->cloudflare->delete($id);
-        } catch (Throwable $exception) {
-            report($exception);
+            if (filled($id)) {
+                try {
+                    $this->cloudflare->delete($id);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            }
         }
 
         $team->forceFill([
