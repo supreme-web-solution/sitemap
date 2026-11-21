@@ -22,6 +22,9 @@ class TeamPreviewHostnameVerifier
 
     /**
      * Check DNS and mark the team's preview hostname verified when ownership is proven.
+     *
+     * Cloudflare reporting the custom hostname + certificate as active is enough:
+     * Cloudflare already validated ownership and the CNAME before issuing HTTPS.
      */
     public function verify(Team $team): bool
     {
@@ -31,9 +34,18 @@ class TeamPreviewHostnameVerifier
             return false;
         }
 
-        $team->preview_hostname_checked_at = now();
+        $team->forceFill([
+            'preview_hostname_checked_at' => now(),
+        ])->save();
 
-        if ($this->hasOwnershipRecord($team) || $this->pointsHere($hostname)) {
+        $this->cloudflare->syncTeamPreview($team->fresh());
+        $team->refresh();
+
+        if (
+            $team->previewSslIsActive()
+            || $this->hasOwnershipRecord($team)
+            || $this->pointsHere($hostname)
+        ) {
             return $this->markVerified($team);
         }
 

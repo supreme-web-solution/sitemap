@@ -194,6 +194,57 @@ test('a preview hostname already used by a verified site domain is rejected', fu
     expect($team->fresh()->preview_hostname)->toBeNull();
 });
 
+test('check dns marks a preview hostname verified when Cloudflare is already active', function () {
+    config([
+        'services.cloudflare.api_token' => 'cf-token',
+        'services.cloudflare.zone_id' => 'zone-123',
+    ]);
+
+    Http::fake([
+        'api.cloudflare.com/*/custom_hostnames/ch-preview-active' => Http::response([
+            'success' => true,
+            'result' => [
+                'id' => 'ch-preview-active',
+                'hostname' => 'app.nyiethenterprise.com',
+                'status' => 'active',
+                'ssl' => ['status' => 'active'],
+                'ownership_verification' => [
+                    'name' => '_cf-custom-hostname.app.nyiethenterprise.com',
+                    'value' => 'cf-token-value',
+                ],
+                'verification_errors' => [],
+            ],
+        ], 200),
+    ]);
+
+    $owner = User::factory()->create();
+    $team = $owner->currentTeam;
+    $team->forceFill([
+        'plan_id' => Plan::factory()->withAllFeatures()->create()->id,
+        'preview_hostname' => 'app.nyiethenterprise.com',
+        'preview_hostname_token' => 'local-token',
+        'preview_hostname_verified_at' => null,
+        'preview_hostname_check_error' => 'We could not find the DNS records yet. Changes can take a few minutes to a few hours to spread.',
+        'preview_cloudflare_hostname_id' => 'ch-preview-active',
+        'preview_cloudflare_status' => 'pending',
+        'preview_cloudflare_ssl_status' => 'pending_validation',
+    ])->save();
+
+    $this->actingAs($owner)
+        ->post(route('branding.preview-domain.verify', ['current_team' => $team->slug]))
+        ->assertRedirect();
+
+    expect($team->fresh())
+        ->hasVerifiedPreviewHostname()->toBeTrue()
+        ->previewSslIsActive()->toBeTrue()
+        ->preview_hostname_check_error->toBeNull()
+        ->and(PreviewLink::page(
+            Site::factory()->create([
+                'lead_id' => Lead::factory()->for($team)->create()->id,
+            ]),
+        ))->toStartWith('https://app.nyiethenterprise.com/p/');
+});
+
 test('removing a preview domain clears local fields and deletes it from Cloudflare', function () {
     config([
         'services.cloudflare.api_token' => 'cf-token',

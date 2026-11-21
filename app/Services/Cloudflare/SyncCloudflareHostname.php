@@ -93,7 +93,12 @@ class SyncCloudflareHostname
                 'preview_cloudflare_synced_at' => now(),
             ];
 
-            if ($team->hasVerifiedPreviewHostname()) {
+            $sslActive = $state['status'] === 'active' && $state['ssl_status'] === 'active';
+
+            if ($sslActive) {
+                $payload['preview_hostname_verified_at'] = $team->preview_hostname_verified_at ?? now();
+                $payload['preview_hostname_check_error'] = null;
+            } elseif ($team->hasVerifiedPreviewHostname()) {
                 $payload['preview_hostname_check_error'] = $this->pendingMessage($state);
             }
 

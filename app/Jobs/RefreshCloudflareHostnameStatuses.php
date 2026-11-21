@@ -47,9 +47,9 @@ class RefreshCloudflareHostnameStatuses implements ShouldBeUnique, ShouldQueue
 
         Team::query()
             ->whereNotNull('preview_cloudflare_hostname_id')
-            ->whereNotNull('preview_hostname_verified_at')
             ->where(function ($query) {
-                $query->whereNull('preview_cloudflare_status')
+                $query->whereNull('preview_hostname_verified_at')
+                    ->orWhereNull('preview_cloudflare_status')
                     ->orWhere('preview_cloudflare_status', '!=', 'active')
                     ->orWhereNull('preview_cloudflare_ssl_status')
                     ->orWhere('preview_cloudflare_ssl_status', '!=', 'active');
