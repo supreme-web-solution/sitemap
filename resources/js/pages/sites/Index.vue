@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     Copy,
     Download,
@@ -26,8 +26,11 @@ import {
 } from '@/routes/sites';
 import type { Paginated, SiteSummary, Team } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     sites: Paginated<SiteSummary>;
+    filters: {
+        domain: 'all' | 'connected';
+    };
 }>();
 
 defineOptions({
@@ -48,9 +51,22 @@ const teamSlug = computed(() => page.props.currentTeam?.slug ?? '');
 
 const { copy } = useClipboard();
 
+const domainFilters: { value: 'all' | 'connected'; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'connected', label: 'With domain' },
+];
+
+const setDomainFilter = (domain: 'all' | 'connected') => {
+    router.get(
+        sitesIndex.url({ current_team: teamSlug.value }),
+        { domain: domain === 'all' ? undefined : domain },
+        { preserveState: true, replace: true },
+    );
+};
+
 const copyLink = async (site: SiteSummary) => {
-    await copy(site.previewUrl);
-    toast.success('Preview link copied');
+    await copy(site.liveUrl ?? site.previewUrl);
+    toast.success(site.liveUrl ? 'Live link copied' : 'Preview link copied');
 };
 
 const THUMB_WIDTH = 1280;
@@ -96,11 +112,33 @@ onBeforeUnmount(() => {
     <Head title="Websites" />
 
     <div class="flex h-full flex-1 flex-col gap-6 p-4">
-        <Heading
-            variant="small"
-            title="Generated websites"
-            description="Share a live preview with each prospect, then export the site when they buy."
-        />
+        <div
+            class="flex flex-wrap items-start justify-between gap-3"
+        >
+            <Heading
+                variant="small"
+                title="Generated websites"
+                description="Share a live preview with each prospect, then export the site when they buy."
+            />
+            <div
+                class="flex flex-wrap gap-2"
+                data-test="sites-domain-filters"
+            >
+                <Button
+                    v-for="filter in domainFilters"
+                    :key="filter.value"
+                    type="button"
+                    size="sm"
+                    :variant="
+                        filters.domain === filter.value ? 'default' : 'outline'
+                    "
+                    :data-test="`sites-domain-filter-${filter.value}`"
+                    @click="setDomainFilter(filter.value)"
+                >
+                    {{ filter.label }}
+                </Button>
+            </div>
+        </div>
 
         <div
             v-if="sites.data.length"
@@ -113,11 +151,15 @@ onBeforeUnmount(() => {
                 class="flex flex-col overflow-hidden panel"
             >
                 <a
-                    :href="site.previewUrl"
+                    :href="site.liveUrl ?? site.previewUrl"
                     target="_blank"
                     rel="noopener"
                     class="site-hero-thumb relative isolate block overflow-hidden bg-slate-950"
-                    :aria-label="`Preview ${site.name}`"
+                    :aria-label="
+                        site.liveUrl
+                            ? `Open live site for ${site.name}`
+                            : `Preview ${site.name}`
+                    "
                 >
                     <div
                         v-if="site.heroImage"
@@ -156,6 +198,14 @@ onBeforeUnmount(() => {
                                     · {{ site.city }}</template
                                 >
                             </div>
+                            <div
+                                v-if="site.domainHostname"
+                                class="mt-1 flex items-center gap-1 text-xs font-mono text-muted-foreground"
+                                data-test="site-domain"
+                            >
+                                <Globe class="size-3.5 shrink-0" />
+                                {{ site.domainHostname }}
+                            </div>
                         </div>
                         <span
                             :class="[
@@ -191,6 +241,21 @@ onBeforeUnmount(() => {
                             >
                                 <Pencil /> Edit
                             </Link>
+                        </Button>
+                        <Button
+                            v-if="site.liveUrl"
+                            size="sm"
+                            variant="outline"
+                            as-child
+                        >
+                            <a
+                                :href="site.liveUrl"
+                                target="_blank"
+                                rel="noopener"
+                                data-test="site-open-live"
+                            >
+                                <Globe /> Live
+                            </a>
                         </Button>
                         <Button size="sm" variant="outline" as-child>
                             <a
@@ -239,11 +304,26 @@ onBeforeUnmount(() => {
 
         <EmptyState
             v-else
-            title="No websites yet"
-            description="Find a local business, confirm their details, then generate a preview site to share before they buy."
+            :title="
+                filters.domain === 'connected'
+                    ? 'No websites with a domain'
+                    : 'No websites yet'
+            "
+            :description="
+                filters.domain === 'connected'
+                    ? 'Connect a custom domain on a site’s Domains tab, then it will show up here.'
+                    : 'Find a local business, confirm their details, then generate a preview site to share before they buy.'
+            "
             :icon="Globe"
         >
-            <Button as-child>
+            <Button
+                v-if="filters.domain === 'connected'"
+                variant="outline"
+                @click="setDomainFilter('all')"
+            >
+                Show all websites
+            </Button>
+            <Button v-else as-child>
                 <Link :href="leadsIndex({ current_team: teamSlug })">
                     <Sparkles /> Find leads
                 </Link>

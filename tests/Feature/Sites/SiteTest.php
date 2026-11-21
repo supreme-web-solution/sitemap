@@ -7,6 +7,7 @@ use App\Enums\SiteVibe;
 use App\Jobs\GenerateLeadSite;
 use App\Models\Lead;
 use App\Models\Site;
+use App\Models\SiteDomain;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -136,13 +137,61 @@ test('the sites page lists only the current team websites', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('sites/Index')
+            ->where('filters.domain', 'all')
             ->has('sites.data', 1)
             ->where('sites.data.0.name', 'Mine')
             ->where('sites.data.0.previewUrl', route('sites.preview', $site->slug))
+            ->where('sites.data.0.domainHostname', null)
+            ->where('sites.data.0.liveUrl', null)
+            ->where('sites.data.0.hasDomain', false)
             ->where(
                 'sites.data.0.thumbnailUrl',
                 route('sites.preview', ['site' => $site->slug, 'internal' => 1, 'thumbnail' => 1], absolute: false),
             ));
+});
+
+test('the sites page shows connected domains and filters to those with a domain', function () {
+    $user = User::factory()->create();
+    $withDomain = Site::factory()->create([
+        'lead_id' => Lead::factory()->create([
+            'team_id' => $user->currentTeam->id,
+            'name' => 'Has Domain',
+        ]),
+    ]);
+    SiteDomain::factory()->verified()->for($withDomain)->create([
+        'hostname' => 'www.client-site.com',
+    ]);
+    Site::factory()->create([
+        'lead_id' => Lead::factory()->create([
+            'team_id' => $user->currentTeam->id,
+            'name' => 'Preview Only',
+        ]),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('sites.index', ['current_team' => $user->currentTeam->slug]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('sites/Index')
+            ->has('sites.data', 2)
+            ->where('sites.data.0.name', 'Preview Only')
+            ->where('sites.data.1.name', 'Has Domain')
+            ->where('sites.data.1.domainHostname', 'www.client-site.com')
+            ->where('sites.data.1.liveUrl', 'https://www.client-site.com')
+            ->where('sites.data.1.hasDomain', true));
+
+    $this->actingAs($user)
+        ->get(route('sites.index', [
+            'current_team' => $user->currentTeam->slug,
+            'domain' => 'connected',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('sites/Index')
+            ->where('filters.domain', 'connected')
+            ->has('sites.data', 1)
+            ->where('sites.data.0.name', 'Has Domain')
+            ->where('sites.data.0.liveUrl', 'https://www.client-site.com'));
 });
 
 test('a website card thumbnail shows the hero instead of a tall empty screen', function () {

@@ -537,6 +537,9 @@ export type SiteSummary = {
     previewUrl: string;
     thumbnailUrl: string;
     heroImage?: string | null;
+    domainHostname: string | null;
+    liveUrl: string | null;
+    hasDomain: boolean;
     viewsCount: number;
     lastViewedAt: string | null;
 };

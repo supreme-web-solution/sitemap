@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Lead;
+use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -42,7 +44,82 @@ test('admins can list cloudflare custom hostnames', function () {
             ->where('enabled', true)
             ->has('hostnames', 1)
             ->where('hostnames.0.hostname', 'www.pros-plumbing.com')
+            ->where('hostnames.0.kind', 'orphan')
             ->where('hostnames.0.linked', null));
+});
+
+test('admins see site hosting vs brand preview and the account owner', function () {
+    $siteOwner = User::factory()->create([
+        'name' => 'Site Owner',
+        'email' => 'site-owner@example.com',
+    ]);
+    $previewOwner = User::factory()->create([
+        'name' => 'Preview Owner',
+        'email' => 'preview-owner@example.com',
+    ]);
+
+    $site = Site::factory()->create([
+        'lead_id' => Lead::factory()->create(['team_id' => $siteOwner->currentTeam->id]),
+        'team_id' => $siteOwner->currentTeam->id,
+    ]);
+    SiteDomain::factory()->for($site)->create([
+        'hostname' => 'www.client-site.com',
+        'cloudflare_hostname_id' => 'ch-site',
+    ]);
+
+    $previewOwner->currentTeam->forceFill([
+        'preview_hostname' => 'preview.preview-owner.mapmaticapp.com',
+        'preview_cloudflare_hostname_id' => 'ch-preview',
+    ])->save();
+
+    Http::fake([
+        'api.cloudflare.com/*' => Http::response([
+            'success' => true,
+            'result' => [
+                [
+                    'id' => 'ch-site',
+                    'hostname' => 'www.client-site.com',
+                    'status' => 'active',
+                    'ssl' => ['status' => 'active'],
+                    'verification_errors' => [],
+                    'ownership_verification' => null,
+                ],
+                [
+                    'id' => 'ch-preview',
+                    'hostname' => 'preview.preview-owner.mapmaticapp.com',
+                    'status' => 'active',
+                    'ssl' => ['status' => 'active'],
+                    'verification_errors' => [],
+                    'ownership_verification' => null,
+                ],
+                [
+                    'id' => 'ch-orphan',
+                    'hostname' => 'leftover.example.com',
+                    'status' => 'pending',
+                    'ssl' => ['status' => 'pending_validation'],
+                    'verification_errors' => [],
+                    'ownership_verification' => null,
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.cloudflare-hostnames'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/CloudflareHostnames')
+            ->has('hostnames', 3)
+            ->where('hostnames.0.kind', 'site_domain')
+            ->where('hostnames.0.linked.type', 'site_domain')
+            ->where('hostnames.0.linked.account.name', 'Site Owner')
+            ->where('hostnames.0.linked.account.email', 'site-owner@example.com')
+            ->where('hostnames.1.kind', 'preview')
+            ->where('hostnames.1.linked.type', 'preview')
+            ->where('hostnames.1.linked.account.name', 'Preview Owner')
+            ->where('hostnames.1.linked.account.email', 'preview-owner@example.com')
+            ->where('hostnames.2.kind', 'orphan')
+            ->where('hostnames.2.linked', null));
 });
 
 test('non-admins cannot open cloudflare hostnames', function () {

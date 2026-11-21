@@ -41,6 +41,7 @@ use App\Services\SiteBuilder\SitePages;
 use App\Services\SiteBuilder\SiteQualityChecker;
 use App\Services\SiteBuilder\SiteStaging;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -50,15 +51,36 @@ class SiteController extends Controller
     /**
      * Display the team's generated websites.
      */
-    public function index(Team $currentTeam): Response
+    public function index(Request $request, Team $currentTeam): Response
     {
-        return Inertia::render('sites/Index', [
-            'sites' => $currentTeam->sites()
-                ->with('lead:id,name,category,city,status')
-                ->latest()
-                ->orderByDesc('id')
-                ->paginate(24)
-                ->through(fn (Site $site) => [
+        $domainFilter = $request->string('domain')->toString();
+
+        if (! in_array($domainFilter, ['all', 'connected'], true)) {
+            $domainFilter = 'all';
+        }
+
+        $sites = $currentTeam->sites()
+            ->with([
+                'lead:id,name,category,city,status',
+                'domains:id,site_id,hostname,verified_at',
+            ])
+            ->when($domainFilter === 'connected', fn ($query) => $query->whereHas('domains'))
+            ->latest()
+            ->orderByDesc('id')
+            ->paginate(24)
+            ->withQueryString()
+            ->through(function (Site $site) {
+                $primaryDomain = $site->domains
+                    ->filter(fn (SiteDomain $domain) => $domain->verified_at !== null)
+                    ->sortBy([
+                        fn (SiteDomain $domain) => $domain->verified_at?->timestamp ?? PHP_INT_MAX,
+                        fn (SiteDomain $domain) => $domain->id,
+                    ])
+                    ->first();
+                $connectedDomain = $primaryDomain
+                    ?? $site->domains->sortBy('id')->first();
+
+                return [
                     'id' => $site->id,
                     'name' => $site->lead->name,
                     'category' => $site->lead->category,
@@ -73,9 +95,19 @@ class SiteController extends Controller
                         'internal' => 1,
                         'thumbnail' => 1,
                     ], absolute: false),
+                    'domainHostname' => $connectedDomain?->hostname,
+                    'liveUrl' => $primaryDomain ? 'https://'.$primaryDomain->hostname : null,
+                    'hasDomain' => $site->domains->isNotEmpty(),
                     'viewsCount' => $site->views_count,
                     'lastViewedAt' => $site->last_viewed_at?->toISOString(),
-                ]),
+                ];
+            });
+
+        return Inertia::render('sites/Index', [
+            'sites' => $sites,
+            'filters' => [
+                'domain' => $domainFilter,
+            ],
         ]);
     }
 

@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
+use App\Models\Membership;
 use App\Models\SiteDomain;
 use App\Models\Team;
+use App\Models\User;
 use App\Services\Cloudflare\CloudflareCustomHostnames;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -33,6 +37,7 @@ class AdminCloudflareHostnameController extends Controller
 
         $domainByCfId = SiteDomain::query()
             ->whereNotNull('cloudflare_hostname_id')
+            ->with(['site:id,team_id', 'site.team:id,name,slug'])
             ->get(['id', 'hostname', 'site_id', 'cloudflare_hostname_id', 'verified_at', 'cloudflare_status', 'cloudflare_ssl_status'])
             ->keyBy('cloudflare_hostname_id');
 
@@ -41,12 +46,40 @@ class AdminCloudflareHostnameController extends Controller
             ->get(['id', 'name', 'slug', 'preview_hostname', 'preview_cloudflare_hostname_id', 'preview_hostname_verified_at', 'preview_cloudflare_status', 'preview_cloudflare_ssl_status'])
             ->keyBy('preview_cloudflare_hostname_id');
 
+        $ownersByTeamId = $this->ownersByTeamId(
+            $domainByCfId->pluck('site.team_id')
+                ->merge($teamByCfId->pluck('id'))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+        );
+
         return Inertia::render('admin/CloudflareHostnames', [
             'enabled' => $enabled,
             'error' => $error,
-            'hostnames' => collect($hostnames)->map(function (array $row) use ($domainByCfId, $teamByCfId) {
+            'hostnames' => collect($hostnames)->map(function (array $row) use ($domainByCfId, $teamByCfId, $ownersByTeamId) {
                 $domain = $domainByCfId->get($row['id']);
                 $team = $teamByCfId->get($row['id']);
+
+                $linked = null;
+
+                if ($domain !== null) {
+                    $siteTeam = $domain->site?->team;
+                    $linked = [
+                        'type' => 'site_domain',
+                        'label' => 'Site domain #'.$domain->id,
+                        'hostname' => $domain->hostname,
+                        'account' => $this->accountPayload($ownersByTeamId->get($siteTeam?->id)),
+                    ];
+                } elseif ($team !== null) {
+                    $linked = [
+                        'type' => 'preview',
+                        'label' => 'Preview · '.$team->name,
+                        'hostname' => $team->preview_hostname,
+                        'account' => $this->accountPayload($ownersByTeamId->get($team->id)),
+                    ];
+                }
 
                 return [
                     'id' => $row['id'],
@@ -56,19 +89,8 @@ class AdminCloudflareHostnameController extends Controller
                     'verificationErrors' => $row['verification_errors'],
                     'ownershipTxtName' => $row['ownership_txt_name'],
                     'ownershipTxtValue' => $row['ownership_txt_value'],
-                    'linked' => $domain !== null
-                        ? [
-                            'type' => 'site_domain',
-                            'label' => 'Site domain #'.$domain->id,
-                            'hostname' => $domain->hostname,
-                        ]
-                        : ($team !== null
-                            ? [
-                                'type' => 'preview',
-                                'label' => 'Preview · '.$team->name,
-                                'hostname' => $team->preview_hostname,
-                            ]
-                            : null),
+                    'kind' => $linked['type'] ?? 'orphan',
+                    'linked' => $linked,
                 ];
             })->values()->all(),
         ]);
@@ -119,5 +141,41 @@ class AdminCloudflareHostnameController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Custom hostname deleted from Cloudflare.')]);
 
         return back();
+    }
+
+    /**
+     * Map team IDs to their owner users.
+     *
+     * @param  list<int|string>  $teamIds
+     * @return Collection<int, User>
+     */
+    private function ownersByTeamId(array $teamIds): Collection
+    {
+        if ($teamIds === []) {
+            return collect();
+        }
+
+        return Membership::query()
+            ->whereIn('team_id', $teamIds)
+            ->where('role', TeamRole::Owner)
+            ->with('user:id,name,email')
+            ->get()
+            ->filter(fn (Membership $membership) => $membership->user instanceof User)
+            ->mapWithKeys(fn (Membership $membership) => [$membership->team_id => $membership->user]);
+    }
+
+    /**
+     * @return array{name: string, email: string}|null
+     */
+    private function accountPayload(?User $owner): ?array
+    {
+        if ($owner === null) {
+            return null;
+        }
+
+        return [
+            'name' => $owner->name,
+            'email' => $owner->email,
+        ];
     }
 }
