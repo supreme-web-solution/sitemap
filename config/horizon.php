@@ -236,13 +236,17 @@ return [
 
     'environments' => [
         'production' => [
+            // Fixed counts. This app shares a Forge box with many other Horizons,
+            // so auto-scaling to 8 + 4 workers fills the server.
             'supervisor-priority' => [
-                'maxProcesses' => 8,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'balance' => false,
+                'minProcesses' => 1,
+                'maxProcesses' => 1,
             ],
             'supervisor-ai' => [
-                'maxProcesses' => 4,
+                'balance' => false,
+                'minProcesses' => 1,
+                'maxProcesses' => 1,
             ],
         ],
 
