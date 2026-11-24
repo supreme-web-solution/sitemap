@@ -30,7 +30,6 @@ class LaunchReadinessChecker
         'sequences:run',
         'sites:monitor',
         'sites:backup',
-        'reports:send-weekly',
     ];
 
     /**

@@ -15,7 +15,8 @@ Schedule::command('mail:sync-inboxes')
     ->description('Poll connected IMAP mailboxes for outreach replies');
 Schedule::command('sites:monitor')->hourly()->withoutOverlapping()->description('Check published site uptime and crawl for broken links');
 Schedule::command('sites:backup')->dailyAt('03:00')->withoutOverlapping()->description('Store JSON backups of published sites');
-Schedule::command('reports:send-weekly')->weeklyOn(1, '07:00')->withoutOverlapping()->description('Email weekly pipeline snapshots');
+// Disabled: weekly snapshots confused agencies about outstanding invoice totals.
+// Command remains available as `php artisan reports:send-weekly` if we turn it back on.
 Schedule::command('automations:run-scheduled')->dailyAt('04:30')->withoutOverlapping()->description('Queue scheduled agency workflow steps (website re-audits)');
 Schedule::command('horizon:snapshot')->everyFiveMinutes()->when(fn () => class_exists(Horizon::class))->description('Horizon metrics snapshots');
 Schedule::job(RefreshCloudflareHostnameStatuses::class)

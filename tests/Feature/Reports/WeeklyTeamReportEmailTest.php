@@ -10,7 +10,13 @@ use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
 
-test('the weekly report command queues a branded snapshot with dashboard links', function () {
+test('the weekly report is not scheduled to send automatically', function () {
+    $this->artisan('schedule:list')->assertSuccessful();
+
+    expect(Artisan::output())->not->toContain('reports:send-weekly');
+});
+
+test('the weekly report command still queues a branded snapshot when run manually', function () {
     Mail::fake();
 
     $owner = User::factory()->create(['email' => 'owner@example.com']);
